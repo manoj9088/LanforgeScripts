@@ -201,8 +201,8 @@ class FtpTest(LFCliBase):
                  csv_name=None,
                  robot_test=False,
                  robot_ip=None,
-                 coordinate=None,
-                 rotation=None,
+                 coordinate="",
+                 rotation="",
                  ):
         super().__init__(lfclient_host, lfclient_port, _debug=_debug_on, _exit_on_fail=_exit_on_fail)
 
