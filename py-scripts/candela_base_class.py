@@ -306,7 +306,6 @@ class Candela(Realm):
 
 
     def misc_clean_up(self,layer3=False,layer4=False,generic=False,port_5000=False,port_5002=False,port_5003=False):
-        return
         """
         Use for the cleanup of cross connections
         arguments:
@@ -4238,8 +4237,7 @@ class Candela(Realm):
                     config=config,
                     selected_groups=selected_groups,
                     selected_profiles=selected_profiles,
-                    no_browser_precleanup=True,
-                    no_browser_postcleanup=True)
+                    )
 
                 print('CHECKING PORT AVAILBILITY for YT TEST')
                 self.port_clean_up(5002)
@@ -4512,7 +4510,7 @@ class Candela(Realm):
 
                 # upstream_port = "10.253.8.126"
                 self.zoom_test_obj = ZoomAutomation(audio=audio, video=video, lanforge_ip=lanforge_ip, wait_time=wait_time, testname=testname,
-                                                upstream_port=upstream_port, config=config, selected_groups=selected_groups, selected_profiles=selected_profiles,no_browser_precleanup = True,no_browser_postcleanup = True)
+                                                upstream_port=upstream_port, config=config, selected_groups=selected_groups, selected_profiles=selected_profiles)
                 upstream_port = self.zoom_test_obj.change_port_to_ip(upstream_port)
                 realdevice = RealDevice(manager_ip=lanforge_ip,
                                         server_ip="192.168.1.61",
@@ -4796,8 +4794,6 @@ class Candela(Realm):
                                 config=args.config,
                                 selected_groups=args.group_name,
                                 selected_profiles=args.profile_name,
-                                no_browser_precleanup=True,
-                                no_browser_postcleanup=True
                                 )
             print('CHECKING PORT AVAILBILITY for RB TEST')
             self.port_clean_up(5003)
@@ -5056,18 +5052,13 @@ class Candela(Realm):
                         if http_data["bands"] == "Both":
                             num_stations = num_stations * 2
 
-                        # report.set_title("HTTP DOWNLOAD TEST")
-                        # report.set_date(date)
-                        # if 'http_test' not in self.test_count_dict:
-                        #     self.test_count_dict['http_test']=0
-                        # self.test_count_dict['http_test']+=1
                         self.overall_report.set_obj_html(_obj_title=f'HTTP Test {obj_no}', _obj="")
                         self.overall_report.build_objective()
                         self.overall_report.set_table_title("Test Setup Information")
                         self.overall_report.build_table_title()
                         self.overall_report.test_setup_table(value="Test Setup Information", test_setup_data=http_data["test_setup_info"])
 
-                        graph2 = self.http_obj_dict[ce][obj_name]["obj"].graph_2(http_data["dataset2"], lis=http_data["lis"], bands=http_data["bands"],graph_image=obj_no)
+                        graph2 = self.http_obj_dict[ce][obj_name]["obj"].graph_2(http_data["dataset2"], lis=http_data["lis"], bands=http_data["bands"],graph_name=obj_no)
                         print("graph name {}".format(graph2))
                         self.overall_report.set_graph_image(graph2)
                         self.overall_report.set_csv_filename(graph2)
