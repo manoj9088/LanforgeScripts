@@ -306,6 +306,7 @@ class Candela(Realm):
 
 
     def misc_clean_up(self,layer3=False,layer4=False,generic=False,port_5000=False,port_5002=False,port_5003=False):
+        return
         """
         Use for the cleanup of cross connections
         arguments:
@@ -2838,7 +2839,7 @@ class Candela(Realm):
 
         # prev_inc_value = 0
         if self.vs_obj_dict[ce][obj_name]["obj"].resource_ids and self.vs_obj_dict[ce][obj_name]["obj"].incremental:
-            self.vs_obj_dict[ce][obj_name]["obj"].generate_report(date, list(set(iterations_before_test_stopped_by_user)), test_setup_info=test_setup_info, realtime_dataset=individual_df, cx_order_list=cx_order_list,report_path=self.result_path if not self.dowebgui else self.result_dir)
+            self.vs_obj_dict[ce][obj_name]["obj"].generate_report(date, list(set(iterations_before_test_stopped_by_user)), test_setup_info=test_setup_info, realtime_dataset=individual_df,report_path=self.result_path if not self.dowebgui else self.result_dir)
         elif self.vs_obj_dict[ce][obj_name]["obj"].resource_ids:
             self.vs_obj_dict[ce][obj_name]["obj"].generate_report(date, list(set(iterations_before_test_stopped_by_user)), test_setup_info=test_setup_info, realtime_dataset=individual_df,report_path=self.result_path if not self.dowebgui else self.result_dir)
 
@@ -3136,7 +3137,7 @@ class Candela(Realm):
                                     pac_file=pac_file,
                                     wait_time=wait_time,
                                     config=config,
-                                    default_config = default_config
+                                    interopability_config = default_config
                                     )
 
             if gave_incremental:
@@ -5066,7 +5067,7 @@ class Candela(Realm):
                         self.overall_report.build_table_title()
                         self.overall_report.test_setup_table(value="Test Setup Information", test_setup_data=http_data["test_setup_info"])
 
-                        graph2 = self.http_obj_dict[ce][obj_name]["obj"].graph_2(http_data["dataset2"], lis=http_data["lis"], bands=http_data["bands"],graph_no=obj_no)
+                        graph2 = self.http_obj_dict[ce][obj_name]["obj"].graph_2(http_data["dataset2"], lis=http_data["lis"], bands=http_data["bands"],graph_image=obj_no)
                         print("graph name {}".format(graph2))
                         self.overall_report.set_graph_image(graph2)
                         self.overall_report.set_csv_filename(graph2)
@@ -5082,7 +5083,7 @@ class Candela(Realm):
                         )
                         self.overall_report.build_objective()
 
-                        graph = self.http_obj_dict[ce][obj_name]["obj"].generate_graph(dataset=http_data["dataset"], lis=http_data["lis"], bands=http_data["bands"],graph_no=obj_no)
+                        graph = self.http_obj_dict[ce][obj_name]["obj"].generate_graph(dataset=http_data["dataset"], lis=http_data["lis"], bands=http_data["bands"],graph_image_name=obj_no)
                         self.overall_report.set_graph_image(graph)
                         self.overall_report.set_csv_filename(graph)
                         self.overall_report.move_csv_file()
