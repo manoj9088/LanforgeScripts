@@ -91,7 +91,8 @@ class Candela(Realm):
     Candela Class file to invoke different scripts from py-scripts.
     """
 
-    def __init__(self, ip='localhost', port=8080,order_priority="series",result_dir="",dowebgui=False,test_name='',no_cleanup=False):
+    def __init__(self, ip='localhost', port=8080,order_priority="series",result_dir="",dowebgui=False,test_name='',no_cleanup=False,do_mix_exec=False):
+
         """
         Constructor to initialize the LANforge IP and port
         Args:
@@ -161,6 +162,9 @@ class Candela(Realm):
         self.series_connect = {}
         self.parallel_index = 0
         self.series_index = 0
+        self.do_mix_exec = do_mix_exec
+        self.stop_all_tests = False
+        self.names_duration = {}
 
     def api_get(self, endp: str):
         """
@@ -617,7 +621,9 @@ class Candela(Realm):
                 '''.format(mgr_ip, mgr_port, ssid, security, password, target, interval, duration, virtual, num_sta, radio, real, debug))
 
         ce = self.current_exec #seires
-        if ce == "parallel":
+        if self.do_mix_exec:
+            ce = "parallel"
+        if ce == "parallel" or self.do_mix_exec:
             obj_name = "ping_test"
         else:
             obj_no = 1
@@ -736,7 +742,8 @@ class Candela(Realm):
         logging.info(self.ping_obj_dict[ce][obj_name]["obj"].generic_endps_profile.created_cx)
 
         # run the test for the given duration
-        logging.info('Running the ping test for {} minutes'.format(duration))
+        if not self.do_mix_exec:
+            logging.info('Running the ping test for {} minutes'.format(duration))
 
         # start generate endpoint
         self.ping_obj_dict[ce][obj_name]["obj"].start_generic()
@@ -757,7 +764,7 @@ class Candela(Realm):
                 if not self.test_stopped:
                     self.overall_status['ping'] = "started"
                     self.overall_status["time"] = datetime.datetime.now().strftime("%Y %d %H:%M:%S")
-                    self.overall_status["current_mode"] = self.current_exec
+                    self.overall_status["current_mode"] = ce
                     self.overall_status["current_test_name"] = "ping"
                     self.overall_csv.append(self.overall_status.copy())
                     df1 = pd.DataFrame(self.overall_csv)
@@ -770,7 +777,7 @@ class Candela(Realm):
             start_time = datetime.datetime.now()
             end_time = start_time + datetime.timedelta(seconds=ping_duration * 60)
             temp_json = []
-            while (datetime.datetime.now() < end_time):
+            while (datetime.datetime.now() < end_time) or self.do_mix_exec:
                 temp_json = []
                 temp_checked_sta = []
                 temp_result_data = self.ping_obj_dict[ce][obj_name]["obj"].get_results()
@@ -816,8 +823,20 @@ class Candela(Realm):
                 # except BaseException:
                 #     logging.info("execption while reading running json in ping")
                 time.sleep(3)
+                if self.stop_all_tests:
+                    break
         else:
-            time.sleep(ping_duration * 60)
+            if self.do_mix_exec:
+                start_time = datetime.datetime.now()
+                while not self.stop_all_tests:
+                    time.sleep(1)
+                end_time = datetime.datetime.now()
+                formatted_time = validate_time(int((datetime.datetime.now() - start_time).total_seconds()))
+                print("Ping test duration: {}".format(formatted_time))
+                self.names_duration["ping"] = formatted_time
+
+            else:
+                time.sleep(ping_duration * 60)
 
         logging.info('Stopping the test')
         self.ping_obj_dict[ce][obj_name]["obj"].stop_generic()
@@ -5024,6 +5043,7 @@ class Candela(Realm):
         print('self.yt_obj_dict',self.yt_obj_dict)
         if ce == "series":
             series_tests = self.series_tests.copy()
+            print("series tests",series_tests)
             for test in series_tests:
                 if test not in test_map:
                     test_map[test] = 1
@@ -5035,6 +5055,9 @@ class Candela(Realm):
         print('self.series_tests',self.series_tests)
         print('test_map',test_map)
         print('unq_tests',unq_tests)
+        print("self parallel tests",self.parallel_tests)
+        print("ping obj dict",self.ping_obj_dict)
+
         for test_name in unq_tests:
             try:
                 if test_name == "http_test":
@@ -8595,7 +8618,12 @@ class Candela(Realm):
             except Exception as e:
                 logger.info(f"failed to generate report for {test_name} {e}")
 
-
+    def update_duration(self,df):
+        if not df.empty and hasattr(self, "names_duration") and self.names_duration:
+            for name, duration in self.names_duration.items():
+                mask = df["test_name"].str.contains(name, case=False, na=False)
+                df.loc[mask, "Duration"] = duration
+        return df
     def generate_test_exc_df(self,test_results_df,args_dict):
         series_df = {}
         parallel_df = {}
@@ -8604,21 +8632,42 @@ class Candela(Realm):
                 series_df = test_results_df[:len(self.series_tests)].copy()
                 series_df["s/no"] = range(1, len(series_df) + 1)
                 series_df = series_df[["s/no", "test_name", "Duration", "status"]]
+                # if self.do_mix_exec:
+                #     serial_df = self.update_duration(serial_df)
             if len(self.parallel_tests) != 0:
                 parallel_df = test_results_df[len(self.series_tests):].copy()
                 parallel_df["s/no"] = range(1, len(parallel_df) + 1)
                 parallel_df = parallel_df[["s/no", "test_name", "Duration", "status"]]
+                # if self.do_mix_exec:
+                #     parallel_df = self.update_duration(parallel_df)
         else:
             if len(self.parallel_tests) != 0:
                 parallel_df = test_results_df[:len(self.parallel_tests)].copy()
                 parallel_df["s/no"] = range(1, len(parallel_df) + 1)
                 parallel_df = parallel_df[["s/no", "test_name", "Duration", "status"]]
-
+                # if self.do_mix_exec:
+                #     parallel_df = self.update_duration(parallel_df)
+            
             if len(self.series_tests) != 0:
                 series_df = test_results_df[len(self.parallel_tests):].copy()
                 series_df["s/no"] = range(1, len(series_df) + 1)
                 series_df = series_df[["s/no", "test_name", "Duration", "status"]]
+                # if self.do_mix_exec:
+                #     series_df = self.update_duration(series_df)
+
         return series_df,parallel_df
+
+    def run_series(self,series_threads):
+        for t in series_threads:
+            t.start()
+            t.join()   # sequential execution
+        self.stop_all_tests = True  # signal to stop all tests after series execution is done
+
+    def run_parallel(self,parallel_threads):
+        for t in parallel_threads:
+            t.start()
+        for t in parallel_threads:
+            t.join()
 
     def generate_overall_report(self,test_results_df='',args_dict={}):
         self.overall_report = lf_report.lf_report(_results_dir_name="Base_Class_Test_Overall_report", _output_html="base_class_overall.html",
@@ -8629,44 +8678,62 @@ class Candela(Realm):
         self.overall_report.build_banner()
         # self.overall_report.set_custom_html(test_results_df.to_html(index=False, justify='center'))
         # self.overall_report.build_custom()
-        try:
-            series_df,parallel_df = self.generate_test_exc_df(test_results_df,args_dict)
-        except Exception:
-            # traceback.print_exc()
-            print('exception failed dataframe')
+        if not self.do_mix_exec:
+            try:
+                series_df,parallel_df = self.generate_test_exc_df(test_results_df,args_dict)
+            except Exception:
+                # traceback.print_exc()
+                print('exception failed dataframe')
+        else:
+            self.overall_report.set_table_title("Traffic Details")
+            self.overall_report.build_table_title()
+            test_results_df.insert(0, "s/no", range(1, len(test_results_df) + 1))
+            test_results_df = self.update_duration(test_results_df)
+            self.overall_report.set_custom_html(test_results_df.to_html(index=False, justify='center'))
+            self.overall_report.build_custom()
+
+
         if self.order_priority == "series":
             if len(self.series_tests) != 0:
-                self.overall_report.set_custom_html('<h1 style="color:darkgreen; border-bottom: 2px solid darkgreen; padding-bottom: 5px; font-weight: bold; font-size: 40px;">Series Tests</h1>')
-                self.overall_report.build_custom()
+                if not self.do_mix_exec:
+                    self.overall_report.set_custom_html('<h1 style="color:darkgreen; border-bottom: 2px solid darkgreen; padding-bottom: 5px; font-weight: bold; font-size: 40px;">Series Tests</h1>')
+                    self.overall_report.build_custom()
                 self.overall_report.set_table_title("Traffic Details")
                 self.overall_report.build_table_title()
-                self.overall_report.set_custom_html(series_df.to_html(index=False, justify='center'))
-                self.overall_report.build_custom()
+                if not self.do_mix_exec:
+                    self.overall_report.set_custom_html(series_df.to_html(index=False, justify='center'))
+                    self.overall_report.build_custom()
                 self.render_each_test(ce="series")
             if len(self.parallel_tests) != 0:
-                self.overall_report.set_custom_html('<h1 style="color:darkgreen; border-bottom: 2px solid darkgreen; padding-bottom: 5px; font-weight: bold; font-size: 40px;">Parallel Tests</h1>')
-                self.overall_report.build_custom()
+                if not self.do_mix_exec:
+                    self.overall_report.set_custom_html('<h1 style="color:darkgreen; border-bottom: 2px solid darkgreen; padding-bottom: 5px; font-weight: bold; font-size: 40px;">Parallel Tests</h1>')
+                    self.overall_report.build_custom()
                 self.overall_report.set_table_title("Traffic Details")
                 self.overall_report.build_table_title()
-                self.overall_report.set_custom_html(parallel_df.to_html(index=False, justify='center'))
-                self.overall_report.build_custom()
+                if not self.do_mix_exec:
+                    self.overall_report.set_custom_html(parallel_df.to_html(index=False, justify='center'))
+                    self.overall_report.build_custom()
                 self.render_each_test(ce="parallel")
         else:
             if len(self.parallel_tests) != 0:
-                self.overall_report.set_custom_html('<h1 style="color:darkgreen; border-bottom: 2px solid darkgreen; padding-bottom: 5px; font-weight: bold; font-size: 40px;">Parallel Tests</h1>')
-                self.overall_report.build_custom()
+                if not self.do_mix_exec:
+                    self.overall_report.set_custom_html('<h1 style="color:darkgreen; border-bottom: 2px solid darkgreen; padding-bottom: 5px; font-weight: bold; font-size: 40px;">Parallel Tests</h1>')
+                    self.overall_report.build_custom()
                 self.overall_report.set_table_title("Traffic Details")
                 self.overall_report.build_table_title()
-                self.overall_report.set_custom_html(parallel_df.to_html(index=False, justify='center'))
-                self.overall_report.build_custom()
+                if not self.do_mix_exec:
+                    self.overall_report.set_custom_html(parallel_df.to_html(index=False, justify='center'))
+                    self.overall_report.build_custom()
                 self.render_each_test(ce="parallel")
             if len(self.series_tests) != 0:
-                self.overall_report.set_custom_html('<h1 style="color:darkgreen; border-bottom: 2px solid darkgreen; padding-bottom: 5px; font-weight: bold; font-size: 40px;">Series Tests</h1>')
-                self.overall_report.build_custom()
+                if not self.do_mix_exec:
+                    self.overall_report.set_custom_html('<h1 style="color:darkgreen; border-bottom: 2px solid darkgreen; padding-bottom: 5px; font-weight: bold; font-size: 40px;">Series Tests</h1>')
+                    self.overall_report.build_custom()
                 self.overall_report.set_table_title("Traffic Details")
                 self.overall_report.build_table_title()
-                self.overall_report.set_custom_html(series_df.to_html(index=False, justify='center'))
-                self.overall_report.build_custom()
+                if not self.do_mix_exec:
+                    self.overall_report.set_custom_html(series_df.to_html(index=False, justify='center'))
+                    self.overall_report.build_custom()
                 self.render_each_test(ce="series")
         # self.overall_report.insert_table_at_marker(test_results_df,"for_table")
         self.overall_report.build_footer()
@@ -9306,12 +9373,14 @@ def main():
     parser.add_argument("--zoom_pk_passwd", type=str, default='NA', help='Specify the password for the private key')
     parser.add_argument("--zoom_pac_file", type=str, default='NA', help='Specify the pac file name')
     parser.add_argument("--zoom_wait_time", type=int, help='Specify the maximum time to wait for Configuration', default=60)
-
+    # parser.add_argument('--do_mix_exec', help='Comma-separated list of tests to run in parallel')
+    # parser.add_argument('--do_mix_exec', help="If true will execute script for webgui", default=False, type=bool)
+    parser.add_argument('--do_mix_exec', action="store_true",  help='mcast_test consists')
 
     args = parser.parse_args()
     args_dict = vars(args)
     duration_dict = {}
-    candela_apis = Candela(ip=args.mgr, port=args.mgr_port,order_priority=args.order_priority,test_name=args.test_name,result_dir=args.result_dir,dowebgui=args.dowebgui,no_cleanup=args.no_cleanup)
+    candela_apis = Candela(ip=args.mgr, port=args.mgr_port,order_priority=args.order_priority,test_name=args.test_name,result_dir=args.result_dir,dowebgui=args.dowebgui,no_cleanup=args.no_cleanup,do_mix_exec=args.do_mix_exec)
     print(args)
     test_map = {
     "ping_test":   (run_ping_test, "PING TEST"),
@@ -9331,7 +9400,10 @@ def main():
         logger.error("Please provide tests cases --parallel_tests or --series_tests")
         logger.info(f"availbe tests are {test_map.keys()}")
         exit(0)
-
+    if args.do_mix_exec:
+        if "ping_test" not in args.parallel_tests:
+            logger.error("With --do_mix_exec true, ping_test should be in parallel_tests")
+            exit(0)
     flag=1
     tests_to_run_series = []
     tests_to_run_parallel = []
@@ -9482,6 +9554,7 @@ def main():
                         ))
                 else:
                     print(f"Warning: Unknown test '{test_name}' in --parallel_tests")
+       
         logging.info(f"Series Threads: {series_threads}")
         logging.info(f"Parallel Threads: {parallel_threads}")
         logging.info(f"connections parallel {candela_apis.parallel_connect}")
@@ -9494,8 +9567,16 @@ def main():
             candela_apis.overall_csv.append(candela_apis.overall_status.copy())
             df1 = pd.DataFrame(candela_apis.overall_csv)
             df1.to_csv('{}/overall_status.csv'.format(args.result_dir), index=False)
+        if args.do_mix_exec:
+            series_runner = threading.Thread(target=candela_apis.run_series, args=(series_threads,))
+            parallel_runner = threading.Thread(target=candela_apis.run_parallel, args=(parallel_threads,))
 
-        if args.order_priority == 'series':
+            series_runner.start()
+            parallel_runner.start()
+
+            series_runner.join()
+            parallel_runner.join()      
+        elif args.order_priority == 'series':
             candela_apis.current_exec="series"
             for t in series_threads:
                 t.start()
