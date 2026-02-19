@@ -34,7 +34,7 @@ import matplotlib
 import csv
 import matplotlib.pyplot as plt
 from pathlib import Path
-from interop_configuration import Configuration
+# from interop_configuration import Configuration
 realm = importlib.import_module("py-json.realm")
 Realm = realm.Realm
 error_logs = ""
@@ -93,7 +93,36 @@ class Candela(Realm):
     Candela Class file to invoke different scripts from py-scripts.
     """
 
-    def __init__(self, ip='localhost', port=8080,order_priority="series",result_dir="",dowebgui=False,test_name='',no_cleanup=False,do_mix_exec=False,result_path=None):
+    def __init__(self, ip='localhost', port=8080,order_priority="series",result_dir="",dowebgui=False,test_name='',no_cleanup=False,do_mix_exec=False,result_path=None,
+                 config_wait_time=60,device_list=None,
+                 file_name=None,
+                 profile_name=None,
+                 group_name=None,
+                 eap_method=None,
+                 eap_identity=None,
+                 ieee80211=None,
+                 ieee80211u=None,
+                 ieee80211w=None,
+                 enable_pkc=None,
+                 bss_transition=None,
+                 power_save=None,
+                 disable_ofdma=None,
+                 roam_ft_ds=None,
+                 key_management=None,
+                 pairwise=None,
+                 private_key=None,
+                 ca_cert=None,
+                 client_cert=None,
+                 pk_passwd=None,
+                 pac_file=None,
+                 config=False,
+                 expected_passfail_val=None,
+                 csv_name=None,
+                 wait_time=60,
+                 upstream_port="eth1",
+                 ssid=None,
+                 passwd=None,
+                 security=None):
 
         """
         Constructor to initialize the LANforge IP and port
@@ -126,7 +155,7 @@ class Candela(Realm):
         self.uc_min_value = None
         self.cx_order_list = None
         self.gave_incremental=None
-        self.result_path = os.getcwd() if result_path is None else result_path
+        self.result_path = os.getcwd() if result_path is None else result_path  
         self.test_count_dict = {}
         self.current_exec = "series"
         self.order_priority = order_priority
@@ -139,6 +168,12 @@ class Candela(Realm):
         self.test_stopped = False
         self.no_cleanup = no_cleanup
         self.duration_dict = {}
+        self.config_wait_time = config_wait_time
+        self.ssid = ssid
+        self.password = passwd
+        self.security = security
+        self.upstream_port = upstream_port
+        self.device_list = device_list if device_list else []
         self.http_obj_dict = {"parallel":{},"series":{}}
         self.ftp_obj_dict = {"parallel":{},"series":{}}
         self.thput_obj_dict = {"parallel":{},"series":{}}
@@ -167,7 +202,35 @@ class Candela(Realm):
         self.do_mix_exec = do_mix_exec
         self.stop_all_tests = False
         self.names_duration = {}
-
+        self.profile_name = profile_name
+        self.file_name = file_name
+        self.group_name = group_name
+        self.eap_method = eap_method
+        self.eap_identity = eap_identity
+        self.ieee80211 = ieee80211
+        self.ieee80211u = ieee80211u
+        self.ieee80211w = ieee80211w
+        self.enable_pkc = enable_pkc
+        self.bss_transition = bss_transition
+        self.power_save = power_save
+        self.disable_ofdma = disable_ofdma
+        self.roam_ft_ds = roam_ft_ds
+        self.key_management = key_management
+        self.pairwise = pairwise
+        self.private_key = private_key
+        self.ca_cert = ca_cert
+        self.client_cert = client_cert
+        self.pk_passwd = pk_passwd
+        self.pac_file = pac_file
+        self.resource_stats = DeviceConfig.DeviceConfig(lanforge_ip=self.lanforge_ip,port=self.port,wait_time=self.config_wait_time,file_name=self.file_name)
+        self.upstream_ip = self.resource_stats.change_port_to_ip(self.upstream_port)
+        self.resource_stats.get_all_devices()
+        self.expected_passfail_val = expected_passfail_val
+        self.csv_name = csv_name
+        self.wait_time = wait_time
+        self.group_device_map = {}
+        self.config = config
+    
     def api_get(self, endp: str):
         """
         Sends a GET request to fetch data
@@ -8671,6 +8734,106 @@ class Candela(Realm):
         for t in parallel_threads:
             t.join()
 
+    def query_devices(self):
+        # device_list = device_list if device_list else []
+        all_devices = self.resource_stats.get_all_devices()
+        # self.resource_stats.display_available_devices(all_devices)
+        available_df = self.resource_stats.display_available_devices(all_devices)
+        print(tabulate(available_df, headers='keys', tablefmt='fancy_grid'))
+        
+        if len(self.device_list) != 0:
+            dev_list = self.device_list.copy()
+        else:
+            dev_list = input("Enter the desired resources to run the test: (for androids enter serial/resource id for other enter only resource id)").split(',')
+        name_to_res = {}
+        res_to_name = {}
+        for device in all_devices:
+            if device["type"] == 'laptop':
+                name_to_res[device["hostname"]] = device["shelf"] + '.' + device["resource"]
+                res_to_name[device["shelf"] + '.' + device["resource"]] = device["hostname"]
+            else:
+                name_to_res[device["serial"]] =  device["shelf"] + '.' + device["resource"]
+                res_to_name[device["shelf"] + '.' + device["resource"]] = device["serial"]
+        filtered_dev_list,remarks_df = self.resource_stats.filter_device_list(dev_list, name_to_res, res_to_name)
+        print("Entered device list:", dev_list)
+        print(tabulate(remarks_df, headers='keys', tablefmt='fancy_grid'))
+        print("filtered",filtered_dev_list)
+        return filtered_dev_list        
+    
+    async def disconnect_devices(self,query=False):
+        if query:
+            device_list =self.query_devices()
+        else:
+            device_list = [] 
+        selected_laptop_devices = []
+        selected_adb_devices = []
+        for device_obj in self.resource_stats.all_devices:
+            if device_obj.get("serial") in device_list or device_obj.get("hostname") in device_list or (device_obj.get(
+                    "shelf") + '.' + device_obj.get("resource")) in device_list or device_obj.get("eid") in device_list:
+
+                # For laptops, set enterprise parameters
+                if device_obj["type"] == "laptop":
+                    selected_laptop_devices.append(device_obj)
+                # For androids, set server_ip to start the app
+                else:
+                    selected_adb_devices.append(device_obj)
+        if (selected_adb_devices != []):
+            await self.resource_stats.adb_obj.forget_all_networks(port_list=selected_adb_devices)
+            time.sleep(10)
+        if (selected_laptop_devices != []):
+            await self.resource_stats.laptop_obj.disconnect_wifi(port_list=selected_laptop_devices)
+            time.sleep(10)
+    
+
+    def configure_devices(self):
+        if self.config:
+            self.device_list = self.query_devices()
+        config_devices = {}
+        config_dict = {
+            'ssid': self.ssid,
+            'passwd': self.password,
+            'enc': self.security,
+            'eap_method': self.eap_method,
+            'eap_identity': self.eap_identity,
+            'ieee80211': self.ieee80211,
+            'ieee80211u': self.ieee80211u,
+            'ieee80211w': self.ieee80211w,
+            'enable_pkc': self.enable_pkc,
+            'bss_transition': self.bss_transition,
+            'power_save': self.power_save,
+            'disable_ofdma': self.disable_ofdma,
+            'roam_ft_ds': self.roam_ft_ds,
+            'key_management': self.key_management,
+            'pairwise': self.pairwise,
+            'private_key': self.private_key,
+            'ca_cert': self.ca_cert,
+            'client_cert': self.client_cert,
+            'pk_passwd': self.pk_passwd,
+            'pac_file': self.pac_file,
+            'server_ip': self.upstream_ip,
+        }
+        print(config_dict)
+        if self.group_name and self.file_name and self.device_list == [] and self.profile_name:
+            selected_groups = self.group_name.split(',')
+            selected_profiles = self.profile_name.split(',')
+            for i in range(len(selected_groups)):
+                config_devices[selected_groups[i]] = selected_profiles[i]
+            self.resource_stats.initiate_group()
+            self.group_device_map = self.resource_stats.get_groups_devices(data=selected_groups, groupdevmap=True)
+            # Configure devices in the selected group with the selected profile
+            self.device_list = asyncio.run(self.resource_stats.connectivity(config=config_devices, upstream=self.upstream_ip))
+        # Case 2: Device list is already provided
+        elif self.device_list != []:
+            all_devices = self.resource_stats.get_all_devices()
+            # self.device_list = self.device_list.split(',')
+            # If config is false, the test will exclude all inactive devices
+            if self.config:
+                # If config is True, attempt to bring up all devices in the list and perform tests on those that become active
+                # Configure devices in the device list with the provided SSID, Password and Security
+                self.device_list = asyncio.run(self.resource_stats.connectivity(device_list=self.device_list, wifi_config=config_dict))
+        else:
+            logger.error("give correct set of configurations")
+
     def generate_overall_report(self,test_results_df='',args_dict={}):
         self.overall_report = lf_report.lf_report(_results_dir_name="Base_Class_Test_Overall_report", _output_html="base_class_overall.html",
                                          _output_pdf="base_class_overall.pdf", _path=self.result_path if not self.dowebgui else self.result_dir)
@@ -8863,6 +9026,30 @@ def validate_args(args):
                         flag_test = False
             if flag_test:
                 logger.info(f"Arg validation check done for {test}")
+
+def update_device_list(args,tests):
+    for test in tests:
+        if test == "http_test":
+            args.http_device_list = args.device_list
+        elif test == "ping_test":
+            args.ping_device_list = args.device_list
+        elif test == "ftp_test":
+            args.ftp_device_list = args.device_list
+        elif test == "thput_test":
+            args.thput_device_list = args.device_list
+        elif test == "qos_test":
+            args.qos_device_list = args.device_list
+        elif test == "vs_test":
+            args.vs_device_list = args.device_list
+        elif test == "mcast_test":
+            args.mcast_device_list = args.device_list
+        elif test == "yt_test":
+            args.yt_device_list = args.device_list
+        elif test == "rb_test":
+            args.rb_device_list = args.device_list
+        elif test == "zoom_test":
+            args.zoom_device_list = args.device_list
+    return args
 
 
 def main():
@@ -9381,17 +9568,46 @@ def main():
     parser.add_argument('--query_devices', action="store_true",  help='mcast_test consists')
     parser.add_argument("--config_wait_time", type=int, help='Specify the maximum time to wait for Configuration', default=60)
 
-
+    #whole config
+    parser.add_argument('--group_name', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2')
+    parser.add_argument('--profile_name', type=str, help='Specify the profile name to apply configurations to the devices.')
+    parser.add_argument('--file_name', type=str, help='Specify the file name containing group details. Example:file1')
+    parser.add_argument("--eap_method", type=str, default='DEFAULT', help="Specify the EAP method for authentication.")
+    parser.add_argument("--eap_identity", type=str, default='', help="Specify the EAP identity for authentication.")
+    parser.add_argument("--ieee8021x", action="store_true", help='Enables 802.1X enterprise authentication for test stations.')
+    parser.add_argument("--ieee80211u", action="store_true", help='Enables IEEE 802.11u (Hotspot 2.0) support.')
+    parser.add_argument("--ieee80211w", type=int, default=1, help='Enables IEEE 802.11w (Management Frame Protection) support.')
+    parser.add_argument("--enable_pkc", action="store_true", help='Enables pkc support.')
+    parser.add_argument("--bss_transition", action="store_true", help='Enables BSS transition support.')
+    parser.add_argument("--power_save", action="store_true", help='Enables power-saving features.')
+    parser.add_argument("--disable_ofdma", action="store_true", help='Disables OFDMA support.')
+    parser.add_argument("--roam_ft_ds", action="store_true", help='Enables fast BSS transition (FT) support')
+    parser.add_argument("--key_management", type=str, default='DEFAULT', help='Specify the key management method (e.g., WPA-PSK, WPA-EAP')
+    parser.add_argument("--pairwise", type=str, default='NA')
+    parser.add_argument("--private_key", type=str, default='NA', help='Specify EAP private key certificate file.')
+    parser.add_argument("--ca_cert", type=str, default='NA', help='Specifiy the CA certificate file name')
+    parser.add_argument("--client_cert", type=str, default='NA', help='Specify the client certificate file name')
+    parser.add_argument("--pk_passwd", type=str, default='NA', help='Specify the password for the private key')
+    parser.add_argument("--pac_file", type=str, default='NA', help='Specify the pac file name')
+    parser.add_argument('--expected_passfail_value', help='Enter the expected throughput ', default=None)
+    parser.add_argument('--device_csv_name', type=str, help='Enter the csv name to store expected values', default=None)
+    parser.add_argument("--wait_time", type=int, help="Enter the maximum wait time for configurations to apply", default=60)
+    parser.add_argument("--config", action="store_true", help="Specify for configuring the devices")
+    parser.add_argument('--ssid', help='WiFi SSID for script objects to associate to')
+    parser.add_argument('--passwd', '--password', '--key', default="[BLANK]", help='WiFi passphrase/password/key')
+    parser.add_argument('--security', help='WiFi Security protocol: < open | wep | wpa | wpa2 | wpa3 >', default="open")
     args = parser.parse_args()
     args_dict = vars(args)
     duration_dict = {}
     if args.query_devices:
-        resource_stats = Configuration(args.mgr,args.mgr_port,args.config_wait_time)
+        print("hiii")
+        resource_stats = DeviceConfig.DeviceConfig(args.mgr,args.mgr_port,args.config_wait_time)
         all_devices = resource_stats.get_all_devices()
         # resource_stats.display_available_devices(all_devices)
         available_df = resource_stats.display_available_devices(all_devices)
         print(tabulate(available_df, headers='keys', tablefmt='fancy_grid'))
         if len(args.device_list) != 0:
+            dev_list = args.device_list.split(',')
             name_to_res = {}
             res_to_name = {}
             for device in all_devices:
@@ -9401,11 +9617,46 @@ def main():
                 else:
                     name_to_res[device["serial"]] =  device["shelf"] + '.' + device["resource"]
                     res_to_name[device["shelf"] + '.' + device["resource"]] = device["serial"]
-            filtered_dev_list,remarks_df = resource_stats.filter_device_list(args.device_list, name_to_res, res_to_name)
-            print("Entered device list:", args.device_list)
+            filtered_dev_list,remarks_df = resource_stats.filter_device_list(dev_list, name_to_res, res_to_name)
+            print("Entered device list:", dev_list)
             print(tabulate(remarks_df, headers='keys', tablefmt='fancy_grid'))
-
-    candela_apis = Candela(ip=args.mgr, port=args.mgr_port,order_priority=args.order_priority,test_name=args.test_name,result_dir=args.result_dir,dowebgui=args.dowebgui,no_cleanup=args.no_cleanup,do_mix_exec=args.do_mix_exec)
+        exit(0)
+    candela_apis = Candela(ip=args.mgr, port=args.mgr_port,order_priority=args.order_priority,test_name=args.test_name,result_dir=args.result_dir,dowebgui=args.dowebgui,no_cleanup=args.no_cleanup,do_mix_exec=args.do_mix_exec,config_wait_time=args.config_wait_time,device_list=args.device_list.split(',') if args.device_list else [],
+                            group_name=args.group_name,
+                            profile_name=args.profile_name,
+                            file_name=args.file_name,
+                            eap_method=args.eap_method,
+                            eap_identity=args.eap_identity,
+                            ieee80211=args.ieee8021x,
+                            ieee80211u=args.ieee80211u,
+                            ieee80211w=args.ieee80211w,
+                            enable_pkc=args.enable_pkc,
+                            bss_transition=args.bss_transition,
+                            power_save=args.power_save,
+                            disable_ofdma=args.disable_ofdma,
+                            roam_ft_ds=args.roam_ft_ds,
+                            key_management=args.key_management,
+                            pairwise=args.pairwise,
+                            private_key=args.private_key,
+                            ca_cert=args.ca_cert,
+                            client_cert=args.client_cert,
+                            pk_passwd=args.pk_passwd,
+                            pac_file=args.pac_file,
+                            expected_passfail_val=args.expected_passfail_value,
+                            csv_name=args.device_csv_name,
+                            wait_time=args.wait_time,
+                            config=args.config,
+                            upstream_port=args.upstream_port,
+                            ssid=args.ssid,
+                            passwd=args.passwd,
+                            security=args.security,)
+    
+    candela_apis.query_devices()
+    # candela_apis.configure_devices()
+    # candela_apis.disconnect_devices()
+    # asyncio.run(candela_apis.disconnect_devices(query=True))
+    # print(candela_apis.device_list)
+    # exit(0)
     print(args)
     test_map = {
     "ping_test":   (run_ping_test, "PING TEST"),
@@ -9498,6 +9749,9 @@ def main():
         # Process series tests
         if args.series_tests:
             ordered_series_tests = args.series_tests.split(',')
+            if args.device_list:
+                args = update_device_list(args,ordered_series_tests)
+            
             # ordered_parallel_tests = args.parallel_tests.split(',')
             # phase 1
             if args.dowebgui:
@@ -9552,6 +9806,8 @@ def main():
                     if test_name in ordered_parallel_tests:
                         temp_ord_list.append(test_name)
                 ordered_parallel_tests = temp_ord_list.copy()
+            if args.device_list:
+                args = update_device_list(args,ordered_parallel_tests)
             for idx, test_name in enumerate(ordered_parallel_tests):
                 test_name = test_name.strip().lower()
                 if test_name in test_map:

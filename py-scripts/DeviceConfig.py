@@ -105,6 +105,7 @@ class ADB_DEVICES(Realm):
 
         self.lanforge_ip = lanforge_ip
         self.port = port
+        self.adb_phantom_list = []
         # adb post url
         self.adb_post_url = '/cli-json/adb/'
 
@@ -422,6 +423,8 @@ class LAPTOPS(Realm):
 
         self.lanforge_ip = lanforge_ip
         self.port = port
+        self.laptop_phantom_list = []
+        self.laptop_wiphy_down_list = []
 
     def post_data(self, url, data):
         try:
@@ -971,6 +974,8 @@ class DeviceConfig(Realm):
     def read_groups_file(self):
         py_scripts_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
         # Read CSV file into DataFrame
+        print(self.file_name)
+        print(f"{py_scripts_dir}/{self.file_name}.csv")
         file_name = os.path.join(py_scripts_dir, self.file_name + '.csv')
         try:
             df = pd.read_csv(file_name)
@@ -1505,6 +1510,7 @@ class DeviceConfig(Realm):
                     else:
                         device_obj["server_ip"] = wifi_config.get("server_ip")
                         selected_adb_devices.append(device_obj)
+        
         else:
             logger.info("No devices are slected for operation")
             return
@@ -1712,6 +1718,132 @@ class DeviceConfig(Realm):
         for dev in selected_devices:
             config_dev_list.append(dev['eid'])
         return config_dev_list
+
+    def change_port_to_ip(self, upstream_port):
+        if upstream_port.count('.') != 3:
+            target_port_list = self.name_to_eid(upstream_port)
+            shelf, resource, port, _ = target_port_list
+            try:
+                target_port_ip = self.json_get(f'/port/{shelf}/{resource}/{port}?fields=ip')['interface']['ip']
+                upstream_port = target_port_ip
+            except BaseException:
+                logging.warning(f'The upstream port is not an ethernet port. Proceeding with the given upstream_port {upstream_port}.')
+            logging.info(f"Upstream port IP {upstream_port}")
+        else:
+            logging.info(f"Upstream port IP {upstream_port}")
+
+        return upstream_port
+
+    def filter_device_list(self, dev_list, name_to_res, res_to_name):
+        final_dev_list = []
+        final_df = pd.DataFrame(columns=['Res_Id/serial', 'remarks'])
+
+        phantom_entries = (
+            self.laptop_obj.laptop_phantom_list +
+            self.laptop_obj.laptop_wiphy_down_list +
+            self.adb_obj.adb_phantom_list
+        )
+
+        phantom_lookup = set()
+        phantom_remarks = {}
+
+        for entry in phantom_entries:
+            key = entry["Res_Id/serial"].split('/')[0].strip()
+            phantom_lookup.add(key)
+            phantom_remarks[key] = entry["remarks"]
+
+        for dev in dev_list:
+
+            if len(dev.split('.')) == 2:
+                duplicated_with = f"Serial {res_to_name.get(dev, None)}"
+                dev_str = f"{dev} / {res_to_name.get(dev, None)}"
+                res_id = dev
+            else:
+                duplicated_with = f"Resource ID {name_to_res.get(dev, None)}"
+                res_id = name_to_res.get(dev, None)
+                dev_str = f'{res_id} / {dev}'
+
+            if res_id in phantom_lookup:
+                remark = phantom_remarks.get(res_id, "Phantom device")
+                logger.warning(f"The device {dev} is in state: {remark}")
+
+                final_df = pd.concat([
+                    final_df,
+                    pd.DataFrame([[dev_str, remark]],
+                                columns=['Res_Id/serial', 'remarks'])
+                ], ignore_index=True)
+
+                continue
+
+            if dev not in name_to_res.keys() and dev not in res_to_name.keys():
+                logger.error(f"The device {dev} is not found in LANforge.")
+                final_df = pd.concat([
+                    final_df,
+                    pd.DataFrame([[dev_str, 'Not found in LANforge']],
+                                columns=['Res_Id/serial', 'remarks'])
+                ], ignore_index=True)
+
+            else:
+                if dev not in final_dev_list and \
+                res_to_name.get(dev, None) not in final_dev_list and \
+                name_to_res.get(dev, None) not in final_dev_list:
+
+                    final_dev_list.append(dev)
+
+                    final_df = pd.concat([
+                        final_df,
+                        pd.DataFrame([[dev_str,
+                                    'Found in LANforge and ready to configure']],
+                                    columns=['Res_Id/serial', 'remarks'])
+                    ], ignore_index=True)
+
+                else:
+                    if dev in final_dev_list:
+                        msg = f"The device {dev} is duplicated with itself in the provided device list"
+                    else:
+                        msg = f"The device {dev} is duplicated with {duplicated_with}"
+
+                    logger.warning(msg)
+
+                    final_df = pd.concat([
+                        final_df,
+                        pd.DataFrame([[dev_str, msg]],
+                                    columns=['Res_Id/serial', 'remarks'])
+                    ], ignore_index=True)
+
+        return final_dev_list, final_df
+
+    def display_available_devices(self,all_devices):
+
+        rows = []
+
+        # Existing LANforge devices
+        for device in all_devices:
+            res_id = device["shelf"] + '.' + device["resource"]
+            os_type = device.get("os", "Unknown")
+
+            if device["type"] == 'laptop':
+                dev_name = device.get("hostname", "Unknown")
+            else:
+                dev_name = device.get("serial", "Unknown")
+
+            rows.append({
+                "Res_Id/serial": f"{res_id} / {dev_name}",
+                "OS": os_type,
+                "remarks": "Available in LANforge"
+            })
+
+        rows.extend(self.laptop_obj.laptop_wiphy_down_list)
+        # ✅ Add Phantom Laptops
+        rows.extend(self.laptop_obj.laptop_phantom_list)
+
+        # ✅ Add Wiphy Down Laptops
+
+        # ✅ Add ADB Phantom Devices
+        rows.extend(self.adb_obj.adb_phantom_list)
+
+        return pd.DataFrame(rows)
+
 
 
 if __name__ == "__main__":
