@@ -8,6 +8,7 @@ import requests
 import paramiko
 import threading
 import logging
+from tabulate import tabulate
 from lf_graph import lf_bar_graph_horizontal,lf_bar_graph,lf_line_graph
 import pandas as pd
 from lf_base_interop_profile import RealDevice
@@ -33,6 +34,7 @@ import matplotlib
 import csv
 import matplotlib.pyplot as plt
 from pathlib import Path
+from interop_configuration import Configuration
 realm = importlib.import_module("py-json.realm")
 Realm = realm.Realm
 error_logs = ""
@@ -91,7 +93,7 @@ class Candela(Realm):
     Candela Class file to invoke different scripts from py-scripts.
     """
 
-    def __init__(self, ip='localhost', port=8080,order_priority="series",result_dir="",dowebgui=False,test_name='',no_cleanup=False,do_mix_exec=False):
+    def __init__(self, ip='localhost', port=8080,order_priority="series",result_dir="",dowebgui=False,test_name='',no_cleanup=False,do_mix_exec=False,result_path=None):
 
         """
         Constructor to initialize the LANforge IP and port
@@ -124,7 +126,7 @@ class Candela(Realm):
         self.uc_min_value = None
         self.cx_order_list = None
         self.gave_incremental=None
-        self.result_path = os.getcwd()
+        self.result_path = os.getcwd() if result_path is None else result_path
         self.test_count_dict = {}
         self.current_exec = "series"
         self.order_priority = order_priority
@@ -9376,10 +9378,33 @@ def main():
     # parser.add_argument('--do_mix_exec', help='Comma-separated list of tests to run in parallel')
     # parser.add_argument('--do_mix_exec', help="If true will execute script for webgui", default=False, type=bool)
     parser.add_argument('--do_mix_exec', action="store_true",  help='mcast_test consists')
+    parser.add_argument('--query_devices', action="store_true",  help='mcast_test consists')
+    parser.add_argument("--config_wait_time", type=int, help='Specify the maximum time to wait for Configuration', default=60)
+
 
     args = parser.parse_args()
     args_dict = vars(args)
     duration_dict = {}
+    if args.query_devices:
+        resource_stats = Configuration(args.mgr,args.mgr_port,args.config_wait_time)
+        all_devices = resource_stats.get_all_devices()
+        # resource_stats.display_available_devices(all_devices)
+        available_df = resource_stats.display_available_devices(all_devices)
+        print(tabulate(available_df, headers='keys', tablefmt='fancy_grid'))
+        if len(args.device_list) != 0:
+            name_to_res = {}
+            res_to_name = {}
+            for device in all_devices:
+                if device["type"] == 'laptop':
+                    name_to_res[device["hostname"]] = device["shelf"] + '.' + device["resource"]
+                    res_to_name[device["shelf"] + '.' + device["resource"]] = device["hostname"]
+                else:
+                    name_to_res[device["serial"]] =  device["shelf"] + '.' + device["resource"]
+                    res_to_name[device["shelf"] + '.' + device["resource"]] = device["serial"]
+            filtered_dev_list,remarks_df = resource_stats.filter_device_list(args.device_list, name_to_res, res_to_name)
+            print("Entered device list:", args.device_list)
+            print(tabulate(remarks_df, headers='keys', tablefmt='fancy_grid'))
+
     candela_apis = Candela(ip=args.mgr, port=args.mgr_port,order_priority=args.order_priority,test_name=args.test_name,result_dir=args.result_dir,dowebgui=args.dowebgui,no_cleanup=args.no_cleanup,do_mix_exec=args.do_mix_exec)
     print(args)
     test_map = {
