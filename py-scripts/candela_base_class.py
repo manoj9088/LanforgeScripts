@@ -267,6 +267,99 @@ class Candela(Realm):
             endp = '/' + endp
         response = requests.post(url=self.api_url + endp, json=payload)
         return response
+
+    def port_up_request(self, resource_id, port_name, debug_on=False):
+        """
+        Prepare JSON payload for admin-up port request.
+
+        Args:
+            resource_id (int): Resource ID.
+            port_name (str): Port name.
+            debug_on (bool): Enable debug output.
+
+        Returns:
+            dict: JSON request body for set_port API.
+        """
+
+        if port_name:
+            eid = self.resource_stats.name_to_eid(port_name)
+            # print('eid inside')
+            if resource_id is None:
+                resource_id = eid[1]
+                port_name = eid[2]
+        REPORT_TIMER_MS_FAST = 1500
+        data = {
+            "shelf": 1,
+            "resource": resource_id,
+            "port": port_name,
+            "current_flags": 0,  # vs 0x1 = interface down
+            "interest": 8388610,  # includes use_current_flags + dhcp + dhcp_rls + ifdown
+            "report_timer": REPORT_TIMER_MS_FAST,
+        }
+        if debug_on:
+            logger.debug("Port up request")
+        return data
+
+    def admin_up(self, port_eid):
+        """
+        Bring a LANforge port/admin interface UP.
+
+        Args:
+            port_eid (str): EID format, e.g., "1.1.sta0000".
+        """
+        # print("admin up called")
+        # logger.info("186 admin_up port_eid: "+port_eid)
+        eid = self.resource_stats.name_to_eid(port_eid)
+        resource = eid[1]
+        port = eid[2]
+        logger.debug("ADMIN UP")
+        logger.debug('eid : {}'.format(eid))
+        request = self.port_up_request(resource_id=resource, port_name=port)
+        logger.debug("request: {}".format(request))
+        # logger.info("192.admin_up request: resource: %s port_name %s"%(resource, port))
+        dbg_param = ""
+        if logger.getEffectiveLevel() == logging.DEBUG:
+            # logger.info("enabling url debugging")
+            dbg_param = "?__debug=1"
+        collected_responses = list()
+        self.resource_stats.json_post("/cli-json/set_port%s" % dbg_param, request,
+                       response_json_list_=collected_responses)
+        # TODO: when doing admin-up ath10k radios, want a LF complaint about a license exception
+        # if len(collected_responses) > 0: ...
+
+    def admin_down(self, port_eid):
+        eid = self.resource_stats.name_to_eid(port_eid)
+        print("eid",eid)
+        shelf = eid[0]
+        resource_id = eid[1]
+        port_name = eid[2]
+        port_down_data = self.port_down_request(resource_id=resource_id,port_name=port_name)
+        self.resource_stats.json_post("cli-json/set_port",port_down_data)
+
+    def port_down_request(self,resource_id, port_name, debug_on=False):
+        """
+        Does not change the use_dhcp flag
+        See http://localhost:8080/help/set_port
+        :param debug_on:
+        :param resource_id:
+        :param port_name:
+        :return: json payload
+        """
+        REPORT_TIMER_MS_FAST = 1500
+        data = {
+            "shelf": 1,
+            "resource": resource_id,
+            "port": port_name,
+            "current_flags": 1,  # vs 0x0 = interface up
+            "interest": 8388610,  # = current_flags + ifdown
+            "report_timer": REPORT_TIMER_MS_FAST,
+        }
+        logger.debug("PORT DOWN REQUEST")
+        logger.debug("With data {}".format(data))
+        if debug_on:
+            logger.debug("Port down request")
+        return data
+
     def webgui_stop_check(self,test_name):
         try:
             print("ENTERED STOP CHECKKK")
@@ -8760,11 +8853,15 @@ class Candela(Realm):
         print("filtered",filtered_dev_list)
         return filtered_dev_list        
     
-    async def disconnect_devices(self,query=False):
-        if query:
-            device_list =self.query_devices()
-        else:
-            device_list = [] 
+    async def disconnect_devices(self,device_list=None,query=False):
+        device_list = device_list if device_list else []
+        if not self.device_list and not device_list:
+            logger.error("No device list found")
+            return
+        elif device_list:
+            device_list = device_list
+        elif self.device_list:
+            device_list = self.device_list
         selected_laptop_devices = []
         selected_adb_devices = []
         for device_obj in self.resource_stats.all_devices:
@@ -9027,30 +9124,81 @@ def validate_args(args):
             if flag_test:
                 logger.info(f"Arg validation check done for {test}")
 
-def update_device_list(args,tests):
+def update_device_list(args,tests,candela_apis):
     for test in tests:
         if test == "http_test":
-            args.http_device_list = args.device_list
+            args.http_device_list = ','.join(candela_apis.device_list.copy())
         elif test == "ping_test":
-            args.ping_device_list = args.device_list
+            args.ping_device_list = ','.join(candela_apis.device_list.copy())
         elif test == "ftp_test":
-            args.ftp_device_list = args.device_list
+            args.ftp_device_list = ','.join(candela_apis.device_list.copy())
         elif test == "thput_test":
-            args.thput_device_list = args.device_list
+            args.thput_device_list = ','.join(candela_apis.device_list.copy())
         elif test == "qos_test":
-            args.qos_device_list = args.device_list
+            args.qos_device_list = ','.join(candela_apis.device_list.copy())
         elif test == "vs_test":
-            args.vs_device_list = args.device_list
+            args.vs_device_list = ','.join(candela_apis.device_list.copy())
         elif test == "mcast_test":
-            args.mcast_device_list = args.device_list
+            args.mcast_device_list = ','.join(candela_apis.device_list.copy())
         elif test == "yt_test":
-            args.yt_device_list = args.device_list
+            args.yt_device_list = ','.join(candela_apis.device_list.copy())
         elif test == "rb_test":
-            args.rb_device_list = args.device_list
+            args.rb_device_list = ','.join(candela_apis.device_list.copy())
         elif test == "zoom_test":
-            args.zoom_device_list = args.device_list
+            args.zoom_device_list = ','.join(candela_apis.device_list.copy())
     return args
 
+def validate_args_config(args):
+    if args.group_name:
+        selected_groups = args.group_name.split(',')
+    else:
+        selected_groups = []
+    if args.profile_name:
+        selected_profiles = args.profile_name.split(',')
+    else:
+        selected_profiles = []
+    if args.config and args.group_name is None:
+        if args.ssid is None:
+            logger.error('Specify SSID for confiuration, Password(Optional for "open" type security) , Security')
+            exit(1)
+        elif args.ssid and args.passwd == '[BLANK]' and args.security.lower() != 'open':
+            logger.error('Please provide valid passwd and security configuration')
+            exit(1)
+        elif args.ssid and args.passwd:
+            if args.security is None:
+                logger.error('Security must be provided when SSID and Password specified')
+                exit(1)
+    if args.device_csv_name and args.expected_passfail_value:
+        logger.error("Enter either --device_csv_name or --expected_passfail_value")
+        exit(1)
+    if args.group_name and (args.file_name is None or args.profile_name is None):
+        logger.error("Please provide file name and profile name for group configuration")
+        exit(1)
+    elif args.file_name and (args.group_name is None or args.profile_name is None):
+        logger.error("Please provide group name and profile name for file configuration")
+        exit(1)
+    elif args.profile_name and (args.group_name is None or args.file_name is None):
+        logger.error("Please provide group name and file name for profile configuration")
+        exit(1)
+
+    if len(selected_groups) != len(selected_profiles):
+        logger.error("Number of groups should match number of profiles")
+        exit(1)
+    elif args.group_name and args.profile_name and args.file_name and args.device_list != []:
+        logger.error("Either group name or device list should be entered, not both")
+        exit(1)
+    elif args.ssid and args.profile_name:
+        logger.error("Either SSID or profile name should be given")
+        exit(1)
+    elif args.config and args.device_list != [] and (args.ssid is None or args.passwd is None or args.security is None):
+        logger.error("Please provide ssid password and security when device list is given")
+        exit(1)
+    elif args.file_name and (args.group_name is None or args.profile_name is None):
+        logger.error("Please enter the correct set of arguments")
+        exit(1)
+    elif args.config and args.group_name is None and (args.ssid is None or (args.passwd is None and args.security is None) or (args.passwd is None and args.security.lower() != 'open')):
+        logger.error("Please provide ssid password and security for configuring devices")
+        exit(1)
 
 def main():
 
@@ -9596,9 +9744,16 @@ def main():
     parser.add_argument('--ssid', help='WiFi SSID for script objects to associate to')
     parser.add_argument('--passwd', '--password', '--key', default="[BLANK]", help='WiFi passphrase/password/key')
     parser.add_argument('--security', help='WiFi Security protocol: < open | wep | wpa | wpa2 | wpa3 >', default="open")
+    parser.add_argument("--common", action="store_true", help="Specify for configuring the devices")
     args = parser.parse_args()
     args_dict = vars(args)
     duration_dict = {}
+    print(args)
+    if args.common and args.device_list or (args.file_name and args.group_name and args.profile_name):
+        validate_args_config(args)
+    else:
+        logger.error("please give proper set of arguments for device selection, either provide --device_list or provide --file_name, --group_name and --profile_name for device selection")
+        exit(0)
     if args.query_devices:
         print("hiii")
         resource_stats = DeviceConfig.DeviceConfig(args.mgr,args.mgr_port,args.config_wait_time)
@@ -9650,14 +9805,6 @@ def main():
                             ssid=args.ssid,
                             passwd=args.passwd,
                             security=args.security,)
-    
-    candela_apis.query_devices()
-    # candela_apis.configure_devices()
-    # candela_apis.disconnect_devices()
-    # asyncio.run(candela_apis.disconnect_devices(query=True))
-    # print(candela_apis.device_list)
-    # exit(0)
-    print(args)
     test_map = {
     "ping_test":   (run_ping_test, "PING TEST"),
     "http_test":   (run_http_test, "HTTP TEST"),
@@ -9730,6 +9877,20 @@ def main():
             print(f"wrong duration type for {test_name}")
     if duration_flag:
         exit(1)
+    if args.device_list or (args.file_name and args.group_name and args.profile_name):
+        candela_apis.configure_devices()
+    # candela_apis.query_devices()
+    # eid ="1.119.wlan0"
+    # candela_apis.admin_down(port_eid=eid)
+    # print("down dappa")
+    # time.sleep(10)
+    # candela_apis.admin_up(port_eid=eid)
+    # candela_apis.configure_devices()
+    # candela_apis.disconnect_devices()
+    # asyncio.run(candela_apis.disconnect_devices(query=True))
+    # print(candela_apis.device_list)
+    # exit(0)
+
     candela_apis.duration_dict = duration_dict.copy()
     # args.current = "series"
     iszoom = 'zoom_test' in tests_to_run_parallel or 'zoom_test' in tests_to_run_series
@@ -9749,8 +9910,8 @@ def main():
         # Process series tests
         if args.series_tests:
             ordered_series_tests = args.series_tests.split(',')
-            if args.device_list:
-                args = update_device_list(args,ordered_series_tests)
+            if args.device_list or (args.file_name and args.group_name and args.profile_name):
+                args = update_device_list(args,ordered_series_tests,candela_apis)
             
             # ordered_parallel_tests = args.parallel_tests.split(',')
             # phase 1
@@ -9806,8 +9967,8 @@ def main():
                     if test_name in ordered_parallel_tests:
                         temp_ord_list.append(test_name)
                 ordered_parallel_tests = temp_ord_list.copy()
-            if args.device_list:
-                args = update_device_list(args,ordered_parallel_tests)
+            if args.device_list or (args.file_name and args.group_name and args.profile_name):
+                args = update_device_list(args,ordered_parallel_tests,candela_apis)
             for idx, test_name in enumerate(ordered_parallel_tests):
                 test_name = test_name.strip().lower()
                 if test_name in test_map:
