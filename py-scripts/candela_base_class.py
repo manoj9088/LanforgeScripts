@@ -9199,6 +9199,22 @@ def validate_args_config(args):
     elif args.config and args.group_name is None and (args.ssid is None or (args.passwd is None and args.security is None) or (args.passwd is None and args.security.lower() != 'open')):
         logger.error("Please provide ssid password and security for configuring devices")
         exit(1)
+def ensure_path(path_str, create_if_missing=False):
+    if os.path.exists(path_str):
+        logger.info(f"Path exists: {path_str}")
+        return True
+
+    if create_if_missing:
+        try:
+            os.makedirs(path_str, exist_ok=True)
+            logger.info(f"Path created: {path_str}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to create path: {e}")
+            return False
+
+    logger.error("Path does not exist, add arg --auto_create to create if doesn't exists")
+    return False
 
 def main():
 
@@ -9745,10 +9761,16 @@ def main():
     parser.add_argument('--passwd', '--password', '--key', default="[BLANK]", help='WiFi passphrase/password/key')
     parser.add_argument('--security', help='WiFi Security protocol: < open | wep | wpa | wpa2 | wpa3 >', default="open")
     parser.add_argument("--common", action="store_true", help="Specify for configuring the devices")
+    parser.add_argument('--result_path', help="Specify the result dir to store the runtime logs <Do not use in CLI, --used by webui>", default=None)
+    parser.add_argument("--auto_create", action="store_true", help="used to auto create result path id doesn't exist when --result_path given")
     args = parser.parse_args()
     args_dict = vars(args)
     duration_dict = {}
     print(args)
+    if args.result_path:
+        if not ensure_path(args.result_path,args.auto_create):
+            exit(0)
+        
     if args.common and args.device_list or (args.file_name and args.group_name and args.profile_name):
         validate_args_config(args)
     else:
@@ -9776,6 +9798,7 @@ def main():
             print("Entered device list:", dev_list)
             print(tabulate(remarks_df, headers='keys', tablefmt='fancy_grid'))
         exit(0)
+    
     candela_apis = Candela(ip=args.mgr, port=args.mgr_port,order_priority=args.order_priority,test_name=args.test_name,result_dir=args.result_dir,dowebgui=args.dowebgui,no_cleanup=args.no_cleanup,do_mix_exec=args.do_mix_exec,config_wait_time=args.config_wait_time,device_list=args.device_list.split(',') if args.device_list else [],
                             group_name=args.group_name,
                             profile_name=args.profile_name,
@@ -9804,7 +9827,8 @@ def main():
                             upstream_port=args.upstream_port,
                             ssid=args.ssid,
                             passwd=args.passwd,
-                            security=args.security,)
+                            security=args.security,
+                            result_path=args.result_path)
     test_map = {
     "ping_test":   (run_ping_test, "PING TEST"),
     "http_test":   (run_http_test, "HTTP TEST"),
