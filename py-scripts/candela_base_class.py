@@ -9079,6 +9079,7 @@ class Candela(Realm):
                 config_devices[selected_groups[i]] = selected_profiles[i]
             self.resource_stats.initiate_group()
             self.group_device_map = self.resource_stats.get_groups_devices(data=selected_groups, groupdevmap=True)
+
             # Configure devices in the selected group with the selected profile
             self.device_list = asyncio.run(self.resource_stats.connectivity(config=config_devices, upstream=self.upstream_ip))
         # Case 2: Device list is already provided
@@ -9288,28 +9289,114 @@ def validate_args(args):
             if flag_test:
                 logger.info(f"Arg validation check done for {test}")
 
+def return_valid_grp_list(grp_res_dict,test_grps,candela_apis):
+    dev_list = []
+    valid_grps = test_grps.split(',')
+    for key,value in grp_res_dict.items():
+        if test_grps == "all" or key in valid_grps:
+            for dev in value:
+                if dev in candela_apis.device_list:
+                    dev_list.append(dev)
+    print("Group Dict:", grp_res_dict)
+    print("Valid Groups:", valid_grps)
+    print("Device List:", candela_apis.device_list)
+    print("device_list",dev_list)
+    print("test grps",test_grps)
+    return dev_list
+
+
 def update_device_list(args,tests,candela_apis):
+    groups = False
+    if args.file_name and args.group_name and args.profile_name:
+        groups = True
+    # print(group_device_map)
+    all_devices = candela_apis.resource_stats.get_all_devices()
+    name_to_res = {}
+    res_to_name = {}
+    include_tests = []
+    for device in all_devices:
+        if device["type"] == 'laptop':
+            name_to_res[device["hostname"]] = device["shelf"] + '.' + device["resource"]
+            res_to_name[device["shelf"] + '.' + device["resource"]] = device["hostname"]
+        else:
+            name_to_res[device["serial"]] =  device["shelf"] + '.' + device["resource"]
+            res_to_name[device["shelf"] + '.' + device["resource"]] = device["serial"]
+    group_resource_list = {}
+    for key,value in candela_apis.group_device_map.copy().items():
+        r_list = [name_to_res[val] for val in value]
+        group_resource_list[key] = r_list.copy()
+    print(group_resource_list)
     for test in tests:
+
         if test == "http_test":
-            args.http_device_list = ','.join(candela_apis.device_list.copy())
+            if not groups:
+                args.http_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.http_groups, candela_apis)
+                args.http_device_list = ','.join(val_list)
+
         elif test == "ping_test":
-            args.ping_device_list = ','.join(candela_apis.device_list.copy())
+            if not groups:
+                args.ping_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.ping_groups, candela_apis)
+                args.ping_device_list = ','.join(val_list)
+
         elif test == "ftp_test":
-            args.ftp_device_list = ','.join(candela_apis.device_list.copy())
+            if not groups:
+                args.ftp_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.ftp_groups, candela_apis)
+                args.ftp_device_list = ','.join(val_list)
+
         elif test == "thput_test":
-            args.thput_device_list = ','.join(candela_apis.device_list.copy())
+            if not groups:
+                args.thput_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.thput_groups, candela_apis)
+                args.thput_device_list = ','.join(val_list)
+
         elif test == "qos_test":
-            args.qos_device_list = ','.join(candela_apis.device_list.copy())
+            if not groups:
+                args.qos_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.qos_groups, candela_apis)
+                args.qos_device_list = ','.join(val_list)
+
         elif test == "vs_test":
-            args.vs_device_list = ','.join(candela_apis.device_list.copy())
+            if not groups:
+                args.vs_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.vs_groups, candela_apis)
+                args.vs_device_list = ','.join(val_list)
+
         elif test == "mcast_test":
-            args.mcast_device_list = ','.join(candela_apis.device_list.copy())
+            if not groups:
+                args.mcast_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.mcast_groups, candela_apis)
+                args.mcast_device_list = ','.join(val_list)
+
         elif test == "yt_test":
-            args.yt_device_list = ','.join(candela_apis.device_list.copy())
+            if not groups:
+                args.yt_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.yt_groups, candela_apis)
+                args.yt_device_list = ','.join(val_list)
+
         elif test == "rb_test":
-            args.rb_device_list = ','.join(candela_apis.device_list.copy())
+            if not groups:
+                args.rb_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.rb_groups, candela_apis)
+                args.rb_device_list = ','.join(val_list)
+
         elif test == "zoom_test":
-            args.zoom_device_list = ','.join(candela_apis.device_list.copy())
+            if not groups:
+                args.zoom_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.zoom_groups, candela_apis)
+                args.zoom_device_list = ','.join(val_list)
     return args
 
 def validate_args_config(args):
@@ -9968,6 +10055,18 @@ def main():
     parser.add_argument("--common", action="store_true", help="Specify for configuring the devices")
     parser.add_argument('--result_path', help="Specify the result dir to store the runtime logs <Do not use in CLI, --used by webui>", default=None)
     parser.add_argument("--auto_create", action="store_true", help="used to auto create result path id doesn't exist when --result_path given")
+    
+    parser.add_argument('--ping_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    parser.add_argument('--http_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    parser.add_argument('--ftp_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    parser.add_argument('--qos_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    parser.add_argument('--thpt_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    parser.add_argument('--mcast_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    parser.add_argument('--rb_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    parser.add_argument('--zoom_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    parser.add_argument('--yt_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    parser.add_argument('--vs_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    
     args = parser.parse_args()
     if args.iot_test:
         iot_ip = args.iot_ip
@@ -9991,7 +10090,8 @@ def main():
         exit(0)
     if args.query_devices:
         print("hiii")
-        resource_stats = DeviceConfig.DeviceConfig(args.mgr,args.mgr_port,args.config_wait_time)
+        # resource_stats = DeviceConfig.DeviceConfig(args.mgr,args.mgr_port,args.config_wait_time,file_name=args.file_name)
+        resource_stats = DeviceConfig.DeviceConfig(lanforge_ip=args.mgr,port=args.mgr_port,wait_time=args.config_wait_time,file_name="grp61")
         all_devices = resource_stats.get_all_devices()
         # resource_stats.display_available_devices(all_devices)
         available_df = resource_stats.display_available_devices(all_devices)
@@ -10007,8 +10107,11 @@ def main():
                 else:
                     name_to_res[device["serial"]] =  device["shelf"] + '.' + device["resource"]
                     res_to_name[device["shelf"] + '.' + device["resource"]] = device["serial"]
+            print("name to res",name_to_res)
+            print("res to name",res_to_name)
             filtered_dev_list,remarks_df = resource_stats.filter_device_list(dev_list, name_to_res, res_to_name)
             print("Entered device list:", dev_list)
+            print("fil list",filtered_dev_list)
             print(tabulate(remarks_df, headers='keys', tablefmt='fancy_grid'))
         exit(0)
     
@@ -10149,7 +10252,8 @@ def main():
             ordered_series_tests = args.series_tests.split(',')
             if args.device_list or (args.file_name and args.group_name and args.profile_name):
                 args = update_device_list(args,ordered_series_tests,candela_apis)
-            
+                # print("Args",args)
+                # exit(0)
             # ordered_parallel_tests = args.parallel_tests.split(',')
             # phase 1
             if args.dowebgui:
@@ -10206,6 +10310,8 @@ def main():
                 ordered_parallel_tests = temp_ord_list.copy()
             if args.device_list or (args.file_name and args.group_name and args.profile_name):
                 args = update_device_list(args,ordered_parallel_tests,candela_apis)
+                # print("Args",args)
+                # exit(0)
             for idx, test_name in enumerate(ordered_parallel_tests):
                 test_name = test_name.strip().lower()
                 if test_name in test_map:
@@ -10219,13 +10325,10 @@ def main():
                         # candela_apis.parallel_connect[idx] = [test_name,parent_conn,child_conn]
                         if test_name == "rb_test":
                             candela_apis.rb_obj_dict["parallel"]["rb_test"] = manager.dict({"obj": None, "data": None})
-                            print('hiii data',candela_apis.rb_obj_dict)
                         elif test_name == "yt_test":
                             candela_apis.yt_obj_dict["parallel"]["yt_test"] = manager.dict({"obj": None, "data": None})
-                            print('hiii data',candela_apis.yt_obj_dict)
                         elif test_name == "zoom_test":
                             candela_apis.zoom_obj_dict["parallel"]["zoom_test"] = manager.dict({"obj": None, "data": None})
-                            print('hiii data',candela_apis.zoom_obj_dict) 
                         parallel_threads.append(multiprocessing.Process(target=run_test_safe(func, f"{label} [Parallel {idx+1}]", args, candela_apis,duration_dict[test_name])))
                     else:                 
                         parallel_threads.append(threading.Thread(
