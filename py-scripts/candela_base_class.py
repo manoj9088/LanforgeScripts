@@ -4701,7 +4701,7 @@ class Candela(Realm):
                 # upstream_port = "10.253.8.126"
                 self.zoom_test_obj = ZoomAutomation(audio=audio, video=video, lanforge_ip=lanforge_ip, wait_time=wait_time, testname=testname,
                                                 upstream_port=upstream_port, config=config, selected_groups=selected_groups, selected_profiles=selected_profiles,
-                                                ,api_stats_collection=api_stats_collection,participants_req=participants,
+                                                api_stats_collection=api_stats_collection,participants_req=participants,
                                                 signin_email=signin_email,signin_passwd=signin_passwd,duration=duration)
                 upstream_port = self.zoom_test_obj.change_port_to_ip(upstream_port)
                 realdevice = RealDevice(manager_ip=lanforge_ip,
