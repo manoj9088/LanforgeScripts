@@ -4672,7 +4672,12 @@ class Candela(Realm):
         expected_passfail_value: str = None,
         device_csv_name: str = None,
         config: bool = False,
-        exec_type: str = None
+        exec_type: str = None,
+        api_stats_collection: bool = False,
+        env_file: str = None,
+        account_id: str = None,
+        client_id: str = None,
+        client_secret: str = None
     ):
         try:
             lanforge_ip = self.lanforge_ip
@@ -4695,7 +4700,9 @@ class Candela(Realm):
 
                 # upstream_port = "10.253.8.126"
                 self.zoom_test_obj = ZoomAutomation(audio=audio, video=video, lanforge_ip=lanforge_ip, wait_time=wait_time, testname=testname,
-                                                upstream_port=upstream_port, config=config, selected_groups=selected_groups, selected_profiles=selected_profiles)
+                                                upstream_port=upstream_port, config=config, selected_groups=selected_groups, selected_profiles=selected_profiles,
+                                                ,api_stats_collection=api_stats_collection,participants_req=participants,
+                                                signin_email=signin_email,signin_passwd=signin_passwd,duration=duration)
                 upstream_port = self.zoom_test_obj.change_port_to_ip(upstream_port)
                 realdevice = RealDevice(manager_ip=lanforge_ip,
                                         server_ip="192.168.1.61",
@@ -4866,43 +4873,72 @@ class Candela(Realm):
                 if not self.zoom_test_obj.check_tab_exists():
                     logging.error('Generic Tab is not available.\nAborting the test.')
                     return False
-                self.zoom_test_obj.run(duration, upstream_port, signin_email, signin_passwd, participants)
+
+                self.zoom_test_obj.handle_flask_server()
+                self.zoom_test_obj.get_resource_data()
+                self.zoom_test_obj.get_ports_data()
+                self.zoom_test_obj.get_interop_data()
+
+                if api_stats_collection:
+                    if env_file:
+                        if os.path.exists(env_file):
+                            load_dotenv(env_file)
+                            print(f"Loaded environment variables from {env_file}")
+                        else:
+                            raise FileNotFoundError(f"Environment file {env_file} not found.")
+
+                    # Fetching zoom credentials for account
+                    self.zoom_test_obj.account_id = account_id or os.environ.get(
+                        "ACCOUNT_ID"
+                    )
+                    self.zoom_test_obj.client_id = client_id or os.environ.get(
+                        "CLIENT_ID"
+                    )
+                    self.zoom_test_obj.client_secret = client_secret or os.environ.get(
+                        "CLIENT_SECRET"
+                    )
+
+                    if not all(
+                        [
+                            self.zoom_test_obj.account_id,
+                            self.zoom_test_obj.client_id,
+                            self.zoom_test_obj.client_secret,
+                        ]
+                    ):
+                        logger.info("Exiting test.")
+                        raise ValueError(
+                            "Missing Zoom API credentials. Please provide ACCOUNT_ID, CLIENT_ID, and CLIENT_SECRET as environment variables or through function arguments."
+                        )
+                if self.robot_test:
+                    self.zoom_test_obj.report_path_date_time = os.path.join(os.getcwd() , "zoom_test_results")
+                    self.zoom_test_obj.run_robo_test()
+                else:
+                    self.zoom_test_obj.run()
+                    # self.zoom_test_obj.run(duration, upstream_port, signin_email, signin_passwd, participants)
+
                 self.zoom_test_obj.data_store.clear()
-                self.zoom_test_obj.generate_report()
+                if not api_stats_collection:
+                    self.zoom_test_obj.generate_report()
                 logging.info("Test Completed Sucessfully")
         except Exception as e:
             logging.error(f"AN ERROR OCCURED WHILE RUNNING TEST {e}")
             # traceback.print_exc()
         finally:
             if not ('--help' in sys.argv or '-h' in sys.argv):
-                if do_webUI:
-                    try:
-                        url = f"http://{lanforge_ip}:5454/update_status_yt"
-                        headers = {
-                            'Content-Type': 'application/json',
-                        }
-
-                        data = {
-                            'status': 'Completed',
-                            'name': testname
-                        }
-
-                        response = requests.post(url, json=data, headers=headers)
-
-                        if response.status_code == 200:
-                            logging.info("Successfully updated STOP status to 'Completed'")
-                            pass
-                        else:
-                            logging.error(f"Failed to update STOP status: {response.status_code} - {response.text}")
-
-                    except Exception as e:
-                        # Print an error message if an exception occurs during the request
-                        logging.error(f"An error occurred while updating status: {e}")
-
-                self.zoom_test_obj.redis_client.set('login_completed', 0)
+                
+                # self.zoom_test_obj.redis_client.set('login_completed', 0)
                 self.zoom_test_obj.stop_signal = True
+                logger.info("Waiting for Browser Cleanup in Laptops")
+                time.sleep(10)
                 self.zoom_test_obj.app = None
-                self.zoom_test_obj.redis_client = None
+                if self.zoom_test_obj.do_webui:
+                    self.zoom_test_obj.stop_webui()
+                
+                if self.robot_test and api_stats_collection:
+                    self.zoom_test_obj.generate_report_from_data()
+                elif api_stats_collection:
+                    self.zoom_test_obj.generate_report_from_api()
+                # self.zoom_test_obj.redis_client = None
                 if self.dowebgui:
                     self.webgui_test_done("zoom")
                 if self.current_exec == "parallel":
@@ -9856,6 +9892,11 @@ def main():
     parser.add_argument("--zoom_pk_passwd", type=str, default='NA', help='Specify the password for the private key')
     parser.add_argument("--zoom_pac_file", type=str, default='NA', help='Specify the pac file name')
     parser.add_argument("--zoom_wait_time", type=int, help='Specify the maximum time to wait for Configuration', default=60)
+    parser.add_argument("--api_stats_collection", action="store_true", help='Specify if using business account to get the stats using api')
+    parser.add_argument("--account_id", help="Zoom Account ID")
+    parser.add_argument("--client_id", help="Zoom Client ID")
+    parser.add_argument("--client_secret", help="Zoom Client Secret")
+    parser.add_argument("--env_file", type=str, default='.env', help='Path to .env file for credentials')
     
 
     parser.add_argument('--iot_test', help="If true will execute script for iot", action='store_true')
@@ -10850,6 +10891,11 @@ def run_zoom_test(args, candela_apis):
         do_webUI= args.dowebgui,
         report_dir= args.result_dir,
         testname= args.test_name,
+        env_file=args.env_file,
+        api_stats_collection=args.api_stats_collection,
+        client_id=args.client_id,
+        client_secret=args.client_secret,
+        account_id=args.account_id,
     )
 # def browser_cleanup(args,candela_apis):
 #     return candela_apis.browser_cleanup(args)
