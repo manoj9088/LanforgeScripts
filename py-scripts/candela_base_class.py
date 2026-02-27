@@ -34,6 +34,7 @@ import json
 import traceback
 from types import SimpleNamespace
 import matplotlib
+from dotenv import load_dotenv
 import csv
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -9631,6 +9632,9 @@ def update_device_list(args,tests,candela_apis):
         elif test == "teams_test":
             if not groups:
                 args.teams_device_list = ','.join(candela_apis.device_list.copy())
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.teams_groups, candela_apis)
+                args.teams_device_list = ','.join(val_list)
             
     return args
 
@@ -10309,6 +10313,7 @@ def main():
     parser.add_argument('--mcast_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
     parser.add_argument('--rb_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
     parser.add_argument('--zoom_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+    parser.add_argument('--teams_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
     parser.add_argument('--yt_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
     parser.add_argument('--vs_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
     
