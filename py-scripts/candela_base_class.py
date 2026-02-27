@@ -54,12 +54,14 @@ video_streaming_test=importlib.import_module("py-scripts.lf_interop_video_stream
 web_browser_test=importlib.import_module("py-scripts.real_application_tests.real_browser.lf_interop_real_browser_test")
 zoom_test=importlib.import_module("py-scripts.real_application_tests.zoom_automation.lf_interop_zoom")
 yt_test=importlib.import_module("py-scripts.real_application_tests.youtube.lf_interop_youtube")
+teams_test=importlib.import_module("py-scripts.real_application_tests.teams_automation.lf_interop_teams")
 lf_report_pdf = importlib.import_module("py-scripts.lf_report")
 lf_logger_config = importlib.import_module("py-scripts.lf_logger_config")
 logger = logging.getLogger(__name__)
 RealBrowserTest = getattr(web_browser_test, "RealBrowserTest")
 Youtube = getattr(yt_test, "Youtube")
 ZoomAutomation = getattr(zoom_test, "ZoomAutomation")
+TeamsAutomation = getattr(teams_test, "TeamsAutomation")
 DeviceConfig=importlib.import_module("py-scripts.DeviceConfig")
 # from py_scripts import lf_logger_config, interop_connectivity
 # Saved working directory and index state WIP on test_base_class: 3f3a21f5 minor change
@@ -190,6 +192,7 @@ class Candela(Realm):
         self.mcast_obj_dict = {"parallel":{},"series":{}}
         self.rb_obj_dict = {"parallel":{},"series":{}}
         self.yt_obj_dict = {"parallel":{},"series":{}}
+        self.teams_obj_dict = {"parallel":{},"series":{}}
         self.zoom_obj_dict = {"parallel":{},"series":{}}
         self.vs_obj_dict = {"parallel":{},"series":{}}
         self.rb_obj_dict = manager.dict({
@@ -475,7 +478,7 @@ class Candela(Realm):
         ssh.close()
 
 
-    def misc_clean_up(self,layer3=False,layer4=False,generic=False,port_5000=False,port_5002=False,port_5003=False):
+    def misc_clean_up(self,layer3=False,layer4=False,generic=False,port_5000=False,port_5002=False,port_5003=False,port_5005=False):
         """
         Use for the cleanup of cross connections
         arguments:
@@ -497,7 +500,7 @@ class Candela(Realm):
                         self.generic_endps_profile.created_cx.append('CX_' + list(i.values())[0]['name'])
                         self.generic_endps_profile.created_endp.append(list(i.values())[0]['name'])
             self.generic_endps_profile.cleanup()
-        # if port_5000 or port_5002 or port_5003:
+        # if port_5000 or port_5002 or port_5003 or port_5005:
         #     print('port cleanup......')
         #     time.sleep(5)
         #     hostname = self.lanforge_ip
@@ -510,6 +513,9 @@ class Candela(Realm):
         #         ports.append(5000)
         #     if port_5002:
         #         ports.append(5002)
+        #     if port_5005:
+        #         ports.append(5005)
+        
         #     # ssh = paramiko.SSHClient()
         #     # ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         #     # ssh.connect(hostname, username=username, password=password)
@@ -4955,6 +4961,79 @@ class Candela(Realm):
 
         return True
 
+    def run_teams_test(
+            self,
+        duration: int,
+        participants_req: int,
+        audio: bool = False,
+        video: bool = False,
+        upstream_port: str = 'NA',
+        resource_list: str = None,
+        do_webUI: bool = False,
+        report_dir: str = None,
+        testname: str = None
+    ):
+        try:
+            lanforge_ip = self.lanforge_ip
+            if self.dowebgui:
+                if not self.webgui_stop_check("teams"):
+                    return False
+            if True:
+                self.teams_test_obj = TeamsAutomation(audio=audio, video=video, lanforge_ip=lanforge_ip, test_name=testname, duration=duration,participants_req=participants_req, upstream_port=upstream_port, do_webui=do_webUI, report_dir=report_dir)
+                self.port_clean_up(5005)
+                upstream_port_teams=self.teams_test_obj.change_port_to_ip(upstream_port)
+                self.teams_test_obj.upstream_port=upstream_port_teams
+                self.teams_test_obj.realdevice = RealDevice(manager_ip=lanforge_ip,
+                                                            server_ip="",
+                                                            ssid_2g='Test Configured',
+                                                            passwd_2g='',
+                                                            encryption_2g='',
+                                                            ssid_5g='Test Configured',
+                                                            passwd_5g='',
+                                                            encryption_5g='',
+                                                            ssid_6g='Test Configured',
+                                                            passwd_6g='',
+                                                            encryption_6g='',
+                                                            selected_bands=['5G'])
+                self.teams_test_obj.select_real_devices(real_sta_list=resource_list)
+                if do_webUI:
+                    self.teams_test_obj.path = report_dir
+                    self.teams_test_obj.update_webui_data()
+                self.teams_test_obj.load_credentials()
+                self.teams_test_obj.run()
+                time.sleep(10)
+                self.teams_test_obj.create_avg_data()
+                self.teams_test_obj.execute_finally = True
+            
+        except Exception as e:
+            logging.error(f"AN ERROR OCCURED WHILE RUNNING TEST {e}")
+            traceback.print_exc()
+        finally:
+            if not ("--help" in sys.argv or "-h" in sys.argv):
+                if self.teams_test_obj.execute_finally:
+                    self.teams_test_obj.app = None
+                    self.teams_test_obj.stop_signal = True
+                    self.teams_test_obj.generate_report()
+                    self.teams_test_obj.move_csv_files()
+                    if do_webUI:
+                        self.webgui_test_done("teams")
+                        self.teams_test_obj.stop_test_in_webui()
+                    if self.current_exec == "parallel":
+                        self.teams_obj_dict["parallel"]["teams_test"]["obj"] =self.teams_test_obj
+                    else:
+                        for i in range(len(self.teams_obj_dict["series"])):
+                            if self.teams_obj_dict["series"][f"teams_test_{i+1}"]["obj"] is None:
+                                self.teams_obj_dict["series"][f"teams_test_{i+1}"]["obj"] = self.teams_test_obj
+                                break
+                    logger.info("Waiting for Browser Cleanup at Client Side")
+                    if not self.teams_test_obj.no_post_cleanup:
+                        self.teams_test_obj.generic_endps_profile.cleanup()
+                    time.sleep(10)
+                    logger.info("Browser Cleanup Completed")
+                    logger.info("Test Completed")
+        return True
+                
+
 
     def run_rb_test1(self,args):
         try:
@@ -8934,7 +9013,159 @@ class Candela(Realm):
                             obj_name = f"zoom_test_{obj_no}"
                         else:
                             break
-            
+
+                elif test_name == "teams_test":
+                    obj_no = 1
+                    obj_name = "teams_test"
+                    if ce == "series":
+                        obj_name += "_1"
+                    while obj_name in self.teams_obj_dict[ce]:
+                        if ce == "parallel":
+                            obj_no = ''
+                        self.overall_report.set_obj_html(_obj_title=f'TEAMS Test {obj_no}', _obj="")
+                        self.overall_report.build_objective()
+                        self.overall_report.set_table_title("Test Parameters:")
+                        self.overall_report.build_table_title()
+                        testtype = ""
+                        if self.teams_obj_dict[ce][obj_name]["obj"].audio and self.teams_obj_dict[ce][obj_name]["obj"].video:
+                            testtype = "AUDIO & VIDEO"
+                        elif self.teams_obj_dict[ce][obj_name]["obj"].audio:
+                            testtype = "AUDIO"
+                        elif self.teams_obj_dict[ce][obj_name]["obj"].video:
+                            testtype = "VIDEO"
+                        test_parameters = pd.DataFrame([{
+
+                            'No of Clients': f'W({self.teams_obj_dict[ce][obj_name]["obj"].windows}),L({self.teams_obj_dict[ce][obj_name]["obj"].linux}),M({self.teams_obj_dict[ce][obj_name]["obj"].mac})',
+                            'Test Duration(min)': self.teams_obj_dict[ce][obj_name]["obj"].duration,
+                            "HOST": self.teams_obj_dict[ce][obj_name]["obj"].real_sta_list[0],
+                            "TEST TYPE": testtype
+
+                        }])
+                        self.overall_report.set_table_dataframe(test_parameters)
+                        self.overall_report.build_table()
+
+                        # Read per-device average metrics
+                        print("Reading teams_call_avg_data.csv",os.getcwd())
+                        df = pd.read_csv(os.path.join(self.teams_obj_dict[ce][obj_name]["obj"].report_path_date_time,"teams_call_avg_data.csv"))
+                        df.columns = df.columns.str.strip()
+
+                        self.overall_report.set_table_title("Test Devices:")
+                        self.overall_report.build_table_title()
+
+                        device_details = pd.DataFrame({
+                            'Hostname': self.teams_obj_dict[ce][obj_name]["obj"].real_sta_hostname,
+                            'OS Type': self.teams_obj_dict[ce][obj_name]["obj"].real_sta_os_types,
+                        })
+                        self.overall_report.set_table_dataframe(device_details)
+                        self.overall_report.build_table()
+                        if self.teams_obj_dict[ce][obj_name]["obj"].audio:
+                            metrics = [
+                                ("Audio RTT(ms)", "Audio RTT (ms)"),
+                                ("Received Audio Jitter(ms)", "Received Audio Jitter (ms)"),
+                                ("Sent Audio bitrate(Kbps)", "Sent Audio Bitrate (Kbps)"),
+                            ]
+
+                        if self.teams_obj_dict[ce][obj_name]["obj"].video:
+                            # Create bar graphs for each metric
+                            metrics = [
+                                ("Sent video bitrate(Mbps)", "Sent Video Bitrate (Mbps)"),
+                                ("Received video bitrate(Mbps)", "Received Video Bitrate (Mbps)"),
+                                ("sent video packets", "Sent Video Packets"),
+                            ]
+                        if self.teams_obj_dict[ce][obj_name]["obj"].audio and self.teams_obj_dict[ce][obj_name]["obj"].video:
+                            # Create bar graphs for each metric
+                            metrics = [
+                                ("Audio RTT(ms)", "Audio RTT (ms)"),
+                                ("Received Audio Jitter(ms)", "Received Audio Jitter (ms)"),
+                                ("Sent Audio bitrate(Kbps)", "Sent Audio Bitrate (Kbps)"),
+                                ("Sent video bitrate(Mbps)", "Sent Video Bitrate (Mbps)"),
+                                ("Received video bitrate(Mbps)", "Received Video Bitrate (Mbps)"),
+                                ("sent video packets", "Sent Video Packets"),
+                            ]
+                        for column, title in metrics:
+                            self.overall_report.set_graph_title(f"Average {title}")
+                            self.overall_report.build_graph_title()
+
+                            bar_graph_horizontal = lf_bar_graph_horizontal(
+                                _data_set=[df[column].tolist()],
+                                _xaxis_name=f"AVG {title}",
+                                _yaxis_name="Devices",
+                                _yaxis_label=df["Device Name"].tolist(),
+                                _yaxis_categories=df["Device Name"].tolist(),
+                                _yaxis_step=1,
+                                _yticks_font=8,
+                                _bar_height=.25,
+                                _color_name=["orange"],
+                                _show_bar_value=True,
+                                _figsize=(16, len(df) * 1 + 4),
+                                _graph_title=f"AVG {title} Per Device",
+                                _graph_image_name=title.replace(" ", "_"),
+                                _label=[title]
+                            )
+                            graph_image = bar_graph_horizontal.build_bar_graph_horizontal()
+                            self.overall_report.set_graph_image(graph_image)
+                            self.overall_report.move_graph_image()
+                            self.overall_report.build_graph()
+                        if self.teams_obj_dict[ce][obj_name]["obj"].audio:
+                            selected_columns = [
+                                "Device Name",
+                                "Sent Audio bitrate(Kbps)",
+                                "Sent Audio Packets",
+                                "Audio RTT(ms)",
+                                "Received Audio Jitter(ms)",
+                                "Receievd Audio Packet Loss(%)",
+                            ]
+
+                            column_headings = {
+                                "Device Name": "Device Name",
+                                "Sent Audio bitrate(Kbps)": "AVG Sent Audio Bitrate (Kbps)",
+                                "Sent Audio Packets": "AVG Sent Audio Packets",
+                                "Audio RTT(ms)": "AVG Audio RTT (ms)",
+                                "Received Audio Jitter(ms)": "AVG Received Audio Jitter (ms)",
+                                "Receievd Audio Packet Loss(%)": "AVG Received Audio Packet Loss (%)",
+                            }
+
+                            filtered_df = df[selected_columns].rename(columns=column_headings)
+
+                            self.overall_report.set_table_title("Test Audio Results Table")
+                            self.overall_report.build_table_title()
+                            self.overall_report.set_table_dataframe(filtered_df)
+                            self.overall_report.build_table()
+
+                        if self.teams_obj_dict[ce][obj_name]["obj"].video:
+                            selected_columns = [
+                                "Device Name",
+                                "Sent video bitrate(Mbps)",
+                                "Received video bitrate(Mbps)",
+                                "Sent video frame rate(fps)",
+                                "video RTT (ms)",
+                                "sent video packets",
+                            ]
+
+                            column_headings = {
+                                "Device Name": "Device Name",
+                                "Sent video bitrate(Mbps)": "AVG Sent Video Bitrate (Mbps)",
+                                "Received video bitrate(Mbps)": "AVG Received Video Bitrate (Mbps)",
+                                "Sent video frame rate(fps)": "AVG Sent Video Frame Rate (fps)",
+                                "video RTT (ms)": "AVG Video RTT (ms)",
+                                "sent video packets": "AVG Sent Video Packets",
+                            }
+
+                            filtered_df = df[selected_columns].rename(columns=column_headings)
+
+                            self.overall_report.set_table_title("Test Video Results Table")
+                            self.overall_report.build_table_title()
+                            self.overall_report.set_table_dataframe(filtered_df)
+                            self.overall_report.build_table()
+                        
+                        self.overall_report.write_html()
+                        self.overall_report.write_pdf()
+                        if ce == "series":
+                            obj_no += 1
+                            obj_name = f"zoom_test_{obj_no}"
+                        else:
+                            break
+
             except Exception as e:
                 logger.info(f"failed to generate report for {test_name} {e}")
 
@@ -9397,6 +9628,10 @@ def update_device_list(args,tests,candela_apis):
             else:
                 val_list = return_valid_grp_list(group_resource_list, args.zoom_groups, candela_apis)
                 args.zoom_device_list = ','.join(val_list)
+        elif test == "teams_test":
+            if not groups:
+                args.teams_device_list = ','.join(candela_apis.device_list.copy())
+            
     return args
 
 def validate_args_config(args):
@@ -10024,6 +10259,16 @@ def main():
     parser.add_argument('--query_devices', action="store_true",  help='mcast_test consists')
     parser.add_argument("--config_wait_time", type=int, help='Specify the maximum time to wait for Configuration', default=60)
 
+    # Teams Automation
+    parser.add_argument('--teams_test',
+                          action="store_true",
+                          help='teams_test consists')
+    parser.add_argument('--teams_duration', type=int, help='duration to run the test in min', required=True)
+    parser.add_argument('--teams_participants', type=int, help='No of Devices in the test', required=True)
+    parser.add_argument('--teams_device_list', help='Specify the real device ports seperated by comma')
+    parser.add_argument('--teams_audio', action='store_true')
+    parser.add_argument('--teams_video', action='store_true')
+
     #whole config
     parser.add_argument('--group_name', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2')
     parser.add_argument('--profile_name', type=str, help='Specify the profile name to apply configurations to the devices.')
@@ -10156,6 +10401,7 @@ def main():
     "yt_test":     (run_yt_test, "YOUTUBE TEST"),
     "rb_test":     (run_rb_test, "REAL BROWSER TEST"),
     "zoom_test":   (run_zoom_test, "ZOOM TEST"),
+    "teams_test":  (run_teams_test, "TEAMS TEST")
     }
 
 
@@ -10197,7 +10443,7 @@ def main():
                 duration_dict[test] = validate_time(args_dict[f"{test}_duration"])
             elif test == "mcast_test":
                 duration_dict[test] = validate_time(args_dict[f"{test.split('_')[0]}_test_duration"])
-            elif test == "ping_test" or test == "zoom_test":
+            elif test == "ping_test" or test == "zoom_test" or test == "teams_test":
                 duration_dict[test] = "{} mins".format(args_dict["{}_duration".format(test.split('_')[0])])
             else:
                 duration_dict[test] = validate_time(args_dict[f"{test.split('_')[0]}_duration"])
@@ -10207,7 +10453,7 @@ def main():
                 duration_dict[test] = validate_time(args_dict[f"{test}_duration"])
             elif test == "mcast_test":
                 duration_dict[test] = validate_time(args_dict[f"{test.split('_')[0]}_test_duration"])
-            elif test == "ping_test" or test == "zoom_test":
+            elif test == "ping_test" or test == "zoom_test" or test == "teams_test":
                 duration_dict[test] = "{} mins".format(args_dict["{}_duration".format(test.split('_')[0])])
             else:
                 duration_dict[test] = validate_time(args_dict[f"{test.split('_')[0]}_duration"])
@@ -10236,9 +10482,10 @@ def main():
     iszoom = 'zoom_test' in tests_to_run_parallel or 'zoom_test' in tests_to_run_series
     isrb = 'rb_test' in tests_to_run_parallel or 'rb_test' in tests_to_run_series
     isyt = 'yt_test' in tests_to_run_parallel or 'yt_test' in tests_to_run_series
+    isteams = 'teams_test' in tests_to_run_parallel or 'teams_test' in tests_to_run_series
     candela_apis.series_tests = tests_to_run_series
     candela_apis.parallel_tests = tests_to_run_parallel
-    candela_apis.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb)
+    candela_apis.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams)
     if args.series_tests or args.parallel_tests:
         series_threads = []
         parallel_threads = []
@@ -10257,7 +10504,7 @@ def main():
             # ordered_parallel_tests = args.parallel_tests.split(',')
             # phase 1
             if args.dowebgui:
-                gen_order = ["ping_test","qos_test","ftp_test","http_test","mcast_test","vs_test","thput_test","yt_test","rb_test","zoom_test"]
+                gen_order = ["ping_test","qos_test","ftp_test","http_test","mcast_test","vs_test","thput_test","yt_test","rb_test","zoom_test","teams_test"]
                 temp_ord_list = []
                 for test_name in gen_order:
                     if test_name in ordered_series_tests:
@@ -10268,7 +10515,7 @@ def main():
                 if test_name in test_map:
                     func, label = test_map[test_name]
                     args.current = "series"
-                    if test_name in ['rb_test','zoom_test','yt_test']:
+                    if test_name in ['rb_test','zoom_test','yt_test','teams_test']:
                         if test_name == "rb_test":
                             obj_no = 1
                             while f"rb_test_{obj_no}" in candela_apis.rb_obj_dict["series"]:
@@ -10289,6 +10536,12 @@ def main():
                             obj_name = f"zoom_test_{obj_no}"
                             candela_apis.zoom_obj_dict["series"][obj_name] = manager.dict({"obj":None,"data":None})
                             print('hiii data',candela_apis.zoom_obj_dict)
+                        elif test_name == "teams_test":
+                            obj_no = 1
+                            while f"teams_test_{obj_no}" in candela_apis.teams_obj_dict["series"]:
+                                obj_no+=1
+                            obj_name = f"teams_test_{obj_no}"
+                            candela_apis.teams_obj_dict["series"][obj_name] = manager.dict({"obj":None,"data":None})
                         series_threads.append(multiprocessing.Process(target=run_test_safe(func, f"{label} [Series {idx+1}]", args, candela_apis,duration_dict[test_name])))
                     else:                 
                         series_threads.append(threading.Thread(
@@ -10302,7 +10555,7 @@ def main():
             ordered_parallel_tests = args.parallel_tests.split(',')
             #phase 1
             if args.dowebgui:
-                gen_order = ["ping_test","qos_test","ftp_test","http_test","mcast_test","vs_test","thput_test","yt_test","rb_test","zoom_test"]
+                gen_order = ["ping_test","qos_test","ftp_test","http_test","mcast_test","vs_test","thput_test","yt_test","rb_test","zoom_test","teams_test"]
                 temp_ord_list = []
                 for test_name in gen_order:
                     if test_name in ordered_parallel_tests:
@@ -10317,7 +10570,7 @@ def main():
                 if test_name in test_map:
                     func, label = test_map[test_name]
                     args.current = "parallel"
-                    if test_name in ['rb_test','zoom_test','yt_test']:
+                    if test_name in ['rb_test','zoom_test','yt_test','teams_test']:
                         # if test_name == "rb_test":
                             # candela_apis.rb_pipe_dict["parallel"][len(candela_apis.rb_pipe_dict["parallel"])] = {}
                             # candela_apis.rb_pipe_dict["parallel"][len(candela_apis.rb_pipe_dict["parallel"])]["parent"],candela_apis.rb_pipe_dict["parallel"][len(candela_apis.rb_pipe_dict["parallel"])]["child"] = multiprocessing.Pipe()
@@ -10329,6 +10582,8 @@ def main():
                             candela_apis.yt_obj_dict["parallel"]["yt_test"] = manager.dict({"obj": None, "data": None})
                         elif test_name == "zoom_test":
                             candela_apis.zoom_obj_dict["parallel"]["zoom_test"] = manager.dict({"obj": None, "data": None})
+                        elif test_name == "teams_test":
+                            candela_apis.teams_obj_dict["parallel"]["teams_test"] = manager.dict({"obj": None, "data": None})
                         parallel_threads.append(multiprocessing.Process(target=run_test_safe(func, f"{label} [Parallel {idx+1}]", args, candela_apis,duration_dict[test_name])))
                     else:                 
                         parallel_threads.append(threading.Thread(
@@ -10345,7 +10600,7 @@ def main():
         if args.dowebgui:
             # overall_path = os.path.join(args.result_dir, directory)
             candela_apis.overall_status = {"ping": "notstarted", "qos": "notstarted", "ftp": "notstarted", "http": "notstarted",
-                            "mc": "notstarted", "vs": "notstarted", "thput": "notstarted","rb": "notstarted","vs": "notstarted","zoom": "notstarted","yt": "notstarted", "time": datetime.datetime.now().strftime("%Y %d %H:%M:%S"), "status": "running", "current_mode":"tbd" , "current_test_name": "tbd"}
+                            "mc": "notstarted", "vs": "notstarted", "thput": "notstarted","rb": "notstarted","vs": "notstarted","zoom": "notstarted","yt": "notstarted","teams": "notstarted", "time": datetime.datetime.now().strftime("%Y %d %H:%M:%S"), "status": "running", "current_mode":"tbd" , "current_test_name": "tbd"}
             candela_apis.overall_csv.append(candela_apis.overall_status.copy())
             df1 = pd.DataFrame(candela_apis.overall_csv)
             df1.to_csv('{}/overall_status.csv'.format(args.result_dir), index=False)
@@ -10388,7 +10643,7 @@ def main():
             # Then run parallel tests
             if len(parallel_threads) != 0:
                 # candela_apis.misc_clean_up(layer3=False,layer4=False,generic=True)
-                candela_apis.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb)
+                candela_apis.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams)
                 print('starting parallel tests.......')
                 time.sleep(10)
             candela_apis.current_exec = "parallel"
@@ -10413,7 +10668,7 @@ def main():
             if len(series_threads) != 0:
                 rb_test = 'rb_test' in tests_to_run_parallel
                 yt_test = 'yt_test' in tests_to_run_parallel
-                candela_apis.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb)
+                candela_apis.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams)
                 print('starting Series tests.......')
                 time.sleep(5)
             candela_apis.current_exec="series"
@@ -10425,7 +10680,7 @@ def main():
         exit(1)
     rb_test = 'rb_test' in tests_to_run_parallel
     yt_test = 'yt_test' in tests_to_run_parallel
-    candela_apis.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb)
+    candela_apis.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams)
     log_file = save_logs()
     print(f"Logs saved to: {log_file}")
     test_results_df = pd.DataFrame(list(test_results_list))
@@ -10999,6 +11254,19 @@ def run_zoom_test(args, candela_apis):
         client_id=args.client_id,
         client_secret=args.client_secret,
         account_id=args.account_id,
+    )
+
+def run_teams_test(args, candela_apis):
+    return candela_apis.run_teams_test(
+        upstream_port=args.upstream_port,
+        duration=args.teams_duration,
+        participants_req=args.teams_participants,
+        audio=args.teams_audio,
+        video=args.teams_video,
+        resource_list=args.teams_device_list,
+        do_webUI=args.dowebgui,
+        report_dir=args.result_dir,
+        testname=args.test_name   
     )
 # def browser_cleanup(args,candela_apis):
 #     return candela_apis.browser_cleanup(args)
