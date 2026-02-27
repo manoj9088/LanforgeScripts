@@ -22,6 +22,7 @@ import lf_interop_qos as qos_test
 import lf_interop_ping as ping_test
 from lf_interop_throughput import Throughput
 from lf_interop_video_streaming import VideoStreamingTest
+from lf_interop_vlc import VLCStream
 # from lf_interop_real_browser_test import RealBrowserTest
 from test_l3 import L3VariableTime,change_port_to_ip,configure_reporting,query_real_clients,valid_endp_types
 from lf_kpi_csv import lf_kpi_csv
@@ -196,6 +197,7 @@ class Candela(Realm):
         self.teams_obj_dict = {"parallel":{},"series":{}}
         self.zoom_obj_dict = {"parallel":{},"series":{}}
         self.vs_obj_dict = {"parallel":{},"series":{}}
+        self.vlc_obj_dict = {"parallel":{},"series":{}}
         self.rb_obj_dict = manager.dict({
             "parallel": manager.dict(),
             "series": manager.dict()
@@ -5228,6 +5230,55 @@ class Candela(Realm):
         args.host = self.lanforge_ip
         return self.run_rb_test1(args)
     
+    def run_vlc_test(
+        self,
+        mcast_addr="239.255.0.1",
+        mcast_port="1234",
+        host_res=None,
+        video_name=None,
+        duration=60,
+        server_ip="0.0.0.0",
+        server_port=5959,
+        help_summary=None,
+        device_list=None
+    ):
+        device_list = device_list if device_list else []
+        ce = self.current_exec #seires
+        if ce == "parallel":
+            obj_name = "vlc_test"
+        else:
+            obj_no = 1
+            while f"vlc_test_{obj_no}" in self.vlc_obj_dict[ce]:
+                obj_no+=1 
+            obj_name = f"vlc_test_{obj_no}" 
+        mgr = self.lanforge_ip
+        vlc_stream_obj = VLCStream(manager_ip=mgr,mcast_addr=mcast_addr,mcast_port=mcast_port,video_name=video_name,host_res=host_res,duration=duration,fserver=server_ip,fport=server_port,device_list=device_list)
+        vlc_stream_obj.run_flask_server()
+        vlc_stream_obj.get_resource_data()
+        vlc_stream_obj.create()
+        vlc_stream_obj.start_generic()
+        print("starting test")
+        print(vlc_stream_obj.start_time)
+        start = datetime.datetime.now()
+        end = start + datetime.timedelta(seconds=duration)
+        while datetime.datetime.now()<end:
+            time.sleep(1)
+        time.sleep(20)
+
+        vlc_stream_obj.stop_generic()
+        print(vlc_stream_obj.stats)
+        vlc_stream_obj.app = None
+        if self.current_exec == "parallel":
+            self.vlc_obj_dict["parallel"]["vlc_test"]["obj"] =vlc_stream_obj
+        else:
+            for i in range(len(self.vlc_obj_dict["series"])):
+                if self.vlc_obj_dict["series"][f"vlc_test_{i+1}"]["obj"] is None:
+                    self.vlc_obj_dict["series"][f"vlc_test_{i+1}"]["obj"] = vlc_stream_obj
+                    break
+        vlc_stream_obj.create_report()
+        return True
+
+
     def browser_cleanup(self,rb_test=False,yt_test=False):
         # count = 0
         # series_tests = args.series_tests.split(',') if args.series_tests else None
@@ -9014,7 +9065,159 @@ class Candela(Realm):
                             obj_name = f"zoom_test_{obj_no}"
                         else:
                             break
+                        
+                elif test_name == "vlc_test":
+                    obj_no=1
+                    obj_name = "vlc_test"
+                    if ce == "series":
+                        obj_name += "_1"
+                    while obj_name in self.vlc_obj_dict[ce]:
+                        if ce == "parallel":
+                            obj_no = ''
+                        self.overall_report.set_obj_html(_obj_title=f'VLC Test {obj_no}', _obj="")
+                        self.overall_report.build_objective()
+                        test_setup_info = self.vlc_obj_dict[ce][obj_name]["obj"].generate_test_setup_info()
+                        self.overall_report.test_setup_table(test_setup_data=test_setup_info, value='Input Parameters')
 
+                        final_data = self.vlc_obj_dict[ce][obj_name]["obj"].extract_data_for_reporting_for_laptop_clients()
+                        android_data = self.vlc_obj_dict[ce][obj_name]["obj"].extract_data_for_reporting_for_android_clients()
+                        if len(final_data["hostnames"]) == 0:
+                            logging.info("No client data available for report generation.Continuing without client data.")
+                        else:
+                            self.overall_report.set_graph_title("Video Frames per Device")
+                            self.overall_report.build_graph_title()
+
+                            x_fig_size = 18
+                            y_fig_size = len(final_data["hostnames"]) * 1 + 4
+                            bar_graph_horizontal = lf_bar_graph_horizontal(
+                                _data_set=[[int(float(x)) for x in final_data["frames_lost"]],[int(float(x)) for x in final_data["frames_displayed"]]],
+                                _xaxis_name="No of Frames",
+                                _yaxis_name="Device Name",
+                                _yaxis_label=final_data["hostnames"],
+                                _yaxis_categories=final_data["hostnames"],
+                                _yaxis_step=1,
+                                _yticks_font=8,
+                                _bar_height=.20,
+                                _show_bar_value=True,
+                                _dpi=96,
+                                _figsize=(x_fig_size, y_fig_size),
+                                _graph_title="Video Frames Displayed/Lost per Device",
+                                _graph_image_name=f"video_frames_per_device",
+                                _label=["Frames Lost", "Frames Displayed"]
+                            )
+                            graph_image = bar_graph_horizontal.build_bar_graph_horizontal()
+                            self.overall_report.set_graph_image(graph_image)
+                            self.overall_report.move_graph_image()
+                            self.overall_report.build_graph()
+
+                            self.overall_report.set_graph_title("Audio Buffers Per Device")
+                            self.overall_report.build_graph_title()
+
+                            x_fig_size = 18
+                            y_fig_size = len(final_data["hostnames"]) * 1 + 4
+                            bar_graph_horizontal = lf_bar_graph_horizontal(
+                                _data_set=[[int(float(x)) for x in final_data["buffers_lost"]],[int(float(x)) for x in final_data["buffers_played"]]],
+                                _xaxis_name="No of Buffers",
+                                _yaxis_name="Device Name",
+                                _yaxis_label=final_data["hostnames"],
+                                _yaxis_categories=final_data["hostnames"],
+                                _yaxis_step=1,
+                                _yticks_font=8,
+                                _bar_height=.20,
+                                _show_bar_value=True,
+                                _figsize=(x_fig_size, y_fig_size),
+                                _graph_title="Audio Buffers Played/Lost Per Device",
+                                _graph_image_name=f"audio_buffers_per_device",
+                                _label=["Buffers Lost","Buffers Played",]
+                            )
+                            graph_image = bar_graph_horizontal.build_bar_graph_horizontal()
+                            self.overall_report.set_graph_image(graph_image)
+                            self.overall_report.move_graph_image()
+                            self.overall_report.build_graph()
+
+
+                            self.overall_report.set_table_title("Test Results For Clients(Laptops)")
+                            self.overall_report.build_table_title()
+                            self.overall_report.set_text("The table below provides detailed information of both the Audio and Video Playback statistics of laptop device acting as clients.")
+                            self.overall_report.build_text_simple()
+                            final_test_results = {
+
+                                "Device Name": final_data["hostnames"],
+                                "Device Type": final_data["device_types"],
+                                "MAC Address": final_data["mac"],
+                                "Channel": final_data["channel"],
+                                "RSSI": final_data["rssi"],
+                                "Link Rate": final_data["link"],
+                                "Video Decoded ": final_data["video_decoded"],
+                                "Frames Displayed ": final_data["frames_displayed"],
+                                "Frames Lost ": final_data["frames_lost"],
+                                "Audio Decoded ": final_data["audio_decoded"],
+                                "Buffers Played ": final_data["buffers_played"],
+                                "Buffers Lost ": final_data["buffers_lost"],
+                            }
+
+                            test_results_df = pd.DataFrame(final_test_results)
+                            self.overall_report.set_table_dataframe(test_results_df)
+                            self.overall_report.build_table()
+                        if len(android_data["hostnames"]) == 0:
+                            logging.info("No Android client data available for report generation.Continuing without Android client data.")
+                        else:    
+                            self.overall_report.set_table_title("Test Results For Clients(Androids)")
+                            self.overall_report.build_table_title()
+                            
+                            android_test_results = {
+
+                                "Device Name": android_data["hostnames"],
+                                "Device Type": android_data["device_types"],
+                                "MAC Address": android_data["mac"],
+                                "Channel": android_data["channel"],
+                                "RSSI": android_data["rssi"],
+                                "Link Rate": android_data["link"],
+                                "Video Codec": android_data["video_codec"],
+                                "Audio Codec": android_data["audio_codec"],
+                                "Audio Channels": android_data["audio_channels"],
+                                "Audio Sample Rate (Hz)": android_data["audio_sample_rate"],
+                                "Demux Bitrate (kb/s)": android_data["demux_bitrate"],
+                                "Input Bitrate (kb/s)": android_data["input_bitrate"],
+                            }
+
+                            android_test_results_df = pd.DataFrame(android_test_results)
+                            android_test_results_df = android_test_results_df.fillna("None")
+
+                            self.overall_report.set_table_dataframe(android_test_results_df)
+                            self.overall_report.build_table()
+
+                            self.overall_report.set_text("NOTE: VLC statistics on Android devices show audio parameters such as channel count and" +
+                            " sample rate as zero due to Media Codec limitations in Android. This behavior is application-specific and " +
+                            "does not indicate an issue with audio decoding or streaming quality.")
+                            self.overall_report.build_text_simple()
+                        if self.vlc_obj_dict[ce][obj_name]["obj"].host_res:
+                            self.overall_report.set_table_title("Test Result For Host")
+                            self.overall_report.build_table_title()
+                            report_data = self.vlc_obj_dict[ce][obj_name]["obj"].extract_data_for_reporting_for_host()
+
+                            for i in range(len(report_data["hostnames"])):
+                                device_info = {
+                                    "Device Name": report_data["hostnames"][i],
+                                    "Device Type": report_data["device_types"][i],
+                                    "Mac Address": report_data["mac"][i],
+                                    "Channel": report_data["channel"][i],
+                                    "RSSI (dBm)": report_data["rssi"][i],
+                                }
+                                metrics = [
+                                    ("Input bytes read", report_data["input_bytes_read"][i]),
+                                    ("Input bitrate", report_data["input_bitrate"][i]),
+                                    ("Demux bytes read", report_data["demux_bytes_read"][i]),
+                                    ("Demux bitrate", report_data["demux_bitrate"][i]),
+                                    ("Discontinuities", report_data["discontinuities"][i]),
+                                ]
+                                self.vlc_obj_dict[ce][obj_name]["obj"].build_device_metrics_table(self.overall_report,device_info, metrics)
+                        if ce == "series":
+                            obj_no += 1
+                            obj_name = f"vlc_test_{obj_no}"
+                        else:
+                            break
+                
                 elif test_name == "teams_test":
                     obj_no = 1
                     obj_name = "teams_test"
@@ -10225,6 +10428,36 @@ def main():
     parser.add_argument("--env_file", type=str, default='.env', help='Path to .env file for credentials')
     
 
+    parser.add_argument('--vlc_mcast_addr',
+                          type=str,
+                          help='IP for streaming video on host',
+                          default='239.255.0.1')
+    parser.add_argument('--vlc_mcast_port',
+                          type=str,
+                          help='Port for streaming video on host',
+                          default='1234')
+    parser.add_argument('--vlc_host_res',
+                          type=str,
+                          help='host resource id to broadcast the video the video',
+                          default=None)
+    parser.add_argument('--vlc_video_name',
+                          type=str,
+                          help='Video file name to strema on host',
+                          default=None)
+    parser.add_argument('--vlc_duration',
+                          type=str,
+                          help='duration of test',
+                          default='60')
+    parser.add_argument('--vlc_server_ip',
+                          type=str,
+                          help='server ip on which client will request',
+                          default="0.0.0.0")
+    parser.add_argument('--vlc_server_port',
+                          type=int,
+                          help='port of flask server',
+                          default=5959)       
+    parser.add_argument('--vlc_help_summary', default=None, action="store_true", help='Show summary of what this script does')
+    parser.add_argument('--vlc_device_list', help="Enter the devices on which the ping test should be run", default=[])
     parser.add_argument('--iot_test', help="If true will execute script for iot", action='store_true')
     optional.add_argument('--iot_ip',
                           default='127.0.0.1',
@@ -10267,8 +10500,8 @@ def main():
     parser.add_argument('--teams_test',
                           action="store_true",
                           help='teams_test consists')
-    parser.add_argument('--teams_duration', type=int, help='duration to run the test in min', required=True)
-    parser.add_argument('--teams_participants', type=int, help='No of Devices in the test', required=True)
+    parser.add_argument('--teams_duration', type=int, help='duration to run the test in min')
+    parser.add_argument('--teams_participants', type=int, help='No of Devices in the test')
     parser.add_argument('--teams_device_list', help='Specify the real device ports seperated by comma')
     parser.add_argument('--teams_audio', action='store_true')
     parser.add_argument('--teams_video', action='store_true')
@@ -10318,6 +10551,18 @@ def main():
     parser.add_argument('--vs_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
     
     args = parser.parse_args()
+
+    if args.vlc_duration.endswith('s') or args.vlc_duration.endswith('S'):
+        args.vlc_duration = int(args.vlc_duration[0:-1])
+
+    elif args.vlc_duration.endswith('m') or args.vlc_duration.endswith('M'):
+        args.vlc_duration = int(args.vlc_duration[0:-1]) * 60
+
+    elif args.vlc_duration.endswith('h') or args.vlc_duration.endswith('H'):
+        args.vlc_duration = int(args.vlc_duration[0:-1]) * 60 * 60
+
+    elif args.vlc_duration.endswith(''):
+        args.vlc_duration = int(args.vlc_duration)
     if args.iot_test:
         iot_ip = args.iot_ip
         iot_port = args.iot_port
@@ -10406,7 +10651,8 @@ def main():
     "yt_test":     (run_yt_test, "YOUTUBE TEST"),
     "rb_test":     (run_rb_test, "REAL BROWSER TEST"),
     "zoom_test":   (run_zoom_test, "ZOOM TEST"),
-    "teams_test":  (run_teams_test, "TEAMS TEST")
+    "teams_test":  (run_teams_test, "TEAMS TEST"),
+    "vlc_test":     (run_vlc_test, "VLC TEST")
     }
 
 
@@ -10520,7 +10766,7 @@ def main():
                 if test_name in test_map:
                     func, label = test_map[test_name]
                     args.current = "series"
-                    if test_name in ['rb_test','zoom_test','yt_test','teams_test']:
+                    if test_name in ['rb_test','zoom_test','yt_test','teams_test', 'vlc_test']:
                         if test_name == "rb_test":
                             obj_no = 1
                             while f"rb_test_{obj_no}" in candela_apis.rb_obj_dict["series"]:
@@ -10547,6 +10793,13 @@ def main():
                                 obj_no+=1
                             obj_name = f"teams_test_{obj_no}"
                             candela_apis.teams_obj_dict["series"][obj_name] = manager.dict({"obj":None,"data":None})
+                        elif test_name == "vlc_test":
+                            obj_no = 1
+                            while f"vlc_test_{obj_no}" in candela_apis.vlc_obj_dict["series"]:
+                                obj_no+=1
+                            obj_name = f"vlc_test_{obj_no}"
+                            candela_apis.vlc_obj_dict["series"][obj_name] = manager.dict({"obj":None,"data":None})
+                            print('hiii data',candela_apis.vlc_obj_dict)
                         series_threads.append(multiprocessing.Process(target=run_test_safe(func, f"{label} [Series {idx+1}]", args, candela_apis,duration_dict[test_name])))
                     else:                 
                         series_threads.append(threading.Thread(
@@ -10575,7 +10828,7 @@ def main():
                 if test_name in test_map:
                     func, label = test_map[test_name]
                     args.current = "parallel"
-                    if test_name in ['rb_test','zoom_test','yt_test','teams_test']:
+                    if test_name in ['rb_test','zoom_test','yt_test','teams_test', 'vlc_test']:
                         # if test_name == "rb_test":
                             # candela_apis.rb_pipe_dict["parallel"][len(candela_apis.rb_pipe_dict["parallel"])] = {}
                             # candela_apis.rb_pipe_dict["parallel"][len(candela_apis.rb_pipe_dict["parallel"])]["parent"],candela_apis.rb_pipe_dict["parallel"][len(candela_apis.rb_pipe_dict["parallel"])]["child"] = multiprocessing.Pipe()
@@ -10589,6 +10842,8 @@ def main():
                             candela_apis.zoom_obj_dict["parallel"]["zoom_test"] = manager.dict({"obj": None, "data": None})
                         elif test_name == "teams_test":
                             candela_apis.teams_obj_dict["parallel"]["teams_test"] = manager.dict({"obj": None, "data": None})
+                        elif test_name == "vlc_test":
+                            candela_apis.vlc_obj_dict["parallel"]["vlc_test"] = manager.dict({"obj": None, "data": None})
                         parallel_threads.append(multiprocessing.Process(target=run_test_safe(func, f"{label} [Parallel {idx+1}]", args, candela_apis,duration_dict[test_name])))
                     else:                 
                         parallel_threads.append(threading.Thread(
@@ -11261,6 +11516,18 @@ def run_zoom_test(args, candela_apis):
         account_id=args.account_id,
     )
 
+def run_vlc_test(args,candela_apis):
+    return candela_apis.run_vlc_test(
+        mcast_addr=args.vlc_mcast_addr,
+        mcast_port=args.vlc_mcast_port,
+        host_res=args.vlc_host_res,
+        video_name=args.vlc_video_name,
+        duration=args.vlc_duration,
+        server_ip=args.vlc_server_ip,
+        server_port=args.vlc_server_port,
+        help_summary=args.vlc_help_summary,
+        device_list=args.vlc_device_list
+    )
 def run_teams_test(args, candela_apis):
     return candela_apis.run_teams_test(
         upstream_port=args.upstream_port,
