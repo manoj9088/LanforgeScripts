@@ -730,8 +730,15 @@ class Candela(Realm):
         expected_passfail_value: str = None,
         device_csv_name: str = None,
         wait_time: int = 60,
-        dev_list: str = None
+        dev_list: str = None,
+        sta_to_res = None,
+        sta_port="eth1",
+        res_ip=None
+
     ):
+        sta_to_res = sta_to_res if sta_to_res else []
+        res_ip = res_ip if res_ip else []
+
         # set the logger level to debug
         logger_config = lf_logger_config.lf_logger_config()
 
@@ -809,7 +816,7 @@ class Candela(Realm):
         # ping object creation
         self.ping_obj_dict[ce][obj_name]["obj"] = Ping(host=mgr_ip, port=mgr_port, ssid=ssid, security=security, password=password, radio=radio,
                     lanforge_password=mgr_password, target=target, interval=interval, sta_list=[], virtual=virtual, real=real, duration=duration, debug=debug, csv_name=device_csv_name,
-                    expected_passfail_val=expected_passfail_value, wait_time=wait_time, group_name=group_name)
+                    expected_passfail_val=expected_passfail_value, wait_time=wait_time, group_name=group_name,sta_to_res=sta_to_res,sta_port=sta_port,res_ip=res_ip)
 
         # changing the target from port to IP
         self.ping_obj_dict[ce][obj_name]["obj"].change_target_to_ip()
@@ -880,9 +887,12 @@ class Candela(Realm):
                         else:
                             device_list.append(device["eid"] + " " + device["serial"])
                     logger.info(f"Available devices: {device_list}")
-                    if dev_list is None:
-                        dev_list = input("Enter the desired resources to run the test:")
-                    dev_list = dev_list.split(',')
+                    if self.ping_obj_dict[ce][obj_name]["obj"].sta_to_res and not dev_list:
+                        dev_list = []
+                    elif not dev_list:
+                        dev_list = input("Enter the desired resources to run the test:").split(',')
+                    else:
+                        dev_list = dev_list.split(",")
                     dev_list = asyncio.run(obj.connectivity(device_list=dev_list, wifi_config=config_dict))
                     Devices.get_devices()
                     self.ping_obj_dict[ce][obj_name]["obj"].select_real_devices(real_devices=Devices, device_list=dev_list)
@@ -891,14 +901,20 @@ class Candela(Realm):
             else:
                 device_list = self.ping_obj_dict[ce][obj_name]["obj"].Devices.get_devices()
                 logger.info(f"Available devices: {device_list}")
-                if dev_list is None:
-                    dev_list = input("Enter the desired resources to run the test:")
-                dev_list = dev_list.split(',')
+                if self.ping_obj_dict[ce][obj_name]["obj"].sta_to_res and not dev_list:
+                    dev_list = []
+                elif not dev_list:
+                    dev_list = input("Enter the desired resources to run the test:").split(',')
+                else:
+                    dev_list = dev_list.split(",")
                 # dev_list = input("Enter the desired resources to run the test:").split(',')
                 self.ping_obj_dict[ce][obj_name]["obj"].select_real_devices(real_devices=Devices, device_list=dev_list)
 
         # station precleanup
-        self.ping_obj_dict[ce][obj_name]["obj"].cleanup() #11 change
+        if not sta_to_res:
+            self.ping_obj_dict[ce][obj_name]["obj"].cleanup() #11 change
+        else:
+            self.ping_obj_dict[ce][obj_name]["obj"].clear_cx_startswith("GENERIC")
 
         # building station if virtual
         if (virtual):
@@ -929,6 +945,7 @@ class Candela(Realm):
             port, port_data = list(ports.keys())[0], list(ports.values())[0]
             ports_data[port] = port_data
         ping_duration = duration
+        
         if self.dowebgui:
             try:
                 with open(self.result_dir + "/../../Running_instances/{}_{}_running.json".format(self.lanforge_ip, self.test_name), 'r') as file:
@@ -1019,113 +1036,140 @@ class Candela(Realm):
         result_data = self.ping_obj_dict[ce][obj_name]["obj"].get_results()
         # logging.info(result_data)
         logging.info(self.ping_obj_dict[ce][obj_name]["obj"].result_json)
-        if (virtual):
-            ports_data_dict = self.ping_obj_dict[ce][obj_name]["obj"].json_get('/ports/all/')['interfaces']
-            ports_data = {}
-            for ports in ports_data_dict:
-                port, port_data = list(ports.keys())[0], list(ports.values())[0]
-                ports_data[port] = port_data
-            if (isinstance(result_data, dict)):
-                for station in self.ping_obj_dict[ce][obj_name]["obj"].sta_list:
-                    if (station not in self.ping_obj_dict[ce][obj_name]["obj"].real_sta_list):
-                        current_device_data = ports_data[station]
-                        if (station.split('.')[2] in result_data['name']):
-                            try:
-                                self.ping_obj_dict[ce][obj_name]["obj"].result_json[station] = {
-                                    'command': result_data['command'],
-                                    'sent': result_data['tx pkts'],
-                                    'recv': result_data['rx pkts'],
-                                    'dropped': result_data['dropped'],
-                                    'min_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split('/')[0] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
-                                    'avg_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split('/')[1] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
-                                    'max_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split('/')[2] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
-                                    'mac': current_device_data['mac'],
-                                    'channel': current_device_data['channel'],
-                                    'ssid': current_device_data['ssid'],
-                                    'mode': current_device_data['mode'],
-                                    'name': station,
-                                    'os': 'Virtual',
-                                    'remarks': [],
-                                    'last_result': [result_data['last results'].split('\n')[-2] if len(result_data['last results']) != 0 else ""][0]
-                                }
-                                self.ping_obj_dict[ce][obj_name]["obj"].result_json[station]['remarks'] = self.ping_obj_dict[ce][obj_name]["obj"].generate_remarks(self.ping_obj_dict[ce][obj_name]["obj"].result_json[station])
-                            except BaseException:
-                                logging.error('Failed parsing the result for the station {}'.format(station))
+        
+        if sta_to_res:
+            if isinstance(result_data, dict):
+                # Check if it is Type 2 (single device raw dict)
+                if 'last results' in result_data:
+                    result_data = [{self.ping_obj_dict[ce][obj_name]["obj"].generic_endps_profile.created_endp[0]: result_data}]
+                else:
+                    result_data = [result_data]
+            if isinstance(result_data, list):
+                print("yesss")
+                self.ping_obj_dict[ce][obj_name]["obj"].result_json = {}
 
-            else:
-                for station in self.ping_obj_dict[ce][obj_name]["obj"].sta_list:
-                    if (station not in self.ping_obj_dict[ce][obj_name]["obj"].real_sta_list):
-                        current_device_data = ports_data[station]
-                        for ping_device in result_data:
-                            ping_endp, ping_data = list(ping_device.keys())[
-                                0], list(ping_device.values())[0]
-                            if (station.split('.')[2] in ping_endp):
+                for item in result_data:
+                    # Each item is like {'GENERIC_0-eth1': {...}}
+                    endpoint = list(item.keys())[0]
+                    data = list(item.values())[0]
+
+                    try:
+                        last_results = data.get('last results', '')
+                        last_line = ''
+
+                        if last_results:
+                            lines = last_results.strip().split('\n')
+                            if len(lines) >= 2:
+                                last_line = lines[-2]
+
+                        # Default RTT values
+                        min_rtt = avg_rtt = max_rtt = '0'
+
+                        if last_line and 'min/avg/max' in last_line:
+                            rtt_section = last_line.split('min/avg/max:')[-1].strip()
+                            rtt_values = rtt_section.split('/')
+
+                            if len(rtt_values) == 3:
+                                min_rtt = rtt_values[0]
+                                avg_rtt = rtt_values[1]
+                                max_rtt = rtt_values[2]
+
+                        self.ping_obj_dict[ce][obj_name]["obj"].result_json[endpoint] = {
+                            'command': data.get('command', ''),
+                            'sent': data.get('tx pkts', '0'),
+                            'recv': data.get('rx pkts', '0'),
+                            'dropped': data.get('dropped', '0'),
+                            'min_rtt': min_rtt,
+                            'avg_rtt': avg_rtt,
+                            'max_rtt': max_rtt,
+                            'name': endpoint,
+                            'last_result': last_line,
+                            'remarks': []
+                        }
+
+                    except Exception as e:
+                        logging.error(f"Failed parsing result for {endpoint}: {e}")
+
+        else:
+            if (virtual):
+                ports_data_dict = self.ping_obj_dict[ce][obj_name]["obj"].json_get('/ports/all/')['interfaces']
+                ports_data = {}
+                for ports in ports_data_dict:
+                    port, port_data = list(ports.keys())[0], list(ports.values())[0]
+                    ports_data[port] = port_data
+                if (isinstance(result_data, dict)):
+                    for station in self.ping_obj_dict[ce][obj_name]["obj"].sta_list:
+                        if (station not in self.ping_obj_dict[ce][obj_name]["obj"].real_sta_list):
+                            current_device_data = ports_data[station]
+                            if (station.split('.')[2] in result_data['name']):
                                 try:
                                     self.ping_obj_dict[ce][obj_name]["obj"].result_json[station] = {
-                                        'command': ping_data['command'],
-                                        'sent': ping_data['tx pkts'],
-                                        'recv': ping_data['rx pkts'],
-                                        'dropped': ping_data['dropped'],
-                                        'min_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split('/')[0] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
-                                        'avg_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split('/')[1] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
-                                        'max_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split('/')[2] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                        'command': result_data['command'],
+                                        'sent': result_data['tx pkts'],
+                                        'recv': result_data['rx pkts'],
+                                        'dropped': result_data['dropped'],
+                                        'min_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split('/')[0] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                        'avg_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split('/')[1] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                        'max_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split('/')[2] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
                                         'mac': current_device_data['mac'],
-                                        'ssid': current_device_data['ssid'],
                                         'channel': current_device_data['channel'],
+                                        'ssid': current_device_data['ssid'],
                                         'mode': current_device_data['mode'],
                                         'name': station,
                                         'os': 'Virtual',
                                         'remarks': [],
-                                        'last_result': [ping_data['last results'].split('\n')[-2] if len(ping_data['last results']) != 0 else ""][0]
+                                        'last_result': [result_data['last results'].split('\n')[-2] if len(result_data['last results']) != 0 else ""][0]
                                     }
                                     self.ping_obj_dict[ce][obj_name]["obj"].result_json[station]['remarks'] = self.ping_obj_dict[ce][obj_name]["obj"].generate_remarks(self.ping_obj_dict[ce][obj_name]["obj"].result_json[station])
                                 except BaseException:
                                     logging.error('Failed parsing the result for the station {}'.format(station))
 
-        if (real):
-            if (isinstance(result_data, dict)):
-                for station in self.ping_obj_dict[ce][obj_name]["obj"].real_sta_list:
-                    current_device_data = Devices.devices_data[station]
-                    # logging.info(current_device_data)
-                    if (station in result_data['name']):
-                        try:
-                            # logging.info(result_data['last results'].split('\n'))
-                            self.ping_obj_dict[ce][obj_name]["obj"].result_json[station] = {
-                                'command': result_data['command'],
-                                'sent': result_data['tx pkts'],
-                                'recv': result_data['rx pkts'],
-                                'dropped': result_data['dropped'],
-                                'min_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[0] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
-                                'avg_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[1] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
-                                'max_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[2] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
-                                'mac': current_device_data['mac'],
-                                'ssid': current_device_data['ssid'],
-                                'channel': current_device_data['channel'],
-                                'mode': current_device_data['mode'],
-                                'name': [current_device_data['user'] if current_device_data['user'] != '' else current_device_data['hostname']][0],
-                                'os': ['Windows' if 'Win' in current_device_data['hw version'] else 'Linux' if 'Linux' in current_device_data['hw version'] else 'Mac' if 'Apple' in current_device_data['hw version'] else 'Android'][0],  # noqa E501
-                                'remarks': [],
-                                'last_result': [result_data['last results'].split('\n')[-2] if len(result_data['last results']) != 0 else ""][0]
-                            }
-                            self.ping_obj_dict[ce][obj_name]["obj"].result_json[station]['remarks'] = self.ping_obj_dict[ce][obj_name]["obj"].generate_remarks(self.ping_obj_dict[ce][obj_name]["obj"].result_json[station])
-                        except BaseException:
-                            logging.error('Failed parsing the result for the station {}'.format(station))
-            else:
-                for station in self.ping_obj_dict[ce][obj_name]["obj"].real_sta_list:
-                    current_device_data = Devices.devices_data[station]
-                    for ping_device in result_data:
-                        ping_endp, ping_data = list(ping_device.keys())[
-                            0], list(ping_device.values())[0]
-                        if (station in ping_endp):
+                else:
+                    for station in self.ping_obj_dict[ce][obj_name]["obj"].sta_list:
+                        if (station not in self.ping_obj_dict[ce][obj_name]["obj"].real_sta_list):
+                            current_device_data = ports_data[station]
+                            for ping_device in result_data:
+                                ping_endp, ping_data = list(ping_device.keys())[
+                                    0], list(ping_device.values())[0]
+                                if (station.split('.')[2] in ping_endp):
+                                    try:
+                                        self.ping_obj_dict[ce][obj_name]["obj"].result_json[station] = {
+                                            'command': ping_data['command'],
+                                            'sent': ping_data['tx pkts'],
+                                            'recv': ping_data['rx pkts'],
+                                            'dropped': ping_data['dropped'],
+                                            'min_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split('/')[0] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                            'avg_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split('/')[1] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                            'max_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split('/')[2] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                            'mac': current_device_data['mac'],
+                                            'ssid': current_device_data['ssid'],
+                                            'channel': current_device_data['channel'],
+                                            'mode': current_device_data['mode'],
+                                            'name': station,
+                                            'os': 'Virtual',
+                                            'remarks': [],
+                                            'last_result': [ping_data['last results'].split('\n')[-2] if len(ping_data['last results']) != 0 else ""][0]
+                                        }
+                                        self.ping_obj_dict[ce][obj_name]["obj"].result_json[station]['remarks'] = self.ping_obj_dict[ce][obj_name]["obj"].generate_remarks(self.ping_obj_dict[ce][obj_name]["obj"].result_json[station])
+                                    except BaseException:
+                                        logging.error('Failed parsing the result for the station {}'.format(station))
+
+            if (real):
+                if (isinstance(result_data, dict)):
+                    for station in self.ping_obj_dict[ce][obj_name]["obj"].real_sta_list:
+                        current_device_data = Devices.devices_data[station]
+                        # logging.info(current_device_data)
+                        if (station in result_data['name']):
                             try:
+                                # logging.info(result_data['last results'].split('\n'))
                                 self.ping_obj_dict[ce][obj_name]["obj"].result_json[station] = {
-                                    'command': ping_data['command'],
-                                    'sent': ping_data['tx pkts'],
-                                    'recv': ping_data['rx pkts'],
-                                    'dropped': ping_data['dropped'],
-                                    'min_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[0] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
-                                    'avg_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[1] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
-                                    'max_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[2] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                    'command': result_data['command'],
+                                    'sent': result_data['tx pkts'],
+                                    'recv': result_data['rx pkts'],
+                                    'dropped': result_data['dropped'],
+                                    'min_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[0] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                    'avg_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[1] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                    'max_rtt': [result_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[2] if len(result_data['last results']) != 0 and 'min/avg/max' in result_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
                                     'mac': current_device_data['mac'],
                                     'ssid': current_device_data['ssid'],
                                     'channel': current_device_data['channel'],
@@ -1133,11 +1177,39 @@ class Candela(Realm):
                                     'name': [current_device_data['user'] if current_device_data['user'] != '' else current_device_data['hostname']][0],
                                     'os': ['Windows' if 'Win' in current_device_data['hw version'] else 'Linux' if 'Linux' in current_device_data['hw version'] else 'Mac' if 'Apple' in current_device_data['hw version'] else 'Android'][0],  # noqa E501
                                     'remarks': [],
-                                    'last_result': [ping_data['last results'].split('\n')[-2] if len(ping_data['last results']) != 0 else ""][0]
+                                    'last_result': [result_data['last results'].split('\n')[-2] if len(result_data['last results']) != 0 else ""][0]
                                 }
                                 self.ping_obj_dict[ce][obj_name]["obj"].result_json[station]['remarks'] = self.ping_obj_dict[ce][obj_name]["obj"].generate_remarks(self.ping_obj_dict[ce][obj_name]["obj"].result_json[station])
                             except BaseException:
                                 logging.error('Failed parsing the result for the station {}'.format(station))
+                else:
+                    for station in self.ping_obj_dict[ce][obj_name]["obj"].real_sta_list:
+                        current_device_data = Devices.devices_data[station]
+                        for ping_device in result_data:
+                            ping_endp, ping_data = list(ping_device.keys())[
+                                0], list(ping_device.values())[0]
+                            if (station in ping_endp):
+                                try:
+                                    self.ping_obj_dict[ce][obj_name]["obj"].result_json[station] = {
+                                        'command': ping_data['command'],
+                                        'sent': ping_data['tx pkts'],
+                                        'recv': ping_data['rx pkts'],
+                                        'dropped': ping_data['dropped'],
+                                        'min_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[0] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                        'avg_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[1] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                        'max_rtt': [ping_data['last results'].split('\n')[-2].split()[-1].split(':')[-1].split('/')[2] if len(ping_data['last results']) != 0 and 'min/avg/max' in ping_data['last results'].split('\n')[-2] else '0'][0],  # noqa E501
+                                        'mac': current_device_data['mac'],
+                                        'ssid': current_device_data['ssid'],
+                                        'channel': current_device_data['channel'],
+                                        'mode': current_device_data['mode'],
+                                        'name': [current_device_data['user'] if current_device_data['user'] != '' else current_device_data['hostname']][0],
+                                        'os': ['Windows' if 'Win' in current_device_data['hw version'] else 'Linux' if 'Linux' in current_device_data['hw version'] else 'Mac' if 'Apple' in current_device_data['hw version'] else 'Android'][0],  # noqa E501
+                                        'remarks': [],
+                                        'last_result': [ping_data['last results'].split('\n')[-2] if len(ping_data['last results']) != 0 else ""][0]
+                                    }
+                                    self.ping_obj_dict[ce][obj_name]["obj"].result_json[station]['remarks'] = self.ping_obj_dict[ce][obj_name]["obj"].generate_remarks(self.ping_obj_dict[ce][obj_name]["obj"].result_json[station])
+                                except BaseException:
+                                    logging.error('Failed parsing the result for the station {}'.format(station))
 
         logging.info(self.ping_obj_dict[ce][obj_name]["obj"].result_json)
 
@@ -6887,6 +6959,9 @@ class Candela(Realm):
                                 'No of Devices': '{} (V:{}, A:{}, W:{}, L:{}, M:{})'.format(len(self.ping_obj_dict[ce][obj_name]["obj"].sta_list), len(self.ping_obj_dict[ce][obj_name]["obj"].sta_list) - len(self.ping_obj_dict[ce][obj_name]["obj"].real_sta_list), self.ping_obj_dict[ce][obj_name]["obj"].android, self.ping_obj_dict[ce][obj_name]["obj"].windows, self.ping_obj_dict[ce][obj_name]["obj"].linux, self.ping_obj_dict[ce][obj_name]["obj"].mac),
                                 'Duration (in minutes)': self.ping_obj_dict[ce][obj_name]["obj"].duration
                             }
+                        if self.ping_obj_dict[ce][obj_name]["obj"].sta_to_res:
+                            del test_setup_info["Website / IP"]
+                            test_setup_info["Ips"] = self.ping_obj_dict[ce][obj_name]["obj"].res_ip_list
                         self.overall_report.test_setup_table(
                             test_setup_data=test_setup_info, value='Test Setup Information')
 
@@ -6914,26 +6989,45 @@ class Candela(Realm):
                         os_type = []
                         for device, device_data in self.ping_obj_dict[ce][obj_name]["obj"].result_json.items():
                             logging.info('Device data: {} {}'.format(device, device_data))
-                            os_type.append(device_data['os'])
-                            self.ping_obj_dict[ce][obj_name]["obj"].packets_sent.append(int(device_data['sent']))
-                            self.ping_obj_dict[ce][obj_name]["obj"].packets_received.append(int(device_data['recv']))
-                            self.ping_obj_dict[ce][obj_name]["obj"].packets_dropped.append(int(device_data['dropped']))
-                            self.ping_obj_dict[ce][obj_name]["obj"].device_names.append(device_data['name'] + ' ' + device_data['os'])
-                            self.ping_obj_dict[ce][obj_name]["obj"].device_modes.append(device_data['mode'])
-                            self.ping_obj_dict[ce][obj_name]["obj"].device_channels.append(device_data['channel'])
-                            self.ping_obj_dict[ce][obj_name]["obj"].device_mac.append(device_data['mac'])
-                            self.ping_obj_dict[ce][obj_name]["obj"].device_ssid.append(device_data['ssid'])
-                            self.ping_obj_dict[ce][obj_name]["obj"].device_min.append(float(device_data['min_rtt'].replace(',', '')))
-                            self.ping_obj_dict[ce][obj_name]["obj"].device_max.append(float(device_data['max_rtt'].replace(',', '')))
-                            self.ping_obj_dict[ce][obj_name]["obj"].device_avg.append(float(device_data['avg_rtt'].replace(',', '')))
-                            if (device_data['os'] == 'Virtual'):
-                                self.ping_obj_dict[ce][obj_name]["obj"].report_names.append('{} {}'.format(device, device_data['os'])[0:25])
+                            if self.ping_obj_dict[ce][obj_name]["obj"].sta_to_res:
+                                self.ping_obj_dict[ce][obj_name]["obj"].packets_sent.append(int(device_data['sent']))
+                                self.ping_obj_dict[ce][obj_name]["obj"].packets_received.append(int(device_data['recv']))
+                                self.ping_obj_dict[ce][obj_name]["obj"].packets_dropped.append(int(device_data['dropped']))
+
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_min.append(float(device_data['min_rtt']))
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_avg.append(float(device_data['avg_rtt']))
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_max.append(float(device_data['max_rtt']))
+                                # print("device",device)
+                                # device_key = device.split('-')[0]
+                                print(self.ping_obj_dict[ce][obj_name]["obj"].cx_dev_map)
+                                print(self.ping_obj_dict[ce][obj_name]["obj"].cx_ip_map)
+                                if device in self.ping_obj_dict[ce][obj_name]["obj"].cx_dev_map and self.ping_obj_dict[ce][obj_name]["obj"].cx_dev_map[device] != "":
+                                    device_name = "{}/{}".format(self.ping_obj_dict[ce][obj_name]["obj"].cx_dev_map[device],self.ping_obj_dict[ce][obj_name]["obj"].cx_ip_map[device])
+                                else:
+                                    device_name = self.ping_obj_dict[ce][obj_name]["obj"].cx_ip_map[device]
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_names.append(device_name)      # endpoint key only
+                                self.ping_obj_dict[ce][obj_name]["obj"].report_names.append(device_name)
                             else:
-                                self.ping_obj_dict[ce][obj_name]["obj"].report_names.append('{} {} {}'.format(device, device_data['os'], device_data['name']))
-                            if (device_data['remarks'] != []):
-                                self.ping_obj_dict[ce][obj_name]["obj"].device_names_with_errors.append(device_data['name'])
-                                self.ping_obj_dict[ce][obj_name]["obj"].devices_with_errors.append(device)
-                                self.ping_obj_dict[ce][obj_name]["obj"].remarks.append(','.join(device_data['remarks']))
+                                os_type.append(device_data['os'])
+                                self.ping_obj_dict[ce][obj_name]["obj"].packets_sent.append(int(device_data['sent']))
+                                self.ping_obj_dict[ce][obj_name]["obj"].packets_received.append(int(device_data['recv']))
+                                self.ping_obj_dict[ce][obj_name]["obj"].packets_dropped.append(int(device_data['dropped']))
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_names.append(device_data['name'] + ' ' + device_data['os'])
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_modes.append(device_data['mode'])
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_channels.append(device_data['channel'])
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_mac.append(device_data['mac'])
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_ssid.append(device_data['ssid'])
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_min.append(float(device_data['min_rtt'].replace(',', '')))
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_max.append(float(device_data['max_rtt'].replace(',', '')))
+                                self.ping_obj_dict[ce][obj_name]["obj"].device_avg.append(float(device_data['avg_rtt'].replace(',', '')))
+                                if (device_data['os'] == 'Virtual'):
+                                    self.ping_obj_dict[ce][obj_name]["obj"].report_names.append('{} {}'.format(device, device_data['os'])[0:25])
+                                else:
+                                    self.ping_obj_dict[ce][obj_name]["obj"].report_names.append('{} {} {}'.format(device, device_data['os'], device_data['name']))
+                                if (device_data['remarks'] != []):
+                                    self.ping_obj_dict[ce][obj_name]["obj"].device_names_with_errors.append(device_data['name'])
+                                    self.ping_obj_dict[ce][obj_name]["obj"].devices_with_errors.append(device)
+                                    self.ping_obj_dict[ce][obj_name]["obj"].remarks.append(','.join(device_data['remarks']))
                         x_fig_size = 15
                         y_fig_size = len(self.ping_obj_dict[ce][obj_name]["obj"].device_names) * .5 + 4
                         graph = lf_bar_graph_horizontal(_data_set=[self.ping_obj_dict[ce][obj_name]["obj"].packets_dropped, self.ping_obj_dict[ce][obj_name]["obj"].packets_received, self.ping_obj_dict[ce][obj_name]["obj"].packets_sent],
@@ -7000,16 +7094,24 @@ class Candela(Realm):
                                         self.overall_report.build_table()
 
                             else:
-                                dataframe1 = pd.DataFrame({
-                                    'Wireless Client': self.ping_obj_dict[ce][obj_name]["obj"].device_names,
-                                    'MAC': self.ping_obj_dict[ce][obj_name]["obj"].device_mac,
-                                    'Channel': self.ping_obj_dict[ce][obj_name]["obj"].device_channels,
-                                    'SSID ': self.ping_obj_dict[ce][obj_name]["obj"].device_ssid,
-                                    'Mode': self.ping_obj_dict[ce][obj_name]["obj"].device_modes,
-                                    'Packets Sent': self.ping_obj_dict[ce][obj_name]["obj"].packets_sent,
-                                    'Packets Received': self.ping_obj_dict[ce][obj_name]["obj"].packets_received,
-                                    'Packets Loss': self.ping_obj_dict[ce][obj_name]["obj"].packets_dropped,
-                                })
+                                if self.ping_obj_dict[ce][obj_name]["obj"].sta_to_res:
+                                    dataframe1 = pd.DataFrame({
+                                        'Endpoint': self.ping_obj_dict[ce][obj_name]["obj"].device_names,
+                                        'Packets Sent': self.ping_obj_dict[ce][obj_name]["obj"].packets_sent,
+                                        'Packets Received': self.ping_obj_dict[ce][obj_name]["obj"].packets_received,
+                                        'Packets Loss': self.ping_obj_dict[ce][obj_name]["obj"].packets_dropped,
+                                    })
+                                else:
+                                    dataframe1 = pd.DataFrame({
+                                        'Wireless Client': self.ping_obj_dict[ce][obj_name]["obj"].device_names,
+                                        'MAC': self.ping_obj_dict[ce][obj_name]["obj"].device_mac,
+                                        'Channel': self.ping_obj_dict[ce][obj_name]["obj"].device_channels,
+                                        'SSID ': self.ping_obj_dict[ce][obj_name]["obj"].device_ssid,
+                                        'Mode': self.ping_obj_dict[ce][obj_name]["obj"].device_modes,
+                                        'Packets Sent': self.ping_obj_dict[ce][obj_name]["obj"].packets_sent,
+                                        'Packets Received': self.ping_obj_dict[ce][obj_name]["obj"].packets_received,
+                                        'Packets Loss': self.ping_obj_dict[ce][obj_name]["obj"].packets_dropped,
+                                    })
                                 if self.ping_obj_dict[ce][obj_name]["obj"].expected_passfail_val or self.ping_obj_dict[ce][obj_name]["obj"].csv_name:
                                     dataframe1[" Percentage of Packet loss %"] = self.ping_obj_dict[ce][obj_name]["obj"].percent_pac_loss
                                     dataframe1['Expected Packet loss %'] = self.ping_obj_dict[ce][obj_name]["obj"].test_input_list
@@ -7067,16 +7169,24 @@ class Candela(Realm):
                         self.overall_report.move_csv_file()
                         self.overall_report.build_graph()
 
-                        dataframe2 = pd.DataFrame({
-                            'Wireless Client': self.ping_obj_dict[ce][obj_name]["obj"].device_names,
-                            'MAC': self.ping_obj_dict[ce][obj_name]["obj"].device_mac,
-                            'Channel': self.ping_obj_dict[ce][obj_name]["obj"].device_channels,
-                            'SSID ': self.ping_obj_dict[ce][obj_name]["obj"].device_ssid,
-                            'Mode': self.ping_obj_dict[ce][obj_name]["obj"].device_modes,
+                        if self.ping_obj_dict[ce][obj_name]["obj"].sta_to_res:
+                            dataframe2 = pd.DataFrame({
+                            'Endpoint': self.ping_obj_dict[ce][obj_name]["obj"].device_names,
                             'Min Latency (ms)': self.ping_obj_dict[ce][obj_name]["obj"].device_min,
                             'Average Latency (ms)': self.ping_obj_dict[ce][obj_name]["obj"].device_avg,
                             'Max Latency (ms)': self.ping_obj_dict[ce][obj_name]["obj"].device_max
                         })
+                        else:
+                            dataframe2 = pd.DataFrame({
+                                'Wireless Client': self.ping_obj_dict[ce][obj_name]["obj"].device_names,
+                                'MAC': self.ping_obj_dict[ce][obj_name]["obj"].device_mac,
+                                'Channel': self.ping_obj_dict[ce][obj_name]["obj"].device_channels,
+                                'SSID ': self.ping_obj_dict[ce][obj_name]["obj"].device_ssid,
+                                'Mode': self.ping_obj_dict[ce][obj_name]["obj"].device_modes,
+                                'Min Latency (ms)': self.ping_obj_dict[ce][obj_name]["obj"].device_min,
+                                'Average Latency (ms)': self.ping_obj_dict[ce][obj_name]["obj"].device_avg,
+                                'Max Latency (ms)': self.ping_obj_dict[ce][obj_name]["obj"].device_max
+                            })
                         self.overall_report.set_table_dataframe(dataframe2)
                         self.overall_report.build_table()
 
@@ -7099,6 +7209,7 @@ class Candela(Realm):
                             obj_name = f"ping_test_{obj_no}"
                         else:
                             break
+                
                 elif test_name == "qos_test":
                     obj_no = 1
                     obj_name = 'qos_test'
@@ -9372,6 +9483,8 @@ class Candela(Realm):
 
             except Exception as e:
                 logger.info(f"failed to generate report for {test_name} {e}")
+                import traceback
+                traceback.print_exc()
 
     def update_duration(self,df):
         if not df.empty and hasattr(self, "names_duration") and self.names_duration:
@@ -9960,6 +10073,9 @@ def main():
                           action='store_true',
                           help='specify this flag if wanted to proceed with existing Wi-Fi configuration of the devices')
     parser.add_argument('--ping_device_list', help="Enter the devices on which the ping test should be run", default=[])
+    parser.add_argument("--ping_sta_to_res", action="store_true", help='Enables pinging from sta port to multiple')
+    parser.add_argument("--ping_sta_port", type=str,default="eth1" , help='station that uses to multiple clients')
+    parser.add_argument('--ping_res_ip', help='resources IPs to ping from station, comma seperated', default=[])
     #ping pass fail value
     parser.add_argument("--ping_expected_passfail_value", help="Specify the expected number of urls", default=None)
     parser.add_argument("--ping_device_csv_name", type=str, help='Specify the csv name to store expected url values', default=None)
@@ -11135,7 +11251,10 @@ def run_ping_test(args, candela_apis):
         pk_passwd=args.ping_pk_passwd,
         pac_file=args.ping_pac_file,
         wait_time=args.ping_wait_time,
-        local_lf_report_dir = candela_apis.result_path if not args.dowebgui else args.result_dir
+        local_lf_report_dir = candela_apis.result_path if not args.dowebgui else args.result_dir,
+        sta_to_res=args.ping_sta_to_res,
+        sta_port=args.ping_sta_port,
+        res_ip=args.ping_res_ip
     )
 
 def run_http_test(args, candela_apis):
