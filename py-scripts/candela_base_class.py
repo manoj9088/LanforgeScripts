@@ -10757,7 +10757,7 @@ def main():
                             security=args.security,
                             result_path=args.result_path)
 
-    if args.device_list or (args.file_name and args.group_name and args.profile_name):
+    if (args.config and args.device_list) or (args.file_name and args.group_name and args.profile_name):
         candela_apis.configure_devices()
         if not args.series_tests and not args.parallel_tests:
             logger.info("Devices configured are {}".format(candela_apis.device_list))
