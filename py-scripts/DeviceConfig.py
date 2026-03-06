@@ -449,7 +449,7 @@ class LAPTOPS(Realm):
             enc = 16
         elif (encryption == "wpa2_personal" or encryption == 'psk2' or encryption == 'wpa2'):
             enc = 1024
-        elif (encryption == "wpa3_personal" or encryption == 'psk3' or encryption == 'wpa3'):
+        elif (encryption == "wpa3_personal" or encryption == 'psk3' or encryption == 'wpa3' or encryption == 'sae'):
             enc = 1099511627776
         elif (encryption == "wpa_enterprise"):
             enc = 33554448
@@ -459,6 +459,8 @@ class LAPTOPS(Realm):
             enc = 1099545182208
         elif (encryption == "owe_advanced"):
             enc = 564049498603520
+        elif encryption=="psk2|psk3" or encryption == "sae-mixed":
+            enc = 1099511628800
         if encryption == "wpa_enterprise" or encryption == "wpa2_enterprise" or encryption == "wpa3_enterprise" or encryption == "owe_advanced":
             if obj.get("ieee80211u"):
                 enc = enc + 131072
