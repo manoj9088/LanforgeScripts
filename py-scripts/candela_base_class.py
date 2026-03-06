@@ -9951,7 +9951,26 @@ def update_device_list(args,tests,candela_apis):
             else:
                 val_list = return_valid_grp_list(group_resource_list, args.teams_groups, candela_apis)
                 args.teams_device_list = ','.join(val_list)
-            
+        elif test == "vlc_test":
+            if not groups:
+                vlc_list = []
+                if args.vlc_host_res in candela_apis.device_list:
+                    vlc_list.append(args.vlc_host_res)
+                for dev in candela_apis.device_list:
+                    if dev != args.vlc_host_res:
+                        vlc_list.append(dev)
+
+                args.vlc_device_list = ','.join(vlc_list)
+            else:
+                val_list = return_valid_grp_list(group_resource_list, args.vlc_groups, candela_apis)
+                vlc_list = []
+                if args.vlc_host_res in val_list:
+                    vlc_list.append(args.vlc_host_res)
+                for dev in candela_apis.device_list:
+                    if dev != args.vlc_host_res:
+                        vlc_list.append(dev)
+                args.vlc_device_list = ','.join(vlc_list) 
+
     return args
 
 def validate_args_config(args):
@@ -10665,7 +10684,8 @@ def main():
     parser.add_argument('--teams_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
     parser.add_argument('--yt_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
     parser.add_argument('--vs_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
-    
+    parser.add_argument('--vlc_groups', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2',default="all")
+
     args = parser.parse_args()
 
     if args.vlc_duration.endswith('s') or args.vlc_duration.endswith('S'):
@@ -10759,8 +10779,8 @@ def main():
 
     if (args.config and args.device_list) or (args.file_name and args.group_name and args.profile_name):
         candela_apis.configure_devices()
+        logger.info("Devices configured are {}".format(candela_apis.device_list))
         if not args.series_tests and not args.parallel_tests:
-            logger.info("Devices configured are {}".format(candela_apis.device_list))
             exit(0)
 
     test_map = {

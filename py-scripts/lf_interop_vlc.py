@@ -395,6 +395,7 @@ class VLCStream(Realm):
     def create(self):
         device_types = [device['device type'] for device in self.devices_data.values()]
         print(device_types)
+        self.generic_endps_profile.name_prefix = "vlc"
         for device_id, device in self.devices_data.items():
             if device['device type'].lower() == "android":
                 status, created_cx, created_endp = self.create_android(lanforge_res=device["adb_id"].split(".")[1], ports=[ device_id], real_client_os_types=['Linux'])
