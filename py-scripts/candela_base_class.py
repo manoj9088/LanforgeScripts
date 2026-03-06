@@ -10756,6 +10756,13 @@ def main():
                             passwd=args.passwd,
                             security=args.security,
                             result_path=args.result_path)
+
+    if args.device_list or (args.file_name and args.group_name and args.profile_name):
+        candela_apis.configure_devices()
+        if not args.series_tests and not args.parallel_tests:
+            logger.info("Devices configured are {}".format(candela_apis.device_list))
+            exit(0)
+
     test_map = {
     "ping_test":   (run_ping_test, "PING TEST"),
     "http_test":   (run_http_test, "HTTP TEST"),
@@ -10830,8 +10837,6 @@ def main():
             print(f"wrong duration type for {test_name}")
     if duration_flag:
         exit(1)
-    if args.device_list or (args.file_name and args.group_name and args.profile_name):
-        candela_apis.configure_devices()
     # candela_apis.query_devices()
     # eid ="1.119.wlan0"
     # candela_apis.admin_down(port_eid=eid)
