@@ -39,6 +39,7 @@ from dotenv import load_dotenv
 import csv
 import matplotlib.pyplot as plt
 from pathlib import Path
+import subprocess
 # from interop_configuration import Configuration
 realm = importlib.import_module("py-json.realm")
 Realm = realm.Realm
@@ -134,7 +135,14 @@ class Candela(Realm):
                  upstream_port="eth1",
                  ssid=None,
                  passwd=None,
-                 security=None):
+                 security=None,
+                 sniff_radio='1.1.wiphy0',
+                 sniff_duration=300,
+                 sniff=False,
+                 sniff_frequency=-1,
+                 sniff_channel='AUTO',
+                 pcap_name=None,
+                 moni_name=None):
 
         """
         Constructor to initialize the LANforge IP and port
@@ -244,7 +252,134 @@ class Candela(Realm):
         self.wait_time = wait_time
         self.group_device_map = {}
         self.config = config
+        if moni_name:
+            self.moni_name = moni_name
+        else:
+            wiphy_eid = self.name_to_eid(sniff_radio)
+            radio_num = ""
+            #wiphy_eid = [1,1,wiphy12,""]
+            # wiphy_eid[2] = wiphy12 the below extacts 12 from it
+            for ch in wiphy_eid[2]:
+                if ch.isdigit():
+                    radio_num += ch
+            # for unique default names moni11w12
+            self.moni_name = "moni{}{}w{}".format(wiphy_eid[0],wiphy_eid[1],radio_num)
+        self.sniff_radio = sniff_radio
+        self.sniff_duration = sniff_duration
+        self.sniff_channel = sniff_channel
+        self.pcap_name = pcap_name
+        self.tshark_process = None
+
+# only for sniffer 
+
+    def channel_switch(self,radio="wiphy0",channel='',ap_data=None):
+        eid = self.name_to_eid(radio)
+        shelf = eid[0]
+        resource_id = eid[1]
+        port_name = eid[2]
+        print(eid)
+        # exit(0)
+        port_up_data = self.port_up_request(resource_id=resource_id,port_name=port_name)
+        self.json_post("cli-json/set_port", port_up_data)
+        time.sleep(10)
+        channel_change_data = {"shelf":shelf,
+                                "resource":resource_id,
+                                "radio":port_name,
+                                "channel":channel}
+        channel_change_url = "cli-json/set_wifi_radio"
+        self.json_post(channel_change_url,channel_change_data)
+        total_retries = 10
+        current_retries = 1
+        created = False
+        print("Waiting until {} radio switches the channel to {}".format(radio,channel))
+        query = '.'.join([str(shelf), str(resource_id), str(port_name)])
+        while current_retries <= total_retries:
+            logger.debug(f'retrying for {query}')
+            logger.debug(f"Waiting for station {query} to appear in port list...")
+            # ports_all_data = self.json_get('/ports')
+            ports_data = self.json_get("/port/{}/{}/{}?fields=phantom,channel".format(shelf, resource_id, port_name))
+            logger.debug(ports_data)
+            if ports_data is not None and ports_data['interface']['phantom'] == False and str(ports_data['interface']['channel']) == str(channel):
+                created = True
+                break
+            time.sleep(1)
+        if created:
+            logger.info("{} successfully switched to channel {}".format(radio,channel))
+            return True
+        else:
+            return False
+
+    def setup_monitor_interface(self,port,mon_iface_name="moni0"):
+        """Create monitor interface via LANforge API"""
+        url = "/cli-json/add_monitor"
+        eid = self.name_to_eid(port)
+        payload = {
+            "shelf": eid[0],
+            "resource": eid[1],
+            "radio": eid[2],
+            "ap_name": mon_iface_name
+        }
+        try:
+            self.json_post(url,payload)
+            print("waiting until moniter interface getting UP")
+            retries = 1
+            total_retries = 60
+            created = False
+            while retries <= total_retries:
+                mon_data = self.json_get("/ports/{}/{}/{}?fields=down".format(eid[0],eid[1],mon_iface_name))
+                if mon_data is not None and "interface" in mon_data and "down" in mon_data["interface"] and not mon_data["interface"]["down"]:
+                    created = True
+                    break
+                retries += 1
+                time.sleep(1)
+            return created
+
+        except Exception as e:
+            logger.info(f"[LANforge EXCEPTION] {e}", "ERROR")
+            return False
+
+    def create_monitor(self):
+        self.cleanup.sta_clean()
+        # to switch channel in wiphy radio
+        channel_switched = self.channel_switch(radio=self.sniff_radio,channel=self.sniff_channel)
+        if not channel_switched:
+            logger.info("Radio : {} failed to shift channel to {}".format(self.sniff_radio,self.sniff_channel))
+            return False
+        monitor_created = self.setup_monitor_interface(port=self.sniff_radio,mon_iface_name=self.moni_name)
+        if not monitor_created:
+            logger.info("Failed to create monitor {}".format(self.moni_name))
+            return False
+        return True
+    def start_sniff(self,pcap_path=None):
+        capname = self.pcap_name
+        if pcap_path is None:
+            base_dir = os.getcwd()
+            pcap_path = os.path.join(base_dir, capname)
+        else:
+            ensure_path(pcap_path,True)
+            pcap_path = os.path.join(pcap_path,capname)
+        print("PCAP PATH",pcap_path)
+        cmd = f"tshark -i {self.moni_name} -w {pcap_path}"
+        try:
+            print("RUNNING TSHARK")
+            self.tshark_process = subprocess.Popen(cmd, shell=True)
+        except Exception as e:
+            print(e, "In start_sniff Exception")
     
+    def stop_sniff(self):
+        try:
+            self.tshark_process.terminate()
+        except Exception as e:
+            print(e, "In stop_sniff Exception")
+        try:
+            return_code = self.tshark_process.returncode
+            print("RETURN CODE", return_code)
+
+        except BaseException as err:
+            print(err, "ERRORR")
+
+
+
     def api_get(self, endp: str):
         """
         Sends a GET request to fetch data
@@ -11106,6 +11241,16 @@ def main():
     print("\nTest Results Summary:")
     print(test_results_df)
 
+def initialize_sniffer_obj(mgr="localhost",port="8080",sniff_radio='1.1.wiphy0',sniff_channel='AUTO',moni_name=None,pcap_name=None):
+    print("CREATING sniffer object")
+    if pcap_name is None:
+        pcap_name = ("sniff_{}_channel_{}".format(sniff_radio,sniff_channel)).replace(".","_")
+        pcap_name += ".pcap"
+    sniffer_obj = Candela(ip=mgr,port=port,sniff_radio=sniff_radio,sniff_channel=sniff_channel,
+                          moni_name=moni_name,pcap_name=pcap_name)
+    return sniffer_obj
+
+
 def run_test_safe(test_func, test_name, args, candela_apis,duration):
     global error_logs
     def wrapper():
@@ -11686,4 +11831,5 @@ def run_teams_test(args, candela_apis):
     )
 # def browser_cleanup(args,candela_apis):
 #     return candela_apis.browser_cleanup(args)
-main()
+if __name__ == "__main__":
+    main()
