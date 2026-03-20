@@ -295,13 +295,16 @@ class lf_bar_graph_horizontal:
         self.yticks_rotation = _yticks_rotation
 
     def build_bar_graph_horizontal(self):
+        print("manoj",self.color)
+        print(self.data_set)
         if self.color is None:
             i = 0
             self.color = []
             for _ in self.data_set:
                 self.color.append(self.color_name[i])
                 i = i + 1
-
+        print("durga1",self.color)
+        print(self.data_set)
         fig_size, ax = plt.subplots(figsize=self.figsize, gridspec_kw=self.alignment)
         i = 0
         # to remove the borders
@@ -315,14 +318,17 @@ class lf_bar_graph_horizontal:
                 ax.yaxis.set_visible(yaxis_visable)
 
         def show_value(rectangles):
+            max_val = max(max(d) for d in self.data_set) 
+            offset = max_val * 0.01
             for rect in rectangles:
                 w = rect.get_width()
                 # y = rect.get_y()
                 # h = rect.get_height()
                 # x = rect.get_x()
-                # adding 1 may not always work based on the x axis scale may need to be configurable
-                plt.text(w + 1, rect.get_y() + rect.get_height() / 4., w,
-                         ha='center', va='bottom', rotation=self.text_rotation, fontsize=self.text_font)
+                # adding 1 may not always work based on the x axis scale may need to be configurable 
+                # so its better to go with the 1% of the total maximum value in the dataset and then use that for the space after the bar and also left for outside and cener for center to the bar
+                plt.text(w + offset, rect.get_y() + rect.get_height() / 2., w,
+                         ha='left', va='center', rotation=self.text_rotation, fontsize=self.text_font)
         br1 = None
         for _ in self.data_set:
             if i > 0:

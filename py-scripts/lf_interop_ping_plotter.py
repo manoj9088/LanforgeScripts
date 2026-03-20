@@ -1833,6 +1833,7 @@ connectivity problems.
         t_init = datetime.now()
         try:
             result_data = ping.get_results()
+            print(result_data)
             if isinstance(result_data, dict):
                 if 'UNKNOWN' in result_data['name']:
                     raise ValueError("There are no valid generic endpoints to run the test")
