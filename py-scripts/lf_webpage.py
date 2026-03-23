@@ -164,6 +164,9 @@ class HttpDownload(Realm):
         self.ssid = ssid
         self.sta_start_id = start_id
         self.password = password
+        self.real_ssid = ssid          # To config real devices with given ssid,password and security.
+        self.real_password = password
+        self.real_security = security
         self.twog_ssid = twog_ssid
         self.twog_password = twog_password
         self.twog_security = twog_security
@@ -310,9 +313,9 @@ class HttpDownload(Realm):
         }
         if self.client_type == "Both":
             config_dict = {
-            'ssid': self.ssid[0],
-            'passwd': self.password[0],
-            'enc': self.security[0],
+            'ssid': self.real_ssid,
+            'passwd': self.real_password,
+            'enc': self.real_security,
             'eap_method': self.eap_method,
             'eap_identity': self.eap_identity,
             'ieee80211': self.ieee80211,
@@ -1265,7 +1268,7 @@ class HttpDownload(Realm):
         port = ssh_port
         ssh = paramiko.SSHClient()  # creating shh client object we use this object to connect to router
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # automatically adds the missing host key
-        ssh.connect(ip, port=port, username=user, password=pswd, banner_timeout=600)
+        ssh.connect(ip, port=port, username=user, password=pswd, banner_timeout=600, allow_agent=False, look_for_keys=False)
         cmd = '[ -f /usr/local/lanforge/nginx/html/webpage.html ] && echo "True" || echo "False"'
         stdin, stdout, stderr = ssh.exec_command(str(cmd))
         output = stdout.readlines()
@@ -3029,6 +3032,9 @@ times the file is downloaded.
     port_list, device_list, macid_list = [], [], []
     print(args.client_type)
     
+    real_ssid = ""
+    real_password = ""
+    real_security = ""
     for bands in args.bands:
         # For real devices while ensuring no blocker for Virtual devices
         if args.client_type == 'Real':
@@ -3053,6 +3059,9 @@ times the file is downloaded.
                 ssid = [args.twog_ssid, args.fiveg_ssid]
                 passwd = [args.twog_passwd, args.fiveg_passwd]
         if args.client_type == "Both":
+            real_ssid = args.ssid
+            real_password  = args.passwd
+            real_security = args.security
             if bands == "2.4G":
                 security = [args.twog_security]
                 ssid = [args.twog_ssid]
@@ -3116,6 +3125,12 @@ times the file is downloaded.
                             duration=args.duration,
                             time_break=args.time_break
                             )
+        # Inorder to config Real Devices with specified SSID, PASSWD, SECURITY in Both Scenario
+        if args.client_type == "Both":
+            http.real_ssid = real_ssid
+            http.real_password = real_password
+            http.real_security = real_security
+
         if args.client_type == "Real" or args.client_type == "Both":
             if not isinstance(args.device_list, list):
                 http.device_list = http.filter_iOS_devices(args.device_list)
