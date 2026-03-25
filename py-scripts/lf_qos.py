@@ -1602,57 +1602,10 @@ class ThroughputQOS(Realm):
             m = re.match(r'^(\d+\.\d+)', cx_name)
             return m.group(1) if m else cx_name.split("_")[0]
 
-        
-        def collect_port_stats():
-            """
-            Returns dict keyed by client_key ->
-                {rx, tx, rssi, mode, channel, bssid}
-            Works for both real device ports and virtual station ports.
-            """
-            stats = {}
-            try:
-                port_json = self.json_get("/ports/all/")["interfaces"]
-            except Exception:
-                logger.warning("Failed /ports/all/")
-                return stats
-
-            for block in port_json:
-                for port, data in block.items():
-                    # Real devices: match against self.input_devices_list
-                    is_real_port = port in (self.input_devices_list or [])
-                    # Virtual stations: match against self.sta_list
-                    is_virt_port = any(port == sta for sta in (self.sta_list or []))
-
-                    if not (is_real_port or is_virt_port):
-                        continue
-
-                    if is_real_port:
-                        key = ".".join(port.split(".")[:2])
-                        rx  = data.get("rx-rate", 0)
-                        tx  = data.get("tx-rate", 0)
-                    else:
-                        key = port          # full station name for virtual
-                        rx  = round(data.get("bps rx", 0) / 1_000_000, 2)
-                        tx  = round(data.get("bps tx", 0) / 1_000_000, 2)
-
-                    rssi    = data.get("signal", "")
-                    mode    = data.get("mode", "-")
-                    channel = data.get("channel", "-")
-                    bssid   = data.get("ap", "-")
-                    stats[key] = {"rx": rx, "tx": tx, "rssi": rssi,
-                                  "mode": mode, "channel": channel, "bssid": bssid}
-
-                    rates_data[f"{key} rx_rate"].append(rx)
-                    rates_data[f"{key} tx_rate"].append(tx)
-                    rates_data[f"{key} RSSI"].append(rssi)
-
-            return stats
-
-
         while datetime.now() < end_time:
             now = datetime.now()
 
-            client_rtt = defaultdict(list) 
+            client_rtt = defaultdict(list)
             try:
                 cx_data = self.json_get("/cx/all")
                 for cx_name, cx_val in cx_data.items():
@@ -1663,7 +1616,7 @@ class ThroughputQOS(Realm):
                     client_rtt[ck].append(float(rtt))
             except Exception:
                 logger.warning("Failed /cx/all : skipping RTT this cycle")
-            
+
             logger.info(f"We are Printing client_rtt dict keys : {client_rtt.keys()}")
 
             try:
@@ -1675,9 +1628,66 @@ class ThroughputQOS(Realm):
                 time.sleep(1)
                 continue
 
-            port_stats = collect_port_stats()
+            # ── Port stats — inlined, mirroring each original script exactly ── #
+            port_stats = {}
 
-            print("We are printing Port Stats : ", port_stats)
+            # ── Real devices → /ports/all/  (fields: rx-rate, tx-rate) ──────── #
+            # Mirrors lf_interop_qos.py: filters port in input_devices_list,
+            # stores key as EID "shelf.resource" (e.g. "1.5"),
+            # reads raw rx-rate / tx-rate without unit conversion.
+            if client_type in ("Real", "Both"):
+                try:
+                    port_json = self.json_get("/ports/all/")["interfaces"]
+                    for block in port_json:
+                        for port, pdata in block.items():
+                            if port not in (self.input_devices_list or []):
+                                continue
+                            eid = ".".join(port.split(".")[:2])
+                            rx      = pdata.get("rx-rate", 0)
+                            tx      = pdata.get("tx-rate", 0)
+                            rssi    = pdata.get("signal", "")
+                            mode    = pdata.get("mode", "-")
+                            channel = pdata.get("channel", "-")
+                            bssid   = pdata.get("ap", "-")
+                            port_stats[eid] = {
+                                "rx": rx, "tx": tx, "rssi": rssi,
+                                "mode": mode, "channel": channel, "bssid": bssid,
+                            }
+                            rates_data[f"{eid} rx_rate"].append(rx)
+                            rates_data[f"{eid} tx_rate"].append(tx)
+                            rates_data[f"{eid} RSSI"].append(rssi)
+                except Exception:
+                    logger.warning("Failed /ports/all/ for Real devices")
+
+            # ── Virtual stations → /port/all  (fields: bps rx, bps tx) ─────── #
+            # Mirrors throughput_qos.py: matches sta in sta_list against port key,
+            # stores key as full station name (e.g. "1.1.sta0000"),
+            # converts bps → Mbps (÷ 1_000_000).
+            if client_type in ("Virtual", "Both"):
+                try:
+                    port_resp = self.json_get("/port/all")
+                    if "interfaces" in port_resp:
+                        for iface in port_resp["interfaces"]:
+                            for port, pdata in iface.items():
+                                for sta in (self.sta_list or []):
+                                    if sta in port:
+                                        rx      = round(pdata.get("bps rx", 0) / 1_000_000, 2)
+                                        tx      = round(pdata.get("bps tx", 0) / 1_000_000, 2)
+                                        rssi    = pdata.get("signal", "")
+                                        mode    = pdata.get("mode", "-")
+                                        channel = pdata.get("channel", "-")
+                                        bssid   = pdata.get("ap", "-")
+                                        port_stats[sta] = {
+                                            "rx": rx, "tx": tx, "rssi": rssi,
+                                            "mode": mode, "channel": channel, "bssid": bssid,
+                                        }
+                                        rates_data[f"{sta} rx_rate"].append(rx)
+                                        rates_data[f"{sta} tx_rate"].append(tx)
+                                        rates_data[f"{sta} RSSI"].append(rssi)
+                except Exception:
+                    logger.warning("Failed /port/all for Virtual stations")
+
+            logger.info("Port stats keys this cycle: %s", list(port_stats.keys()))
 
             qos_map = defaultdict(lambda: {
                 "BE_dl": 0, "BE_ul": 0,
