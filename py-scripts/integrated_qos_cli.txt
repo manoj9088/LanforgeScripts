@@ -1,0 +1,116 @@
+--------------- REAL Client CLIS ---------------------
+                python3 lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --ssid Cisco
+                --passwd cisco@123 --security wpa2 --upstream eth1 --test_duration 1m --download 1000000 --upload 0
+                --traffic_type lf_udp --tos "VO" --timebreak 5s --client_type Real
+
+                # Command Line Interface to run download scenario with tos : Voice and Video
+                python3 lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --ssid Cisco
+                --passwd cisco@123 --security wpa2 --upstream eth1 --test_duration 1m --download 1000000 --upload 0
+                --traffic_type lf_udp --tos "VO,VI" --timebreak 5s
+
+                # Load scenario with tos : Background, Besteffort, Video and Voice
+                python3 lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --ssid Cisco
+                --passwd cisco@123 --security wpa2 --upstream eth1 --test_duration 1m --download 0 --upload 1000000
+                --traffic_type lf_udp --tos "BK,BE,VI,VO" --timebreak 5s
+
+                # Command Line Interface to run bi-directional scenario with tos : Video and Voice
+                python3 lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --ssid Cisco
+                    --passwd cisco@123 --security wpa2 --upstream eth1 --test_duration 1m --download 1000000 --upload 1000000
+                    --traffic_type lf_udp --tos "VI,VO" --timebreak 5s
+
+                # Command Line Interface to run upload scenario by setting the same expected Pass/Fail value for all devices
+                python3 lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
+                    --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123
+                    --security wpa2 --expected_passfail_value 0.3 --timebreak 5s
+
+                # Command Line Interface to run upload scenario by setting device specific Pass/Fail values in the csv file
+                python3 lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
+                    --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123
+                    --security wpa2 --device_csv_name device_config.csv --timebreak 5s
+
+                # Command Line Interface to run upload scenario by Configuring Real Devices with SSID, Password, and Security
+                python3 lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
+                    --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123
+                    --security wpa2 --config --timebreak 5s
+
+                # Command Line Interface to run upload scenario by setting the same expected Pass/Fail value for all devices with configuration
+                python3 lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
+                    --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123
+                    --security wpa2 --config --expected_passfail_value 0.3 --timebreak 5s
+
+                # Command Line Interface to run upload scenario by Configuring Devices in Groups with Specific Profiles
+                python3 lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
+                    --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --file_name g219 --group_name grp1 --profile_name Open3 --timebreak 5s
+
+                # Command Line Interface to run upload scenario by Configuring Devices in Groups with Specific Profiles with expected Pass/Fail values
+                python3 lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
+                    --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --file_name g219 --group_name grp1 --profile_name Open3
+                    --expected_passfail_value 0.3 --wait_time 30 --timebreak 5s
+
+                # Command Line Interface to run the Test along with IOT without device list
+                python3 lf_interop_qos.py --mgr 192.168.207.78 --upstream_port eth1 --security None --ssid "NETGEAR_2G_wpa2" --passwd "" --traffic_type lf_tcp --download 10000000
+                    --upload 0 --test_duration 1m --tos VO,VI,BE,BK --device_list 1.5,1.13
+                    --iot_test --iot_testname "IotTest" --iot_delay 5
+
+                # Command Line Interface to run the Test along with IOT with device list
+                python3 lf_interop_qos.py --mgr 192.168.207.78 --upstream_port eth1 --security None --ssid "NETGEAR_2G_wpa2" --passwd "" --traffic_type lf_tcp --download 10000000
+                    --upload 0 --test_duration 1m --tos VO,VI,BE,BK --device_list 1.13 --iot_test --iot_ip 127.0.0.1 --iot_port 8000 --iot_iterations 1
+                    --iot_delay 5 --iot_device_list "switch.smart_plug_1_socket_1" --iot_testname "QosWithIot" --iot_increment ""
+
+                # Command Line Interface to run the QOS Test along with Robot by enabling rotation at the specified coordinates
+                python3 lf_interop_qos.py  --ap_name Cisco --mgr 192.168.207.78 --test_duration 1m --upstream_port eth1 --upload 1000000 --mgr_port 8080 --traffic_type lf_udp
+                    --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123 --security wpa2 --robot_ip 192.168.204.101 --rotation 30,90 --coordinate 3,4 --robot_test
+
+                # Command Line Interface to run the QOS Test along with Robot at the specified coordinates without any rotation
+                python3 lf_interop_qos.py  --ap_name Cisco --mgr 192.168.207.78 --test_duration 1m --upstream_port eth1 --upload 1000000 --mgr_port 8080 --traffic_type lf_udp
+                    --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123 --security wpa2 --robot_ip 192.168.204.101 --coordinate 3,4 --robot_test
+
+-------------------------- virtual Clients -------------
+
+            # Run download scenario with Voice TOS in 2.4GHz band
+            python3 lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 32 --radio_2g wiphy0
+                --ssid_2g Cisco --passwd_2g cisco@123 --security_2g wpa2 --bands 2.4g --upstream eth1 --test_duration 1m
+                --download 1000000 --upload 0 --traffic_type lf_udp --tos "VO" --timebreak 5s --create_sta --client_type Virtual
+
+            # Run download scenario with Voice and Video TOS in 5GHz band
+            python3 lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 32 --radio_5g wiphy1
+                --ssid_5g Cisco --passwd_5g cisco@123 --security_5g wpa2 --bands 5g --upstream eth1 --test_duration 1m
+                --download 1000000 --upload 0 --traffic_type lf_tcp --timebreak 5s --tos "VO,VI" --create_sta
+
+            # Run download scenario with Voice and Video TOS in 6GHz band
+            python3 lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 32 --radio_6g wiphy1
+                --ssid_6g Cisco --passwd_6g cisco@123 --security_6g wpa2 --bands 6g --upstream eth1 --test_duration 1m
+                --download 1000000 --upload 0 --traffic_type lf_tcp --timebreak 5s --tos "VO,VI" --create_sta
+
+            # Run upload scenario with Background, Best Effort, Video, and Voice TOS in 2.4GHz and 5GHz bands
+            python3 lf_interop_qos.py --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 --num_stations_2g 4 --radio_2g wiphy0
+                --ssid_2g NETGEAR_2G_wpa2 --passwd_2g Password@123 --security_2g wpa2 --radio_5g wiphy1 --ssid_5g NETGEAR_5G_wpa2 --passwd_5g Password@123
+                --security_5g wpa2 --bands dualband --upstream eth1 --test_duration 1m --timebreak 5s --download 0 --upload 1000000
+                --traffic_type lf_udp --tos "BK,BE,VI,VO" --create_sta
+
+            # Run upload scenario with Background, Best Effort, Video and Voice TOS in 2.4GHz and 5GHz bands with 'Open' security
+            python3 lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 64 --radio_2g wiphy0
+                --ssid_2g Cisco --passwd_2g [BLANK] --security_2g open --radio_5g wiphy1 --ssid_5g Cisco --passwd_5g [BLANK]
+                --security_5g open --bands dualband --upstream eth1 --test_duration 1m --timebreak 5s --download 0 --upload 1000000
+                --traffic_type lf_udp --tos "BK,BE,VI,VO" --create_sta
+
+            # Run bi-directional scenario with Video and Voice TOS in 6GHz band
+            python3 lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 32 --radio_6g wiphy1
+                --ssid_6g Cisco --passwd_6g cisco@123 --security_6g wpa2 --bands 6g --upstream eth1 --test_duration 1m --timebreak 5s
+                --download 1000000 --upload 10000000 --traffic_type lf_udp --tos "VO,VI" --create_sta
+
+
+
+                
+---------------- both Scenarios ----------------
+# Both dual band scenario.
+python3 lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 --num_stations_2g 4 --radio_2g wiphy0 --ssid_2g "NETGEAR_2G_wpa2" --passwd_2g Password@123 --security_2g wpa2 --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands dualband --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
+
+# Both 5g band scenario.
+python3 lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 --num_stations_5g 8 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands 5g --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
+
+# Both tri band scenario.
+python3 lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 --num_stations_2g 4 --radio_2g wiphy0 --ssid_2g "NETGEAR_2G_wpa2" --passwd_2g Password@123 --security_2g wpa2 --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --num_stations_6g 4 --radio_6g wiphy0 --ssid_6g "NETGEAR_2G_wpa2" --passwd_6g Password@123 --security_6g wpa2 --bands triband --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
+
+#Both 2.4G band scenario.
+python3 lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 --num_stations_2g 4 --radio_2g wiphy0 --ssid_2g "NETGEAR_2G_wpa2" --passwd_2g Password@123 --security_2g wpa2 --bands 5g --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s

@@ -1,0 +1,6 @@
+name,eid,type,status,total-urls,urls/s,bytes-rd,bytes-wr,total-buffers,total-rebuffers,total-wait-time,video-format-bitrate,audio-format-bitrate,frame-rate,video-quality,tx rate,tx-rate-1m,rx rate,rx rate (1m),fb-min,fb-avg,fb-max,uc-min,uc-avg,uc-max,dns-min,dns-avg,dns-max,total-err,bad-proto,bad-url,rslv-p,rslv-h,!conn,timeout,nf (4xx),http-r,http-p,http-t,acc. denied,ftp-host,ftp-stor,ftp-port,write,read,redir,login-denied,other-err,elapsed,rpt timer,time-stamp
+http_sta0000_http1_l4,1.1.4.3449.11,L4/Gen,Stopped,0,0.0,0.0,0,0,0,0,0,0,0,0X0,0,0,0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5000,1773313828721
+http_sta0001_http1_l4,1.1.5.3450.11,L4/Gen,Stopped,0,0.0,0.0,0,0,0,0,0,0,0,0X0,0,0,0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5000,1773313829450
+http_sta0002_http1_l4,1.1.7.3451.11,L4/Gen,Stopped,0,0.0,0.0,0,0,0,0,0,0,0,0X0,0,0,0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5000,1773313830304
+sta0_http15_l4,1.15.2.3452.11,L4/Gen,Run,9,0.1599601876866202,18.0,0,0,0,0,0,0,0,0X0,0,0,2559363,2572698,7,9.666,15,252,315.888,399,0,0.0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,56,5000,1773313830605
+en0_http20_l4,1.20.1.3453.11,L4/Gen,WAITING,0,0.0,0.0,0,0,0,0,0,0,0,0X0,0,0,0,0,0,0.0,0,0,0.0,0,0,0.0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,36,5000,1773313830960

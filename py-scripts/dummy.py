@@ -526,3 +526,13 @@ bands = ""
 band_list = bands.split(',')
 
 print(band_list)
+
+
+if is_real_port:
+    key = ".".join(port.split(".")[:2])
+    rx  = data.get("rx-rate", 0)
+    tx  = data.get("tx-rate", 0)
+else:
+    key = port          # full station name for virtual
+    rx  = round(data.get("bps rx", 0) / 1_000_000, 2)
+    tx  = round(data.get("bps tx", 0) / 1_000_000, 2)

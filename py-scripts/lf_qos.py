@@ -121,21 +121,25 @@ EXAMPLES:       --- FOR REAL DEVICES ---
             
             # Run Bi_Directional Scenario for both real and virtual stations in dual band scenario with all TOS values.
             python3 lf_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080
+            --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
             --num_stations_2g 4 --radio_2g wiphy0 --ssid_2g "NETGEAR_2G_wpa2" --passwd_2g Password@123 --security_2g wpa2
-            --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands dualband --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
+            --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands dualband --upstream eth1 --test_duration 1m --download 1000000 --upload 1000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
 
             # Run Bi_Directional Scenario for both real and virtual stations in 5g band scenario with all TOS values.
             python3 lf_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 
+            --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
             --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands 5g --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
 
             # Run Bi_Directional Scenario for both real and virtual stations in tri band scenario with all TOS values.
             python3 lf_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 
+            --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
             --num_stations_2g 4 --radio_2g wiphy0 --ssid_2g "NETGEAR_2G_wpa2" --passwd_2g Password@123 --security_2g wpa2 
             --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 
             --num_stations_6g 4 --radio_6g wiphy0 --ssid_6g "NETGEAR_2G_wpa2" --passwd_6g Password@123 --security_6g wpa2 --bands triband --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
 
             # Run Bi_Directional Scenario for both real and virtual stations in 2.4G band scenario with all TOS values.
             python3 lf_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 
+            --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
             --num_stations_2g 4 --radio_2g wiphy0 --ssid_2g "NETGEAR_2G_wpa2" --passwd_2g Password@123 --security_2g wpa2 --bands 5g --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
             
 
@@ -328,6 +332,11 @@ class ThroughputQOS(Realm):
         self.security = security
         self.password = password
 
+        # True only when the user passed --ssid explicitly (a genuine single-SSID
+        # override).  Used by _resolve() to decide whether self.ssid should take
+        # priority over band-specific SSIDs in multi-band Virtual scenarios.
+        self._explicit_ssid = (ssid is not None)
+
         self.test_case = test_case
 
         # SSID, Password, Security Fields for Virtual Stations 
@@ -349,7 +358,7 @@ class ThroughputQOS(Realm):
         self.sta_list = sta_list
         self.channel_list = channel_list if channel_list else []
         self.test_case = test_case if test_case else {}
-        # bands: always stored as a string; _build_virtual_stations() will split it
+        # bands: always stored as a string; build_virtual_stations() will split it
         self.bands = bands if bands else ""
         self.create_sta = create_sta
         self.initial_band_pref = initial_band_pref
@@ -454,8 +463,6 @@ class ThroughputQOS(Realm):
 
     def os_type(self):
         response = self.json_get("/resource/all")
-        json_string = json.dumps(response, indent=4)
-        #print(json_string)
         for key, value in response.items():
             if key == "resources":
                 for element in value:
@@ -641,15 +648,16 @@ class ThroughputQOS(Realm):
         if devices_list == "" or devices_list == ",":
             logger.error("Selected Devices are not available in the lanforge. devices_list: '%s'", devices_list)
             exit(1)
+        print("We are printing Devices List : ",devices_list)
         resource_eid_list = devices_list.split(',')
-        logger.info(f"devices list {devices_list}")
         resource_eid_list2 = [eid + ' ' for eid in resource_eid_list]
         resource_eid_list1 = [resource + '.' for resource in resource_eid_list]
-        logger.info(f"resource eid list {resource_eid_list}")
+        logger.info(f"resource eid list : {resource_eid_list1} - {resource_eid_list2}")
 
         # User desired eids are fetched ---
 
         for eid in resource_eid_list1:
+            print("Original Port : ",original_port_list)
             for ports_m in original_port_list:
                 if eid in ports_m:
                     self.input_devices_list.append(ports_m)
@@ -657,6 +665,7 @@ class ThroughputQOS(Realm):
 
         # user desired real client list 1.1 wlan0 ---
 
+        print("We are printing user list : ",self.user_list)
         for i in resource_eid_list2:
             for j in range(len(self.user_list)):
                 if i in self.user_list[j]:
@@ -667,8 +676,9 @@ class ThroughputQOS(Realm):
 
         self.num_stations = len(self.real_client_list)
 
+        print("We are printing mac_id_list : ",self.mac_id1_list)
         for eid in resource_eid_list2:
-            for i in self.mac_id1_list:
+            for i in self.mac_id1_list:   # ['1.11 be:5d:07:76:c8:81', '1.20 30:35:ad:c5:e1:be', '1.23 ca:84:bc:fa:cb:7a']
                 if eid in i:
                     self.mac_id_list.append(i.strip(eid + ' '))
         logger.info("MAC ID LIST {}" .format(self.mac_id_list))
@@ -736,35 +746,33 @@ class ThroughputQOS(Realm):
                 debug=self.debug
             )
 
-    # ------------------------------------------------------------------ #
-    #  build()  –  unified entry point for Real / Virtual / Both          #
-    # ------------------------------------------------------------------ #
+    #  build()  –  unified entry point for Real / Virtual / Both
     def build(self, client_type="Real"):
         """
         Build cross-connections.
 
         client_type:
-            "Real"    – use real device ports discovered by phantom_check()
-            "Virtual" – create virtual stations then build CX
-            "Both"    – create virtual stations AND build CX for real devices
+            "Real"    : use real device ports discovered by phantom_check()
+            "Virtual" : create virtual stations then build CX
+            "Both"    : create virtual stations AND build CX for real devices
         """
         self._client_type = client_type  # store for use in monitor2/evaluate_qos
 
         if client_type in ("Virtual", "Both"):
-            self._build_virtual_stations()
+            self.build_virtual_stations()
+        print("We are Printing Virtual Stations after build from Station Profile : ",self.station_profile.station_names)
 
         if client_type in ("Real", "Both"):
-            self._create_cx_real()
+            self.create_cx_real()
 
-        if client_type == "Virtual":
-            self._create_cx_virtual()
+        if client_type in ("Virtual", "Both"):
+            self.create_cx_virtual()
 
+        print("We are Printing CX List after the build Method : ", list(self.cx_profile.created_cx.keys()))
         print("cx build finished")
 
-    # ------------------------------------------------------------------ #
-    #  Virtual station creation                                           #
-    # ------------------------------------------------------------------ #
-    def _build_virtual_stations(self):
+    #  Virtual station creation
+    def build_virtual_stations(self):
         """
         Create virtual stations for each band in self.bands.
 
@@ -777,7 +785,7 @@ class ThroughputQOS(Realm):
         """
         bands = self.bands if isinstance(self.bands, list) else self.bands.split(",")
 
-        # Helper: pick first non-None SSID, passwd, security across 2g/5g/6g
+        # Pickup the first non-None SSID, passwd, security across 2g/5g/6g
         def _first_available():
             for s, p, e in [
                 (self.ssid_2g, self.password_2g, self.security_2g),
@@ -789,11 +797,19 @@ class ThroughputQOS(Realm):
             return self.ssid, self.password, self.security
 
         def _resolve(band_ssid, band_passwd, band_sec):
-            """Return (ssid, passwd, sec) preferring generic then band-specific then fallback."""
-            if self.ssid is not None:
-                return self.ssid, self.password, self.security
+            """
+            Revised Priority for 'Both' Scenario:
+            1. band_ssid: Use band-specific if provided (Priority for Virtual Stations).
+            2. self.ssid: Fallback to global only if band-specific is None.
+            """
+            # Check band-specific first so --ssid_5g wins for virtual stations
             if band_ssid is not None:
                 return band_ssid, band_passwd, band_sec
+            
+            # Fallback to the Real device credentials
+            if self.ssid is not None:
+                return self.ssid, self.password, self.security
+            
             return _first_available()
 
         # Station count fallback: use any non-zero count when band-specific is 0
@@ -815,9 +831,10 @@ class ThroughputQOS(Realm):
             if key in ("2.4G", "2.4g"):
                 count = _station_count(self.num_stations_2g)
                 if count == 0:
-                    logger.warning("2.4G band requested but num_stations_2g=0 – skipping")
+                    logger.warning("2.4G band requested but num_stations_2g=0 - skipping")
                     continue
                 ssid, passwd, sec = _resolve(self.ssid_2g, self.password_2g, self.security_2g)
+                print(f"We are printing band specific ssid,passwd,sec from build() : {ssid} - {passwd} - {sec}")
                 self.station_profile.mode = 13
                 self.station_profile.use_security(sec, ssid, passwd)
                 self.station_profile.set_number_template(self.number_template)
@@ -832,11 +849,10 @@ class ThroughputQOS(Realm):
             elif key in ("5G", "5g"):
                 count = _station_count(self.num_stations_5g)
                 if count == 0:
-                    count = _station_count(self.num_stations_2g)  # allow cross-use
-                if count == 0:
-                    logger.warning("5G band requested but no station count found – skipping")
+                    logger.warning("5G band requested but no station count found : skipping")
                     continue
                 ssid, passwd, sec = _resolve(self.ssid_5g, self.password_5g, self.security_5g)
+                print(f"We are printing band specific ssid,passwd,sec from build() : {ssid} - {passwd} - {sec}")
                 self.station_profile.mode = 14
                 self.station_profile.use_security(sec, ssid, passwd)
                 self.station_profile.set_number_template(self.number_template)
@@ -851,11 +867,10 @@ class ThroughputQOS(Realm):
             elif key in ("6G", "6g"):
                 count = _station_count(self.num_stations_6g)
                 if count == 0:
-                    count = _station_count(self.num_stations_2g)
-                if count == 0:
-                    logger.warning("6G band requested but no station count found – skipping")
+                    logger.warning("6G band requested but no station count found : skipping")
                     continue
                 ssid, passwd, sec = _resolve(self.ssid_6g, self.password_6g, self.security_6g)
+                print(f"We are printing band specific ssid,passwd,sec from build() : {ssid} - {passwd} - {sec}")
                 self.station_profile.mode = 15
                 self.station_profile.use_security(sec, ssid, passwd)
                 self.station_profile.set_number_template(self.number_template)
@@ -871,6 +886,7 @@ class ThroughputQOS(Realm):
                 split = len(self.sta_list) // 2
                 # 2.4 GHz half
                 ssid, passwd, sec = _resolve(self.ssid_2g, self.password_2g, self.security_2g)
+                print(f"We are printing band specific ssid,passwd,sec from build() : {ssid} - {passwd} - {sec}")
                 self.station_profile.use_security(sec, ssid, passwd)
                 self.station_profile.mode = 13
                 self.station_profile.set_number_template(self.number_template)
@@ -883,6 +899,7 @@ class ThroughputQOS(Realm):
                 self.station_profile.create(radio=self.radio_2g, sta_names_=self.sta_list[:split], debug=self.debug)
                 # 5 GHz half
                 ssid, passwd, sec = _resolve(self.ssid_5g, self.password_5g, self.security_5g)
+                print(f"We are printing band specific ssid,passwd,sec from build() : {ssid} - {passwd} - {sec}")
                 self.station_profile.use_security(sec, ssid, passwd)
                 self.station_profile.mode = 14
                 self.station_profile.set_number_template(self.number_template)
@@ -899,6 +916,7 @@ class ThroughputQOS(Realm):
                 split_2 = 2 * split_1
                 # 2.4 GHz
                 ssid, passwd, sec = _resolve(self.ssid_2g, self.password_2g, self.security_2g)
+                print(f"We are printing band specific ssid,passwd,sec from build() : {ssid} - {passwd} - {sec}")
                 self.station_profile.use_security(sec, ssid, passwd)
                 self.station_profile.mode = 13
                 self.station_profile.set_number_template(self.number_template)
@@ -911,6 +929,7 @@ class ThroughputQOS(Realm):
                 self.station_profile.create(radio=self.radio_2g, sta_names_=self.sta_list[:split_1], debug=self.debug)
                 # 5 GHz
                 ssid, passwd, sec = _resolve(self.ssid_5g, self.password_5g, self.security_5g)
+                print(f"We are printing band specific ssid,passwd,sec from build() : {ssid} - {passwd} - {sec}")
                 self.station_profile.use_security(sec, ssid, passwd)
                 self.station_profile.mode = 14
                 self.station_profile.set_number_template(self.number_template)
@@ -923,6 +942,7 @@ class ThroughputQOS(Realm):
                 self.station_profile.create(radio=self.radio_5g, sta_names_=self.sta_list[split_1:split_2], debug=self.debug)
                 # 6 GHz
                 ssid, passwd, sec = _resolve(self.ssid_6g, self.password_6g, self.security_6g)
+                print(f"We are printing band specific ssid,passwd,sec from build() : {ssid} - {passwd} - {sec}")
                 self.station_profile.use_security(sec, ssid, passwd)
                 self.station_profile.mode = 15
                 self.station_profile.set_number_template(self.number_template)
@@ -956,10 +976,9 @@ class ThroughputQOS(Realm):
                     if port_data['channel'] not in self.channel_list:
                         self.channel_list.append(port_data['channel'])
 
-    # ------------------------------------------------------------------ #
-    #  CX creation for Real devices  (original logic, unchanged)          #
-    # ------------------------------------------------------------------ #
-    def _create_cx_real(self):
+
+    #  CX creation for Real device
+    def create_cx_real(self):
         direction = ''
         if (int(self.cx_profile.side_b_min_bps)) != 0 and (int(self.cx_profile.side_a_min_bps)) != 0:
             self.direction = "Bi-direction"
@@ -1009,14 +1028,9 @@ class ThroughputQOS(Realm):
                 count += 1
             logger.info("cross connections with TOS type created.")
 
-    # Kept for backward-compatibility (called by build() for Real client_type)
-    def create_cx(self):
-        self._create_cx_real()
-
-    # ------------------------------------------------------------------ #
-    #  CX creation for Virtual stations                                   #
-    # ------------------------------------------------------------------ #
-    def _create_cx_virtual(self):
+    
+    #  CX creation for Virtual stations
+    def create_cx_virtual(self):
         """Build CX connections against virtual sta_list entries."""
         direction = ''
         if int(self.cx_profile.side_b_min_bps) != 0 and int(self.cx_profile.side_a_min_bps) != 0:
@@ -1041,11 +1055,11 @@ class ThroughputQOS(Realm):
                     for k in traffic_type_list:
                         cx_names = ("%s_%s_%s_%s" % (i, k, j, ip_tos)).replace(" ", "")
                 cx_list.append(cx_names)
-        print("virtual cx_list:", cx_list)
+        print("Virtual cx_list:", cx_list)
         count = 0
         for ip_tos in range(len(self.tos)):
             for sta in range(len(self.sta_list)):
-                print("Creating virtual CX – TOS: %s, sta: %s" % (self.tos[ip_tos], self.sta_list[sta]))
+                print("Creating virtual CX : TOS: %s, sta: %s" % (self.tos[ip_tos], self.sta_list[sta]))
                 self.cx_profile.create(
                     endp_type=self.traffic_type,
                     side_a=[self.sta_list[sta]],
@@ -1060,7 +1074,6 @@ class ThroughputQOS(Realm):
     def monitor_cx(self):
         """
         This function waits for up to 20 iterations to allow all CXs (connections) to be created.
-
         If some CXs are still not created after 20 iterations, then the CXs related to that device are removed,
         along with their associated client and MAC entries from all relevant lists.
         """
@@ -1502,7 +1515,6 @@ class ThroughputQOS(Realm):
     def monitor2(self, runtime_dir="per_client_csv"):
         """
         Unified monitoring loop for Real / Virtual / Both client types.
-
         Detects the active client type via self._client_type (set by build()).
         Falls back to "Real" if the attribute is absent for backward compatibility.
 
@@ -1520,20 +1532,20 @@ class ThroughputQOS(Realm):
             self.df_for_webui = []
         if not hasattr(self, "generated_station_csv_files"):
             self.generated_station_csv_files = []
-
+            
         self.real_time_data = {}
-
         cx_list      = list(self.cx_profile.created_cx.keys())
         timebreak    = getattr(self, "timebreak", None)
         last_write   = datetime.now()
 
-        # Initialise real_time_data structure for every CX
+        # To store run time data for all l3 cx. 
         for cx in cx_list:
             self.real_time_data[cx] = {
                 t: {'time': [], 'bps rx a': [], 'bps rx b': [],
                     'rx drop % a': [], 'rx drop % b': []}
                 for t in ["BE", "BK", "VI", "VO"]
             }
+
 
         os.makedirs(runtime_dir, exist_ok=True)
 
@@ -1564,9 +1576,7 @@ class ThroughputQOS(Realm):
 
         logger.info("monitor2 started (client_type=%s)", client_type)
 
-        # -------------------------------------------------------------- #
-        # Helper: normalise TOS string / integer to "BE/BK/VI/VO"        #
-        # -------------------------------------------------------------- #
+        # To Resolve Key Errors in TOS Names.
         def map_tos(tos_val):
             _map = {
                 "0": "BE",   0: "BE",
@@ -1578,13 +1588,11 @@ class ThroughputQOS(Realm):
             }
             return _map.get(str(tos_val).strip().upper(), "BE")
 
-        # -------------------------------------------------------------- #
-        # Helper: resolve the "client key" used in per_client_rows        #
-        #   Real/Both → EID prefix "1.5"                                 #
-        #   Virtual   → station name "1.1.sta0000"                       #
-        # -------------------------------------------------------------- #
+        #   Real/Both → EID prefix "1.5"
+        #   Virtual   → station name "1.1.sta0000"
+
         def resolve_client_key(cx_name):
-            """Return the client identifier for a given CX name."""
+
             # Virtual stations: sta_list entries appear literally in cx_name
             if self.sta_list:
                 for sta in self.sta_list:
@@ -1594,9 +1602,7 @@ class ThroughputQOS(Realm):
             m = re.match(r'^(\d+\.\d+)', cx_name)
             return m.group(1) if m else cx_name.split("_")[0]
 
-        # -------------------------------------------------------------- #
-        # Helper: collect port stats from /ports/all/                     #
-        # -------------------------------------------------------------- #
+        
         def collect_port_stats():
             """
             Returns dict keyed by client_key ->
@@ -1642,14 +1648,11 @@ class ThroughputQOS(Realm):
 
             return stats
 
-        # ==============================================================  #
-        #  Main monitoring while-loop                                      #
-        # ==============================================================  #
+
         while datetime.now() < end_time:
             now = datetime.now()
 
-            # ── 1. Fetch /cx/all for RTT ─────────────────────────────── #
-            client_rtt = defaultdict(list)
+            client_rtt = defaultdict(list) 
             try:
                 cx_data = self.json_get("/cx/all")
                 for cx_name, cx_val in cx_data.items():
@@ -1659,23 +1662,23 @@ class ThroughputQOS(Realm):
                     ck  = resolve_client_key(cx_name)
                     client_rtt[ck].append(float(rtt))
             except Exception:
-                logger.warning("Failed /cx/all – skipping RTT this cycle")
+                logger.warning("Failed /cx/all : skipping RTT this cycle")
+            
+            logger.info(f"We are Printing client_rtt dict keys : {client_rtt.keys()}")
 
-            # ── 2. Fetch /endp/all ────────────────────────────────────── #
             try:
                 endp_data = self.json_get(
-                    "/endp/all?fields=name,rx+rate+(last),rx+drop+%25,tos"
+                    "/endp/all?fields=name,rx rate (last),rx drop %25,tos"
                 ).get("endpoint", [])
             except Exception:
-                logger.warning("Failed /endp/all – sleeping 1 s")
+                logger.warning("Failed /endp/all : sleeping 1 s")
                 time.sleep(1)
                 continue
 
-            # ── 3. Port stats ─────────────────────────────────────────── #
             port_stats = collect_port_stats()
 
-            # ── 4. Accumulate per-CX throughput ──────────────────────── #
-            # qos_map[client_key] = {"BE_dl": x, "BE_ul": x, ...}
+            print("We are printing Port Stats : ", port_stats)
+
             qos_map = defaultdict(lambda: {
                 "BE_dl": 0, "BE_ul": 0,
                 "BK_dl": 0, "BK_ul": 0,
@@ -1718,26 +1721,32 @@ class ThroughputQOS(Realm):
                 if col in qos_map[ck]:
                     qos_map[ck][col] = rx
 
-            # ── 5. Build per-client RTT averages ─────────────────────── #
             client_avg_rtt = {
                 ck: (sum(rtts) / len(rtts) if rtts else 0)
                 for ck, rtts in client_rtt.items()
             }
 
-            # ── 6. Overall summary row ────────────────────────────────── #
             overall_row = {
                 k: round(sum(v[k] for v in qos_map.values()), 2)
                 for k in ["BE_dl", "BE_ul", "BK_dl", "BK_ul",
                           "VI_dl", "VI_ul", "VO_dl", "VO_ul"]
             }
-            for ck, avg_r in client_avg_rtt.items():
-                overall_row[f"{ck} avg_rtt"] = round(avg_r, 2)
+
+            print("We are printing Client Avg Rtt Keys : ",client_avg_rtt.keys())
+            for ck, avg_rtt in client_avg_rtt.items():
+                overall_row[f"{ck} avg_rtt"] = round(avg_rtt, 2)
+
             for ck, ps in port_stats.items():
                 overall_row.update({
                     f"{ck} mode":    ps.get("mode", "-"),
                     f"{ck} channel": ps.get("channel", "-"),
                     f"{ck} bssid":   ps.get("bssid", "-"),
                 })
+            
+            for k, vals in rates_data.items():
+                if vals:
+                    overall_row[k] = vals[-1]
+            
             overall_row.update({
                 "timestamp":      now.strftime("%d/%m %I:%M:%S %p"),
                 "start_time":     start_time.strftime("%d/%m %I:%M:%S %p"),
@@ -1745,13 +1754,10 @@ class ThroughputQOS(Realm):
                 "remaining_time": str(end_time - now).split(".")[0],
                 "status":         "Running",
             })
-            for k, vals in rates_data.items():
-                if vals:
-                    overall_row[k] = vals[-1]
+
             self.overall.append(overall_row)
             all_station_rows.append(overall_row)
 
-            # ── 7. Timebreak-gated per-client CSV rows ────────────────── #
             write_now = True
             if timebreak:
                 try:
@@ -1764,24 +1770,24 @@ class ThroughputQOS(Realm):
                 last_write = now
                 for ck, qrow in qos_map.items():
                     ps = port_stats.get(ck, {"rx": 0, "tx": 0, "rssi": 0,
-                                             "mode": "-", "channel": "-", "bssid": "-"})
+                                             "mode": "", "channel": "", "bssid": ""})
                     if not ps:
                         ps = {"rx": 0, "tx": 0, "rssi": 0,
                               "mode": "-", "channel": "-", "bssid": "-"}
                     row = {
                         **qrow,
-                        "avg_rtt":        round(client_avg_rtt.get(ck, 0), 2),
+                        f"{ck} avg_rtt":        round(client_avg_rtt.get(ck, 0), 2),
                         "timestamp":      now.strftime("%H:%M:%S"),
                         "start_time":     start_time.strftime("%H:%M:%S"),
                         "end_time":       end_time.strftime("%H:%M:%S"),
                         "remaining_time": str(end_time - now).split(".")[0],
                         "status":         "Running",
-                        "station_rx_rate": ps["rx"],
-                        "station_tx_rate": ps["tx"],
-                        "station_RSSI":    ps["rssi"],
-                        "Mode":            ps["mode"],
-                        "Channel":         ps["channel"],
-                        "BSSID":           ps["bssid"],
+                        f"{ck} rx_rate": ps["rx"],
+                        f"{ck} tx_rate": ps["tx"],
+                        f"{ck} RSSI":    ps["rssi"],
+                        f"{ck} Mode":    ps["mode"],
+                        f"{ck} Channel": ps["channel"],
+                        f"{ck} BSSID":   ps["bssid"],
                     }
                     per_client_rows[ck].append(row)
                     # Also fill virtual station rows when applicable
@@ -1790,9 +1796,7 @@ class ThroughputQOS(Realm):
 
             time.sleep(1)
 
-        # ==============================================================  #
-        #  Post-loop: aggregate averages                                   #
-        # ==============================================================  #
+
         for cx in cx_list:
             if avg_dl[cx]:
                 connections_download[cx]     = sum(avg_dl[cx]) / len(avg_dl[cx])
@@ -1816,7 +1820,7 @@ class ThroughputQOS(Realm):
                 pd.DataFrame(rows).to_csv(fname, index=False)
 
         # Write per-virtual-station CSVs (same format as throughput_qos.py)
-        if client_type in ("Virtual", "Both"):
+        if client_type in ("Virtual"):
             for sta, rows in sta_rows.items():
                 if not rows:
                     continue
@@ -1856,7 +1860,7 @@ class ThroughputQOS(Realm):
         Unified QoS evaluator.
 
         For Real devices  – TOS is extracted from the CX name suffix (e.g. '_BE', '_VO').
-        For Virtual/Both  – same TOS-suffix approach works because _create_cx_virtual()
+        For Virtual/Both  – same TOS-suffix approach works because create_cx_virtual()
                             encodes TOS in the same position.
 
         Returns:
@@ -2222,8 +2226,10 @@ class ThroughputQOS(Realm):
 
         # SSID list: source depends on client type
         if _client_type == 'Virtual':
+            print("Station List : ",self.sta_list)
             self.ssid_list = self.get_ssid_list(self.sta_list)
         else:
+            print("Input Device List : ",self.input_devices_list)
             self.ssid_list = self.get_ssid_list(self.input_devices_list)
 
         if selected_real_clients_names is not None:
@@ -4604,45 +4610,43 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
     password = ""
     security = ""
 
-    # ------------------------------------------------------------------ #
-    # Parse bands and build virtual station list (used for Virtual/Both)  #
-    # ------------------------------------------------------------------ #
     bands_list = [b.strip() for b in args.bands.split(',')] if args.bands else ["2.4G"]
     station_list = []
 
-    # Helper: return the first non-zero station count across all bands
-    def _any_sta_count():
+    # If the enduser didn't provided band specific num_stations then method will come into action.
+    def any_sta_count():
         for c in [args.num_stations_2g, args.num_stations_5g, args.num_stations_6g]:
             if c and c > 0:
                 return c
         return 0
 
-    # Build station_list per band (mirrors throughput_qos.py logic)
+    # For Real Clients we consider 2.4G as default band - to support --client_type "Both" scenario
     if args.client_type in ("Virtual", "Both"):
         if not getattr(args, 'create_sta', False):
-            # If --create_sta not supplied, use existing station names from args
+            # We will use existing station names from args if specified. 
             sta_names_arg = getattr(args, 'sta_names', None)
             if sta_names_arg:
                 station_list = sta_names_arg.split(",")
+                print("Station List : ",station_list)
         else:
             for band in bands_list:
-                band = band.strip()
+                band = band.strip() # This is extra validation inorder to remove leading and trailing white spaces before band word, inorder to reduce errors.
                 if band in ("2.4G", "2.4g"):
-                    count = args.num_stations_2g or _any_sta_count()
+                    count = args.num_stations_2g or any_sta_count()
                     args.mode = 13
                     station_list = LFUtils.portNameSeries(
                         prefix_="sta", start_id_=0,
                         end_id_=count - 1,
                         padding_number_=10000, radio=args.radio_2g)
                 elif band in ("5G", "5g"):
-                    count = args.num_stations_5g or _any_sta_count()
+                    count = args.num_stations_5g or any_sta_count()
                     args.mode = 14
                     station_list = LFUtils.portNameSeries(
                         prefix_="sta", start_id_=0,
                         end_id_=count - 1,
                         padding_number_=10000, radio=args.radio_5g)
                 elif band in ("6G", "6g"):
-                    count = args.num_stations_6g or _any_sta_count()
+                    count = args.num_stations_6g or any_sta_count()
                     args.mode = 15
                     station_list = LFUtils.portNameSeries(
                         prefix_="sta", start_id_=0,
@@ -4680,31 +4684,25 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
         print("Virtual station_list:", station_list)
 
     # Determine SSID/password/security for the object constructor.
-    # For Real: use --ssid / --passwd / --security.
-    # For Virtual/Both: use band-specific fields; fall back to generic --ssid if set.
-    primary_band = bands_list[0] if bands_list else "2.4G"
+    # Generic SSID slot:
+    #   Real       → always args.ssid / args.passwd / args.security
+    #   Virtual/Both → args.ssid ONLY when the user explicitly passed --ssid
+    #                  (a true single-SSID override).  For band-specific
+    #                  scenarios the slot is left None so _resolve() inside
+    #                  build_virtual_stations() always falls through to the
+    #                  correct band-specific credentials (ssid_2g / ssid_5g /
+    #                  ssid_6g).  Mixing a 2.4G SSID into the generic slot was
+    #                  the root cause of 5G stations being configured with the
+    #                  2.4G SSID in dualband / triband scenarios.
     if args.client_type == "Real":
         ssid     = args.ssid
         password = args.passwd
         security = args.security
-    elif args.client_type in ("Virtual", "Both"):
-        b = primary_band.strip()
-        if b in ("2.4G", "2.4g", "dualband", "DUALBAND", "triband", "TRIBAND"):
-            ssid     = args.ssid_2g if args.ssid is None else args.ssid
-            password = args.password_2g if args.ssid is None else args.passwd
-            security = args.security_2g if args.ssid is None else args.security
-        elif b in ("5G", "5g"):
-            ssid     = args.ssid_5g if args.ssid is None else args.ssid
-            password = args.password_5g if args.ssid is None else args.passwd
-            security = args.security_5g if args.ssid is None else args.security
-        elif b in ("6G", "6g"):
-            ssid     = args.ssid_6g if args.ssid is None else args.ssid
-            password = args.password_6g if args.ssid is None else args.passwd
-            security = args.security_6g if args.ssid is None else args.security
-        else:
-            ssid     = args.ssid
-            password = args.passwd
-            security = args.security
+    else:
+        # Virtual / Both — only use the generic slot for a true override
+        ssid     = args.ssid   # None unless --ssid was explicitly supplied
+        password = args.passwd if args.ssid is not None else None
+        security = args.security if args.ssid is not None else None
 
     for index in range(len(loads_data)):
         throughput_qos = ThroughputQOS(host=args.mgr,
@@ -4787,7 +4785,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
                                        timebreak=args.timebreak
                                        )
 
-        # ── Real-device discovery (only for Real and Both) ──────────── #
+        # Inorder to run the test on Real Devices in --client_type 'Real and Both' Scenarios.
         if args.client_type in ("Real", "Both"):
             throughput_qos.os_type()
             _, configured_device, _, configuration = throughput_qos.phantom_check()
@@ -4834,7 +4832,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
                 )
                 iot_thread.start()
 
-        # ── Abort early if no devices found (webgui mode, Real/Both) ── #
+        # Stopping early if no devices found (webgui mode, Real/Both)
         if args.client_type in ("Real", "Both") and throughput_qos.dowebgui == "True":
             if throughput_qos.device_found is False:
                 logger.warning("No Device is available to run the test hence aborting the test")
@@ -4849,15 +4847,15 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
                 df1.to_csv('{}/overall_throughput.csv'.format(throughput_qos.result_dir), index=False)
                 raise ValueError("Aborting the test....")
 
-        # ── Virtual pre-cleanup (remove stale stations / CX prefixes) ── #
+        # Virtual pre-cleanup (remove Old Stations / CX prefixes)
         if args.client_type in ("Virtual", "Both"):
             throughput_qos.pre_cleanup()
 
-        # ── Build CX (creates stations for Virtual/Both, CX for all) ── #
+        # Build CX (creates stations for Real, Virtual and Both Scenario)
         throughput_qos.build(client_type=args.client_type)
 
-        # ── CX readiness check (Real / Both only) ────────────────────── #
-        if args.client_type in ("Real", "Both"):
+        # Remove's not working cx's from the test.
+        if args.client_type in ("Real","Virtual","Both"):
             throughput_qos.monitor_cx()
 
         if args.robot_test:
@@ -4895,6 +4893,8 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
     input_setup_info = {
         "contact": "support@candelatech.com"
     }
+
+    # This cleanup is for Real Devices and Virtual Stations After the Test Completion.
     throughput_qos.cleanup()
     iot_summary = None
     if args.iot_test and args.iot_testname:

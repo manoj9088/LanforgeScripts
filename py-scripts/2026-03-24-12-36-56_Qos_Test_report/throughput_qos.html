@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1' />
+        <style>
+        body { margin: 0; padding: 0; }
+        </style>
+        <link rel='stylesheet' href='report.css' />
+        <link rel='stylesheet' href='custom.css' />
+        <title>Throughput QOS</title>
+    </head>
+    <body>
+        <div id='BannerBack'>
+            <div id='Banner'>
+                <img id='BannerLogo' align='right' src="CandelaLogo2-90dpi-200x90-trans.png" border='0'/>
+                <div class='HeaderStyle'>
+                    <h1 class='TitleFontPrint' style='color:darkgreen;'>Throughput QOS</h1>
+                    <h4 class='TitleFontPrintSub' style='color:darkgreen;'>2026-03-24-12-36-56</h4>
+                </div>
+            </div>
+        </div>
+                 
+            <!-- Test Objective -->
+            <h3 align='left'>Objective</h3>
+            <p align='left' width='900'>The objective of the QoS (Quality of Service) traffic throughput test is to measure the maximum achievable throughput of a network under specific QoS settings and conditions. By conducting this test, we aim to assess the capacity of the network to handle high volumes of traffic while maintaining acceptable performance levels, ensuring that the network meets the required QoS standards and can adequately support the expected user demands.</p>
+            
+                            <!-- Test Setup Information -->
+                            <table width='700px' border='1' cellpadding='2' cellspacing='0' style='border-top-color: gray; border-top-style: solid; border-top-width: 1px;                              border-right-color: gray; border-right-style: solid; border-right-width: 1px; border-bottom-color: gray; border-bottom-style: solid;                              border-bottom-width: 1px; border-left-color: gray; border-left-style: solid; border-left-width: 1px'>
+
+                                <tr>
+                                  <td>Test Configuration</td>
+                                  <td>
+                                    <table width='100%' border='0' cellpadding='2' cellspacing='0' style='border-top-color: gray; border-top-style: solid; border-top-width: 1px;                                      border-right-color: gray; border-right-style: solid; border-right-width: 1px; border-bottom-color: gray; border-bottom-style: solid;                                      border-bottom-width: 1px; border-left-color: gray; border-left-style: solid; border-left-width: 1px'>
+                                      <tr><td>Number of Stations</td><td colspan='3'>4</td></tr><tr><td>AP Model</td><td colspan='3'>NETGEAR</td></tr><tr><td>SSID_2.4GHz</td><td colspan='3'>NETGEAR_2G_wpa2</td></tr><tr><td>SSID_5GHz</td><td colspan='3'>NETGEAR_5G_wpa2</td></tr><tr><td>SSID_6GHz</td><td colspan='3'>None</td></tr><tr><td>Traffic Duration in hours</td><td colspan='3'>0.02</td></tr><tr><td>Security_2.4GHz</td><td colspan='3'>wpa2</td></tr><tr><td>Security_5GHz</td><td colspan='3'>wpa2</td></tr><tr><td>Security_6GHz</td><td colspan='3'>Open</td></tr><tr><td>Protocol</td><td colspan='3'>UDP</td></tr><tr><td>Traffic Direction</td><td colspan='3'>Bi-direction</td></tr><tr><td>TOS</td><td colspan='3'>['BK', 'BE', 'VI', 'VO']</td></tr><tr><td>Per TOS Load in Mbps</td><td colspan='3'>Upload:1.0 Mbps,Download:1.0 Mbps</td></tr>
+                                    </table>
+                                  </td>
+                                </tr>
+                            </table>
+
+                            <br>
+                            
+                    <!-- Table Title-->
+                    <h3 align='left'>Overall Bi-direction Throughput for all TOS i.e BK | BE | Video (VI) | Voice (VO)</h3>
+                    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: center;">
+      <th>No of Stations</th>
+      <th>Throughput for Load 1.0 Mbps-upload</th>
+      <th>Throughput for Load 1.0 Mbps-download</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>2 + 2</td>
+      <td>BK : 1.4, BE : 2.05, VI: 2.32, VO: 2.21</td>
+      <td>BK : 1.5, BE : 2.72, VI: 3.31, VO: 3.4</td>
+    </tr>
+  </tbody>
+</table>
+            <!-- Test Objective -->
+            <h3 align='left'>Overall Bi-direction throughput for 4 clients for 1.0 Mbps-download with different TOS.</h3>
+            <p align='left' width='900'>The below graph represents overall Bi-direction throughput for all connected stations running BK, BE, VO, VI traffic with different intended loads per station – 1.0 Mbps-download</p>
+            
+              <img align='center' style='padding:15px;margin:5px 5px 2em 5px;width:1000px;' src='tos_Bi-direction_1.0 Mbps-downloadHz.png' border='1' />
+            
+            <!-- Test Objective -->
+            <h3 align='left'>Individual Bi-direction throughput with intended load Upload:1.0 Mbps,Download:1.0 Mbps/station for traffic BK(WiFi).</h3>
+            <p align='left' width='900'>The below graph represents individual throughput for 4 clients running BK (WiFi) traffic.  Y-axis shows “Client names” and X-axis shows “Throughput in Mbps”.</p>
+            
+              <img align='center' style='padding:15px;margin:5px 5px 2em 5px;width:1000px;' src='bk_Bi-direction.png' border='1' />
+            
+                    <!-- Table Title-->
+                    <h3 align='left'> TOS : Background </h3>
+                    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: center;">
+      <th>Client Name</th>
+      <th>Mac</th>
+      <th>Channel</th>
+      <th>SSID</th>
+      <th>Type of traffic</th>
+      <th>Traffic Direction</th>
+      <th>Traffic Protocol</th>
+      <th>Offered upload rate(Mbps)</th>
+      <th>Offered download rate(Mbps)</th>
+      <th>Observed upload rate(Mbps)</th>
+      <th>Observed download rate(Mbps)</th>
+      <th>Observed Upload Drop (%)</th>
+      <th>Observed Download Drop (%)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.1.sta0000</td>
+      <td>04:f0:21:94:d4:46</td>
+      <td>11</td>
+      <td>-</td>
+      <td>Background</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.01 Mbps</td>
+      <td>0.05 Mbps</td>
+      <td>58.6</td>
+      <td>69.37</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0001</td>
+      <td>04:f0:21:94:eb:46</td>
+      <td>149</td>
+      <td>-</td>
+      <td>Background</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.01 Mbps</td>
+      <td>0.06 Mbps</td>
+      <td>57.78</td>
+      <td>64.5</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0002</td>
+      <td>00:0a:52:07:de:c5</td>
+      <td>-</td>
+      <td>-</td>
+      <td>Background</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.7 Mbps</td>
+      <td>0.7 Mbps</td>
+      <td>0.0</td>
+      <td>0.01</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0003</td>
+      <td>00:0a:52:07:d3:c5</td>
+      <td>-</td>
+      <td>-</td>
+      <td>Background</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.68 Mbps</td>
+      <td>0.68 Mbps</td>
+      <td>0.0</td>
+      <td>0.02</td>
+    </tr>
+  </tbody>
+</table>
+            <!-- Test Objective -->
+            <h3 align='left'>Individual Bi-direction throughput with intended load Upload:1.0 Mbps,Download:1.0 Mbps/station for traffic BE(WiFi).</h3>
+            <p align='left' width='900'>The below graph represents individual throughput for 4 clients running BE (WiFi) traffic.  Y-axis shows “Client names” and X-axis shows “Throughput in Mbps”.</p>
+            
+              <img align='center' style='padding:15px;margin:5px 5px 2em 5px;width:1000px;' src='be_Bi-direction.png' border='1' />
+            
+                    <!-- Table Title-->
+                    <h3 align='left'> TOS : Besteffort </h3>
+                    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: center;">
+      <th>Client Name</th>
+      <th>Mac</th>
+      <th>Channel</th>
+      <th>SSID</th>
+      <th>Type of traffic</th>
+      <th>Traffic Direction</th>
+      <th>Traffic Protocol</th>
+      <th>Offered upload rate(Mbps)</th>
+      <th>Offered download rate(Mbps)</th>
+      <th>Observed upload rate(Mbps)</th>
+      <th>Observed download rate(Mbps)</th>
+      <th>Observed Upload Drop (%)</th>
+      <th>Observed Download Drop (%)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.1.sta0000</td>
+      <td>04:f0:21:94:d4:46</td>
+      <td>11</td>
+      <td>-</td>
+      <td>Besteffort</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.03 Mbps</td>
+      <td>0.27 Mbps</td>
+      <td>67.48</td>
+      <td>53.14</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0001</td>
+      <td>04:f0:21:94:eb:46</td>
+      <td>149</td>
+      <td>-</td>
+      <td>Besteffort</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.02 Mbps</td>
+      <td>0.45 Mbps</td>
+      <td>87.47</td>
+      <td>56.62</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0002</td>
+      <td>00:0a:52:07:de:c5</td>
+      <td>-</td>
+      <td>-</td>
+      <td>Besteffort</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.0</td>
+      <td>0.02</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0003</td>
+      <td>00:0a:52:07:d3:c5</td>
+      <td>-</td>
+      <td>-</td>
+      <td>Besteffort</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.0</td>
+      <td>0.01</td>
+    </tr>
+  </tbody>
+</table>
+            <!-- Test Objective -->
+            <h3 align='left'>Individual Bi-direction throughput with intended load Upload:1.0 Mbps,Download:1.0 Mbps/station for traffic VI(WiFi).</h3>
+            <p align='left' width='900'>The below graph represents individual throughput for 4 clients running VI (WiFi) traffic.  Y-axis shows “Client names” and X-axis shows “Throughput in Mbps”.</p>
+            
+              <img align='center' style='padding:15px;margin:5px 5px 2em 5px;width:1000px;' src='vi_Bi-direction.png' border='1' />
+            
+                    <!-- Table Title-->
+                    <h3 align='left'> TOS : Video </h3>
+                    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: center;">
+      <th>Client Name</th>
+      <th>Mac</th>
+      <th>Channel</th>
+      <th>SSID</th>
+      <th>Type of traffic</th>
+      <th>Traffic Direction</th>
+      <th>Traffic Protocol</th>
+      <th>Offered upload rate(Mbps)</th>
+      <th>Offered download rate(Mbps)</th>
+      <th>Observed upload rate(Mbps)</th>
+      <th>Observed download rate(Mbps)</th>
+      <th>Observed Upload Drop (%)</th>
+      <th>Observed Download Drop (%)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.1.sta0000</td>
+      <td>04:f0:21:94:d4:46</td>
+      <td>11</td>
+      <td>-</td>
+      <td>Video</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.19 Mbps</td>
+      <td>0.67 Mbps</td>
+      <td>71.0</td>
+      <td>30.19</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0001</td>
+      <td>04:f0:21:94:eb:46</td>
+      <td>149</td>
+      <td>-</td>
+      <td>Video</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.12 Mbps</td>
+      <td>0.64 Mbps</td>
+      <td>78.52</td>
+      <td>30.07</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0002</td>
+      <td>00:0a:52:07:de:c5</td>
+      <td>-</td>
+      <td>-</td>
+      <td>Video</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0003</td>
+      <td>00:0a:52:07:d3:c5</td>
+      <td>-</td>
+      <td>-</td>
+      <td>Video</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+            <!-- Test Objective -->
+            <h3 align='left'>Individual Bi-direction throughput with intended load Upload:1.0 Mbps,Download:1.0 Mbps/station for traffic VO(WiFi).</h3>
+            <p align='left' width='900'>The below graph represents individual throughput for 4 clients running VO (WiFi) traffic.  Y-axis shows “Client names” and X-axis shows “Throughput in Mbps”.</p>
+            
+              <img align='center' style='padding:15px;margin:5px 5px 2em 5px;width:1000px;' src='vo_Bi-direction.png' border='1' />
+            
+                    <!-- Table Title-->
+                    <h3 align='left'> TOS : Voice </h3>
+                    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: center;">
+      <th>Client Name</th>
+      <th>Mac</th>
+      <th>Channel</th>
+      <th>SSID</th>
+      <th>Type of traffic</th>
+      <th>Traffic Direction</th>
+      <th>Traffic Protocol</th>
+      <th>Offered upload rate(Mbps)</th>
+      <th>Offered download rate(Mbps)</th>
+      <th>Observed upload rate(Mbps)</th>
+      <th>Observed download rate(Mbps)</th>
+      <th>Observed Upload Drop (%)</th>
+      <th>Observed Download Drop (%)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.1.sta0000</td>
+      <td>04:f0:21:94:d4:46</td>
+      <td>11</td>
+      <td>-</td>
+      <td>Voice</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.24 Mbps</td>
+      <td>0.8 Mbps</td>
+      <td>62.8</td>
+      <td>13.15</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0001</td>
+      <td>04:f0:21:94:eb:46</td>
+      <td>149</td>
+      <td>-</td>
+      <td>Voice</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.16 Mbps</td>
+      <td>0.79 Mbps</td>
+      <td>69.62</td>
+      <td>11.97</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0002</td>
+      <td>00:0a:52:07:de:c5</td>
+      <td>-</td>
+      <td>-</td>
+      <td>Voice</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.91 Mbps</td>
+      <td>0.91 Mbps</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+    <tr>
+      <td>1.1.sta0003</td>
+      <td>00:0a:52:07:d3:c5</td>
+      <td>-</td>
+      <td>-</td>
+      <td>Voice</td>
+      <td>Bi-direction</td>
+      <td>UDP</td>
+      <td>1.0 Mbps</td>
+      <td>1.0 Mbps</td>
+      <td>0.89 Mbps</td>
+      <td>0.89 Mbps</td>
+      <td>0.0</td>
+      <td>0.0</td>
+    </tr>
+  </tbody>
+</table>
+                            <!-- Test Setup Information -->
+                            <table width='700px' border='1' cellpadding='2' cellspacing='0' style='border-top-color: gray; border-top-style: solid; border-top-width: 1px;                              border-right-color: gray; border-right-style: solid; border-right-width: 1px; border-bottom-color: gray; border-bottom-style: solid;                              border-bottom-width: 1px; border-left-color: gray; border-left-style: solid; border-left-width: 1px'>
+
+                                <tr>
+                                  <td>Information</td>
+                                  <td>
+                                    <table width='100%' border='0' cellpadding='2' cellspacing='0' style='border-top-color: gray; border-top-style: solid; border-top-width: 1px;                                      border-right-color: gray; border-right-style: solid; border-right-width: 1px; border-bottom-color: gray; border-bottom-style: solid;                                      border-bottom-width: 1px; border-left-color: gray; border-left-style: solid; border-left-width: 1px'>
+                                      <tr><td>contact</td><td colspan='3'>support@candelatech.com</td></tr>
+                                    </table>
+                                  </td>
+                                </tr>
+                            </table>
+
+                            <br>
+                            
+    <footer class='FooterStyle'>
+        <a href="https://www.candelatech.com/"><img
+            id='BannerLogoFooter' align='right' src="candela_swirl_small-72h.png" border='0'/></a>
+        <p>Generated by Candela Technologies LANforge network testing tool</p>
+        <p><a href="https://www.candelatech.com">www.candelatech.com</a><p>
+    </footer>
+        

@@ -1,0 +1,7 @@
+TIMESTAMP,Bytes-rd,total urls,download_rate,rx_rate,tx_rate,RSSI,Mode,Channel,BSSID
+2026-03-12 16:39:31.542082,0,0,0,0 bps,0 Mbps,0,AUTO 20 1x1,-1,
+2026-03-12 16:39:41.779822,0,0,0,0 bps,0 Mbps,0,AUTO 20 1x1,-1,
+2026-03-12 16:39:51.925847,0,0,0,0 bps,0 Mbps,0,AUTO 20 1x1,-1,
+2026-03-12 16:40:02.016297,0,0,0,0 bps,0 Mbps,0,AUTO 20 1x1,-1,
+2026-03-12 16:40:12.249413,0,0,0,0 bps,0 Mbps,0,AUTO 20 1x1,-1,
+2026-03-12 16:40:22.347173,0,0,0,0 bps,0 Mbps,0,AUTO 20 1x1,-1,

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang='en'>
+    <head>
+        <meta charset='UTF-8'>
+        <meta name='viewport' content='width=device-width, initial-scale=1' />
+        <style>
+        body { margin: 0; padding: 0; }
+        </style>
+        <link rel='stylesheet' href='report.css' />
+        <link rel='stylesheet' href='custom.css' />
+        <title>Interop QOS</title>
+    </head>
+    <body>
+        <div id='BannerBack'>
+            <div id='Banner'>
+                <img id='BannerLogo' align='right' src="CandelaLogo2-90dpi-200x90-trans.png" border='0'/>
+                <div class='HeaderStyle'>
+                    <h1 class='TitleFontPrint' style='color:darkgreen;'>Interop QOS</h1>
+                    <h4 class='TitleFontPrintSub' style='color:darkgreen;'>2026-03-11-16-14-08</h4>
+                </div>
+            </div>
+        </div>
+                 
+            <!-- Test Objective -->
+            <h3 align='left'>Objective</h3>
+            <p align='left' width='900'>The objective of the QoS (Quality of Service) traffic throughput test is to measure the maximum achievable throughput of a network under specific QoS settings and conditions.By conducting this test, we aim to assess the capacity of network to handle high volumes of traffic while maintaining acceptable performance levels,ensuring that the network meets the required QoS standards and can adequately support the expected user demands.</p>
+            
+                            <!-- Test Setup Information -->
+                            <table width='700px' border='1' cellpadding='2' cellspacing='0' style='border-top-color: gray; border-top-style: solid; border-top-width: 1px;                              border-right-color: gray; border-right-style: solid; border-right-width: 1px; border-bottom-color: gray; border-bottom-style: solid;                              border-bottom-width: 1px; border-left-color: gray; border-left-style: solid; border-left-width: 1px'>
+
+                                <tr>
+                                  <td>Test Configuration</td>
+                                  <td>
+                                    <table width='100%' border='0' cellpadding='2' cellspacing='0' style='border-top-color: gray; border-top-style: solid; border-top-width: 1px;                                      border-right-color: gray; border-right-style: solid; border-right-width: 1px; border-bottom-color: gray; border-bottom-style: solid;                                      border-bottom-width: 1px; border-left-color: gray; border-left-style: solid; border-left-width: 1px'>
+                                      <tr><td>Device List</td><td colspan='3'>DESKTOP-DDPI3HE(Windows), oppophone(Android), sungsung(Android), macoss-MacBook-Air.local(Mac)</td></tr><tr><td>Number of Stations</td><td colspan='3'>Total(4) Android(2) Windows(1) Mac(1)</td></tr><tr><td>AP Model</td><td colspan='3'>NETGEAR</td></tr><tr><td>SSID</td><td colspan='3'>NETGEAR_2G_wpa2</td></tr><tr><td>Traffic Duration in hours</td><td colspan='3'>0.02</td></tr><tr><td>Security</td><td colspan='3'>wpa2</td></tr><tr><td>Protocol</td><td colspan='3'>TCP</td></tr><tr><td>Traffic Direction</td><td colspan='3'>Bi-direction</td></tr><tr><td>TOS</td><td colspan='3'>['VI', 'VO', 'BE', 'BK']</td></tr><tr><td>Per TOS Load in Mbps</td><td colspan='3'>Upload:100.0 Mbps,Download:100.0 Mbps</td></tr>
+                                    </table>
+                                  </td>
+                                </tr>
+                            </table>
+
+                            <br>
+                            
+                    <!-- Table Title-->
+                    <h3 align='left'>Overall Bi-direction Throughput for all TOS i.e BK | BE | Video (VI) | Voice (VO)</h3>
+                    <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: center;">
+      <th>No of Stations</th>
+      <th>Throughput for Load 100.0 Mbps-upload</th>
+      <th>Throughput for Load 100.0 Mbps-download</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>4</td>
+      <td>BK : 5.67, BE : 15.87, VI: 19.6, VO: 37.06</td>
+      <td>BK : 6.39, BE : 5.22, VI: 11.62, VO: 22.75</td>
+    </tr>
+  </tbody>
+</table>
+            <!-- Test Objective -->
+            <h3 align='left'>Overall Bi-direction throughput for 4 clients with different TOS.</h3>
+            <p align='left' width='900'>The below graph represents overall Bi-direction throughput for all connected stations running BK, BE, VO, VI traffic with different intended loadsUpload:100.0 Mbps,Download:100.0 Mbps per tos</p>
+            
+              <img align='center' style='padding:15px;margin:5px 5px 2em 5px;width:1000px;' src='tos_download_100.0 MbpsdownloadHz.png' border='1' />
+            
+            <!-- Test Objective -->
+            <h3 align='left'>Individual Bi-direction throughput with intended load Upload:100.0 Mbps,Download:100.0 Mbps/station for traffic BK(WiFi).</h3>
+            <p align='left' width='900'>The below graph represents individual throughput for 4 clients running BK (WiFi) traffic.  X- axis shows “Throughput in Mbps” and Y-axis shows “number of clients”.</p>
+            
+              <img align='center' style='padding:15px;margin:5px 5px 2em 5px;width:1000px;' src='bk_Bi-direction.png' border='1' />
+            <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: center;">
+      <th>Client Name</th>
+      <th>MAC</th>
+      <th>SSID</th>
+      <th>Type of traffic</th>
+      <th>Offered upload rate</th>
+      <th>Offered download rate</th>
+      <th>Observed average upload rate</th>
+      <th>Observed average download rate</th>
+      <th>Observed Upload Drop (%)</th>
+      <th>Observed Download Drop (%)</th>
+      <th>Expected Bi-direction rate(Mbps)</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.5 Win DESKTOP-DDPI3HE</td>
+      <td>e4:a4:71:93:70:e7</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Background</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>0.03880794545454546 Mbps</td>
+      <td>0.013581836363636364 Mbps</td>
+      <td>45.303030</td>
+      <td>78.787879</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.10 android oppophone</td>
+      <td>e6:5b:3a:c3:48:ed</td>
+      <td>NETGEAR_2G_Open</td>
+      <td>Background</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>5.528278472727273 Mbps</td>
+      <td>6.371688690909091 Mbps</td>
+      <td>13.004777</td>
+      <td>16.171715</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.23 android sungsung</td>
+      <td>46:ca:12:8c:58:67</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Background</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>0.10393914545454545 Mbps</td>
+      <td>0.0 Mbps</td>
+      <td>8.522727</td>
+      <td>61.818182</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.20 Mac macoss-MacBook-Air.local</td>
+      <td>30:35:ad:c5:e1:be</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Background</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>0.0001977818181818182 Mbps</td>
+      <td>0.007240745454545455 Mbps</td>
+      <td>87.272727</td>
+      <td>54.545455</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+  </tbody>
+</table>
+            <!-- Test Objective -->
+            <h3 align='left'>Individual Bi-direction throughput with intended load Upload:100.0 Mbps,Download:100.0 Mbps/station for traffic BE(WiFi).</h3>
+            <p align='left' width='900'>The below graph represents individual throughput for 4 clients running BE (WiFi) traffic.  X- axis shows “number of clients” and Y-axis shows “Throughput in Mbps”.</p>
+            
+              <img align='center' style='padding:15px;margin:5px 5px 2em 5px;width:1000px;' src='be_Bi-direction.png' border='1' />
+            <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: center;">
+      <th>Client Name</th>
+      <th>MAC</th>
+      <th>SSID</th>
+      <th>Type of traffic</th>
+      <th>Offered upload rate</th>
+      <th>Offered download rate</th>
+      <th>Observed average upload rate</th>
+      <th>Observed average download rate</th>
+      <th>Observed Upload Drop (%)</th>
+      <th>Observed Download Drop (%)</th>
+      <th>Expected Bi-direction rate(Mbps)</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.5 Win DESKTOP-DDPI3HE</td>
+      <td>e4:a4:71:93:70:e7</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Besteffort</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>9.064174145454546 Mbps</td>
+      <td>0.981628309090909 Mbps</td>
+      <td>3.923550</td>
+      <td>57.792365</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.10 android oppophone</td>
+      <td>e6:5b:3a:c3:48:ed</td>
+      <td>NETGEAR_2G_Open</td>
+      <td>Besteffort</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>6.533000290909091 Mbps</td>
+      <td>4.208623109090909 Mbps</td>
+      <td>13.451325</td>
+      <td>17.787438</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.23 android sungsung</td>
+      <td>46:ca:12:8c:58:67</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Besteffort</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>0.2713958727272727 Mbps</td>
+      <td>0.0003315636363636363 Mbps</td>
+      <td>79.103367</td>
+      <td>99.191919</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.20 Mac macoss-MacBook-Air.local</td>
+      <td>30:35:ad:c5:e1:be</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Besteffort</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>0.0028558181818181816 Mbps</td>
+      <td>0.024906836363636366 Mbps</td>
+      <td>100.000000</td>
+      <td>63.030303</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+  </tbody>
+</table>
+            <!-- Test Objective -->
+            <h3 align='left'>Individual Bi-direction throughput with intended load Upload:100.0 Mbps,Download:100.0 Mbps/station for traffic VI(WiFi).</h3>
+            <p align='left' width='900'>The below graph represents individual throughput for 4 clients running VI (WiFi) traffic.  X- axis shows “number of clients” and Y-axis shows “Throughput in Mbps”.</p>
+            
+              <img align='center' style='padding:15px;margin:5px 5px 2em 5px;width:1000px;' src='video_Bi-direction.png' border='1' />
+            <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: center;">
+      <th>Client Name</th>
+      <th>MAC</th>
+      <th>SSID</th>
+      <th>Type of traffic</th>
+      <th>Offered upload rate</th>
+      <th>Offered download rate</th>
+      <th>Observed average upload rate</th>
+      <th>Observed average download rate</th>
+      <th>Observed Upload Drop (%)</th>
+      <th>Observed Download Drop (%)</th>
+      <th>Expected Bi-direction rate(Mbps)</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.5 Win DESKTOP-DDPI3HE</td>
+      <td>e4:a4:71:93:70:e7</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Video</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>10.057020145454546 Mbps</td>
+      <td>6.3618512727272725 Mbps</td>
+      <td>0.145587</td>
+      <td>11.418664</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.10 android oppophone</td>
+      <td>e6:5b:3a:c3:48:ed</td>
+      <td>NETGEAR_2G_Open</td>
+      <td>Video</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>6.043752981818182 Mbps</td>
+      <td>2.9080214 Mbps</td>
+      <td>7.210580</td>
+      <td>6.399471</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.23 android sungsung</td>
+      <td>46:ca:12:8c:58:67</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Video</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>0.2717116363636364 Mbps</td>
+      <td>1.0217542545454545 Mbps</td>
+      <td>31.809703</td>
+      <td>24.225324</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.20 Mac macoss-MacBook-Air.local</td>
+      <td>30:35:ad:c5:e1:be</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Video</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>3.2301240181818183 Mbps</td>
+      <td>1.3253401272727274 Mbps</td>
+      <td>0.842355</td>
+      <td>23.425415</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+  </tbody>
+</table>
+            <!-- Test Objective -->
+            <h3 align='left'>Individual Bi-direction throughput with intended load Upload:100.0 Mbps,Download:100.0 Mbps/station for traffic VO(WiFi).</h3>
+            <p align='left' width='900'>The below graph represents individual throughput for 4 clients running VO (WiFi) traffic.  X- axis shows “number of clients” and Y-axis shows “Throughput in Mbps”.</p>
+            
+              <img align='center' style='padding:15px;margin:5px 5px 2em 5px;width:1000px;' src='voice_Bi-direction.png' border='1' />
+            <table border="1" class="dataframe">
+  <thead>
+    <tr style="text-align: center;">
+      <th>Client Name</th>
+      <th>MAC</th>
+      <th>SSID</th>
+      <th>Type of traffic</th>
+      <th>Offered upload rate</th>
+      <th>Offered download rate</th>
+      <th>Observed average upload rate</th>
+      <th>Observed average download rate</th>
+      <th>Observed Upload Drop (%)</th>
+      <th>Observed Download Drop (%)</th>
+      <th>Expected Bi-direction rate(Mbps)</th>
+      <th>Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1.5 Win DESKTOP-DDPI3HE</td>
+      <td>e4:a4:71:93:70:e7</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Voice</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>16.444893327272727 Mbps</td>
+      <td>9.823980781818182 Mbps</td>
+      <td>0.010674</td>
+      <td>6.129476</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.10 android oppophone</td>
+      <td>e6:5b:3a:c3:48:ed</td>
+      <td>NETGEAR_2G_Open</td>
+      <td>Voice</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>7.795546145454546 Mbps</td>
+      <td>3.2658194363636364 Mbps</td>
+      <td>9.678345</td>
+      <td>33.224774</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.23 android sungsung</td>
+      <td>46:ca:12:8c:58:67</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Voice</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>0.39920703636363636 Mbps</td>
+      <td>3.9402389636363635 Mbps</td>
+      <td>48.280048</td>
+      <td>48.353352</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+    <tr>
+      <td>1.20 Mac macoss-MacBook-Air.local</td>
+      <td>30:35:ad:c5:e1:be</td>
+      <td>NETGEAR_2G_wpa2</td>
+      <td>Voice</td>
+      <td>100.0 Mbps</td>
+      <td>100.0 Mbps</td>
+      <td>12.416936836363636 Mbps</td>
+      <td>5.724585818181818 Mbps</td>
+      <td>2.488391</td>
+      <td>30.168760</td>
+      <td>30</td>
+      <td>FAIL</td>
+    </tr>
+  </tbody>
+</table>
+                            <!-- Test Setup Information -->
+                            <table width='700px' border='1' cellpadding='2' cellspacing='0' style='border-top-color: gray; border-top-style: solid; border-top-width: 1px;                              border-right-color: gray; border-right-style: solid; border-right-width: 1px; border-bottom-color: gray; border-bottom-style: solid;                              border-bottom-width: 1px; border-left-color: gray; border-left-style: solid; border-left-width: 1px'>
+
+                                <tr>
+                                  <td>Information</td>
+                                  <td>
+                                    <table width='100%' border='0' cellpadding='2' cellspacing='0' style='border-top-color: gray; border-top-style: solid; border-top-width: 1px;                                      border-right-color: gray; border-right-style: solid; border-right-width: 1px; border-bottom-color: gray; border-bottom-style: solid;                                      border-bottom-width: 1px; border-left-color: gray; border-left-style: solid; border-left-width: 1px'>
+                                      <tr><td>contact</td><td colspan='3'>support@candelatech.com</td></tr>
+                                    </table>
+                                  </td>
+                                </tr>
+                            </table>
+
+                            <br>
+                            
+    <footer class='FooterStyle'>
+        <a href="https://www.candelatech.com/"><img
+            id='BannerLogoFooter' align='right' src="candela_swirl_small-72h.png" border='0'/></a>
+        <p>Generated by Candela Technologies LANforge network testing tool</p>
+        <p><a href="https://www.candelatech.com">www.candelatech.com</a><p>
+    </footer>
+        

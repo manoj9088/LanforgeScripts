@@ -1,0 +1,3 @@
+ieee80211u,ieee80211,enable_pkc,bss_transition,power_save,disable_ofdma,roam_ft_ds,pairwise,private_key,ca_cert,client_cert,pk_passwd,pac_file,key_management,ieee80211w,eap_identity,eap_method,server_ip,enc,passwd,Profile,Lanforge,ssid
+False,False,False,False,False,False,False,,,,,,,DEFAULT,1,,DEFAULT,192.168.204.61,wpa2,Password@123,Openx,192.168.207.78,NETGEAR_2G_wpa2
+False,False,False,False,False,False,False,,,,,,,DEFAULT,1,,DEFAULT,192.168.204.61,wpa2,Password@123,Openy,192.168.207.78,NETGEAR_5G_wpa2

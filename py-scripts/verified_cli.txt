@@ -1,0 +1,18 @@
+python3 lf_webpage.py --client_type Both --twog_ssid "NETGEAR_2G_wpa2" --twog_security wpa2 --twog_passwd Password@123 --twog_radio wiphy0 --num_stations 3 --bands 2.4G --duration 1m --file_size 2MB --time_break 10s --mgr 192.168.207.78 --upstream eth
+
+python3 lf_webpage.py --client_type Both --fiveg_ssid "NETGEAR_5G_wpa2" --fiveg_security wpa2 --fiveg_passwd Password@123 --fiveg_radio wiphy0 --num_stations 3 --bands 5G --duration 1m --file_size 2MB --time_break 10s --mgr 192.168.207.78 --upstream eth
+
+python3 lf_webpage.py --client_type Both --twog_ssid "NETGEAR_2G_wpa2" --twog_security wpa2 --twog_passwd Password@123 --twog_radio wiphy0 --num_stations 3 --bands 2.4G --duration 1m --file_size 2MB --time_break 10s --mgr 192.168.207.78 --upstream eth1 --device_list 1.13,1.4
+
+python3 lf_webpage.py --client_type Both --twog_ssid "NETGEAR_2G_wpa2" --twog_security wpa2 --twog_passwd Password@123 --twog_radio wiphy0 --num_stations 3 --bands 2.4G --duration 1m --file_size 2MB --time_break 10s --mgr 192.168.207.78 --upstream eth1 --device_list 1.13,1.4 --expected_passfail_value 5
+
+python3 lf_webpage.py --client_type Both --twog_ssid "NETGEAR_2G_wpa2" --twog_security wpa2 --twog_passwd Password@123 --twog_radio wiphy0 --num_stations 3 --bands 2.4G --duration 1m --file_size 2MB --time_break 10s --mgr 192.168.207.78 --upstream eth --config
+
+python3 lf_webpage.py  --file_size 1MB --mgr 192.168.207.78 --duration 1m --client_type Both --bands 2.4G --upstream_port eth1 --file_name manoj_grp --group_name gro1,gro2 --profile_name Openx,Openy --time_break 10s
+
+python3 lf_webpage.py --ap_name "Cisco" --mgr 192.168.207.78 --fiveg_ssid NETGEAR_5G_wpa2 --fiveg_security wpa2 --fiveg_passwd Password@123 --fiveg_radio wiphy0 --upstream_port eth1 --duration 1m --bands 5G --client_type Virtual --file_size 2MB --num_stations 32 --time_break 10s
+
+throughput_qos.py :-
+
+python3 throughput_qos.py --ap_name NETGEAR --mgr 192.168.207.78 --mgr_port 8080 --num_stations_2g 32 --radio_2g wiphy0 --ssid_2g NETGEAR_2G_wpa2 --passwd_2g Password@123 --security_2g wpa2 --radio_5g wiphy1 --num_stations_5g 32 --ssid_5g NETGEAR_5G_wpa2 --passwd_5g Password@123 --security_5g wpa2 --bands dualband --upstream eth1 --test_duration 1m --timebreak 5s --download 100000000 --upload 100000000 --traffic_type lf_udp --tos "BK,BE,VI,VO" --create_sta
+
