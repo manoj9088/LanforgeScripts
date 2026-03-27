@@ -277,6 +277,8 @@ class ADB_DEVICES(Realm):
                     )
                 )
 
+                print(f"adb cmd:{adb_cmd}")
+
                 data = {
                     'shelf': 1,
                     'resource': port_data["shelf"],
@@ -285,6 +287,7 @@ class ADB_DEVICES(Realm):
                     'adb_cmd': adb_cmd
                 }
             data_list.append(data)
+            print(f"data cmd:{data_list}")
         # execution for enabling wifi
         loop = asyncio.get_event_loop()
         tasks = [loop.run_in_executor(None, self.json_post, self.adb_post_url, data) for data in data_list_1]
@@ -321,6 +324,7 @@ class ADB_DEVICES(Realm):
 
         # fetching all devices from interop tab
         interop_tab_data = self.json_get(self.adb_url)["devices"]
+        print(f"INTEROP TAB DATA: {interop_tab_data}")
         devices_data = []
         # checking if there is only one device in interop tab. The value would be a dictionary instead of a list
         if (type(interop_tab_data) is dict):
@@ -355,7 +359,8 @@ class ADB_DEVICES(Realm):
             for device_data in interop_tab_data:
                 device = {}
                 for name, data in device_data.items():
-                    if (data['phantom']):
+                    #print(f"\nDEVICE DATA: {data}")
+                    if (str(data['phantom']) == 'true'):
                         logger.warning(
                             '{} is in phantom state. Please make sure debugging is enabled in developer settings.'.format(
                                 name))
@@ -982,7 +987,7 @@ class DeviceConfig(Realm):
         try:
             df = pd.read_csv(file_name)
         except Exception:
-            # logger.error("CSV is empty or malformed")
+            logger.error("CSV is empty or malformed")
             return {}
         df = df.where(pd.notna(df), None)
         data = {col: df[col].dropna().apply(lambda x: str(int(x)) if isinstance(x, float) else str(x)).tolist() for col in df.columns}

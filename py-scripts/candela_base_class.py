@@ -355,7 +355,7 @@ class Candela(Realm):
             return False
 
     def create_monitor(self):
-        self.cleanup.sta_clean()
+        # self.cleanup.sta_clean()
         # to switch channel in wiphy radio
         channel_switched = self.channel_switch(radio=self.sniff_radio,channel=self.sniff_channel)
         if not channel_switched:
@@ -1498,14 +1498,13 @@ class Candela(Realm):
                     break
         else:
             if self.do_mix_exec:
-                if "ping_test" in self.parallel_tests:
-                    start_time = datetime.datetime.now()
-                    while not self.stop_all_tests:
-                        time.sleep(1)
-                    end_time = datetime.datetime.now()
-                    formatted_time = validate_time(int((datetime.datetime.now() - start_time).total_seconds()))
-                    print("Ping test duration: {}".format(formatted_time))
-                    self.names_duration["ping"] = formatted_time
+                start_time = datetime.datetime.now()
+                while not self.stop_all_tests:
+                    time.sleep(1)
+                end_time = datetime.datetime.now()
+                formatted_time = validate_time(int((datetime.datetime.now() - start_time).total_seconds()))
+                print("Ping test duration: {}".format(formatted_time))
+                self.names_duration["ping"] = formatted_time
 
             else:
                 time.sleep(ping_duration * 60)
@@ -5281,7 +5280,7 @@ class Candela(Realm):
                 print('CHECKING PORT AVAILBILITY for ZOOM TEST')
                 self.port_clean_up(5000)
                 if zoom_host not in self.device_list:
-                    return False 
+                    return False
                 if file_name:
                     new_filename = file_name.removesuffix(".csv")
                 else:
@@ -5471,7 +5470,7 @@ class Candela(Realm):
                         raise ValueError(
                             "Missing Zoom API credentials. Please provide ACCOUNT_ID, CLIENT_ID, and CLIENT_SECRET as environment variables or through function arguments."
                         )
-                
+
                 self.zoom_test_obj.report_path_date_time = os.path.join(os.getcwd() , "zoom_test_results")
                 self.zoom_test_obj.run()
                     # self.zoom_test_obj.run(duration, upstream_port, signin_email, signin_passwd, participants)
@@ -5589,7 +5588,7 @@ class Candela(Realm):
                                                             selected_bands=['5G'])
                 # self.teams_test_obj.select_real_devices(real_sta_list=resource_list)
                 if teams_host not in self.device_list:
-                    return False 
+                    return False
                 if config and group_name is None and file_name is None and profile_name is None:
                     self.teams_test_obj.select_real_devices(real_sta_list=resources)
                 if group_name and profile_name and file_name:
@@ -5600,7 +5599,7 @@ class Candela(Realm):
                             file_name = file_name.removesuffix(".csv")
                     config_obj = DeviceConfig.DeviceConfig(lanforge_ip=lanforge_ip, file_name=file_name, wait_time=wait_time)
                     self.teams_test_obj.config_obj = config_obj
-                    
+
                     # Case 1: Group name, file name, and profile name are provided, but device list is empty
                     if group_name is not None and file_name is not None and profile_name is not None and resources is None:
                         selected_groups = group_name.split(',')
@@ -10164,6 +10163,28 @@ class Candela(Realm):
             t.start()
         for t in parallel_threads:
             t.join()
+    def get_list(self, dev_list):
+        print("dev_list", dev_list)
+        all_devices = self.resource_stats.get_all_devices()
+        result = []
+        print("all devices",all_devices)
+        for dev in dev_list:
+            dev_eid = dev.split('.')
+            shelf, res = dev_eid[0], dev_eid[1]
+            print("dev_eid", dev_eid)
+            for port in all_devices:
+                dev_shelf = str(port["shelf"])
+                dev_res = str(port["resource"])
+                if port["os"] == "Android":
+                    dev_sta = "wlan0"
+                else:
+                    dev_sta = str(port["sta_name"])
+                if dev_shelf == str(shelf) and dev_res == str(res):
+                    print("control came here")
+                    full_name = ".".join([dev_shelf,dev_res,dev_sta])
+                    result.append(full_name)
+                    break
+        return result
 
     def query_devices(self):
         # device_list = device_list if device_list else []
@@ -10220,7 +10241,7 @@ class Candela(Realm):
             time.sleep(10)
     
 
-    def configure_devices(self):
+    async def configure_devices(self):
         device_list = []
         if self.config:
             device_list = self.query_devices()
@@ -10248,17 +10269,20 @@ class Candela(Realm):
             'pac_file': self.pac_file,
             'server_ip': self.upstream_ip,
         }
+        print("configure_devices in base class")
         print(config_dict)
         if self.group_name and self.file_name and device_list == [] and self.profile_name:
             selected_groups = self.group_name.split(',')
             selected_profiles = self.profile_name.split(',')
+            print(f"selected_groups list:{selected_groups}")
+            print(f"selected_profiles list:{selected_profiles}")
             for i in range(len(selected_groups)):
                 config_devices[selected_groups[i]] = selected_profiles[i]
             self.resource_stats.initiate_group()
             self.group_device_map = self.resource_stats.get_groups_devices(data=selected_groups, groupdevmap=True)
 
             # Configure devices in the selected group with the selected profile
-            device_list = asyncio.run(self.resource_stats.connectivity(config=config_devices, upstream=self.upstream_ip))
+            device_list = await self.resource_stats.connectivity(config=config_devices, upstream=self.upstream_ip)
         # Case 2: Device list is already provided
         elif device_list != []:
             all_devices = self.resource_stats.get_all_devices()
@@ -10267,7 +10291,7 @@ class Candela(Realm):
             if self.config:
                 # If config is True, attempt to bring up all devices in the list and perform tests on those that become active
                 # Configure devices in the device list with the provided SSID, Password and Security
-                device_list = asyncio.run(self.resource_stats.connectivity(device_list=self.device_list, wifi_config=config_dict))
+                device_list = await self.resource_stats.connectivity(device_list=self.device_list, wifi_config=config_dict)
         else:
             logger.error("give correct set of configurations")
         return device_list
@@ -11511,7 +11535,7 @@ def convert_kwargs_to_cli_list(kwargs):
     
 
 
-def intialize_base_class_obj(**kwargs):
+def initialize_base_class_obj(**kwargs):
     cli_list = None
     cli = False
     print("kwargs",kwargs)
@@ -12135,6 +12159,7 @@ def run_teams_test(args, candela_apis):
     return candela_apis.run_teams_test(
         upstream_port=args.upstream_port,
         duration=args.teams_duration,
+        participants_req=args.teams_participants,
         audio=args.teams_audio,
         video=args.teams_video,
         resources=args.teams_device_list,
@@ -12167,7 +12192,7 @@ def run_teams_test(args, candela_apis):
         pac_file=args.teams_pac_file,
         wait_time=args.teams_wait_time,
         teams_host=args.teams_host
-           
+
     )
 # def browser_cleanup(args,candela_apis):
 #     return candela_apis.browser_cleanup(args)
