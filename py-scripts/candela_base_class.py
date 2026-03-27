@@ -1498,13 +1498,14 @@ class Candela(Realm):
                     break
         else:
             if self.do_mix_exec:
-                start_time = datetime.datetime.now()
-                while not self.stop_all_tests:
-                    time.sleep(1)
-                end_time = datetime.datetime.now()
-                formatted_time = validate_time(int((datetime.datetime.now() - start_time).total_seconds()))
-                print("Ping test duration: {}".format(formatted_time))
-                self.names_duration["ping"] = formatted_time
+                if "ping_test" in self.parallel_tests:
+                    start_time = datetime.datetime.now()
+                    while not self.stop_all_tests:
+                        time.sleep(1)
+                    end_time = datetime.datetime.now()
+                    formatted_time = validate_time(int((datetime.datetime.now() - start_time).total_seconds()))
+                    print("Ping test duration: {}".format(formatted_time))
+                    self.names_duration["ping"] = formatted_time
 
             else:
                 time.sleep(ping_duration * 60)
@@ -5279,7 +5280,8 @@ class Candela(Realm):
                 laptops = realdevice.get_devices()
                 print('CHECKING PORT AVAILBILITY for ZOOM TEST')
                 self.port_clean_up(5000)
-
+                if zoom_host not in self.device_list:
+                    return False 
                 if file_name:
                     new_filename = file_name.removesuffix(".csv")
                 else:
@@ -5469,11 +5471,9 @@ class Candela(Realm):
                         raise ValueError(
                             "Missing Zoom API credentials. Please provide ACCOUNT_ID, CLIENT_ID, and CLIENT_SECRET as environment variables or through function arguments."
                         )
-                if self.robot_test:
-                    self.zoom_test_obj.report_path_date_time = os.path.join(os.getcwd() , "zoom_test_results")
-                    self.zoom_test_obj.run_robo_test()
-                else:
-                    self.zoom_test_obj.run()
+                
+                self.zoom_test_obj.report_path_date_time = os.path.join(os.getcwd() , "zoom_test_results")
+                self.zoom_test_obj.run()
                     # self.zoom_test_obj.run(duration, upstream_port, signin_email, signin_passwd, participants)
 
                 self.zoom_test_obj.data_store.clear()
@@ -5494,9 +5494,9 @@ class Candela(Realm):
                 if self.zoom_test_obj.do_webui:
                     self.zoom_test_obj.stop_webui()
                 
-                if self.robot_test and api_stats_collection:
-                    self.zoom_test_obj.generate_report_from_data()
-                elif api_stats_collection:
+                # if self.robot_test and api_stats_collection:
+                #     self.zoom_test_obj.generate_report_from_data()
+                if api_stats_collection:
                     self.zoom_test_obj.generate_report_from_api()
                 # self.zoom_test_obj.redis_client = None
                 if self.dowebgui:
@@ -5518,14 +5518,39 @@ class Candela(Realm):
     def run_teams_test(
             self,
         duration: int,
-        participants_req: int,
         audio: bool = False,
         video: bool = False,
         upstream_port: str = 'NA',
-        resource_list: str = None,
+        resources: str = None,
         do_webUI: bool = False,
         report_dir: str = None,
-        testname: str = None
+        testname: str = None,
+        file_name: str = None,
+        group_name: str = None,
+        profile_name: str = None,
+        ssid: str = None,
+        passwd: str = None,
+        encryp: str = None,
+        eap_method: str = 'DEFAULT',
+        eap_identity: str = 'DEFAULT',
+        ieee8021x: bool = False,
+        ieee80211u: bool = False,
+        ieee80211w: int = 1,
+        enable_pkc: bool = False,
+        bss_transition: bool = False,
+        power_save: bool = False,
+        disable_ofdma: bool = False,
+        roam_ft_ds: bool = False,
+        key_management: str = 'DEFAULT',
+        pairwise: str = 'NA',
+        private_key: str = 'NA',
+        ca_cert: str = 'NA',
+        client_cert: str = 'NA',
+        pk_passwd: str = 'NA',
+        pac_file: str = 'NA',
+        config: bool = False,
+        wait_time: int = 30,
+        teams_host: str = None
     ):
         try:
             lanforge_ip = self.lanforge_ip
@@ -5533,7 +5558,20 @@ class Candela(Realm):
                 if not self.webgui_stop_check("teams"):
                     return False
             if True:
-                self.teams_test_obj = TeamsAutomation(audio=audio, video=video, lanforge_ip=lanforge_ip, test_name=testname, duration=duration,participants_req=participants_req, upstream_port=upstream_port, do_webui=do_webUI, report_dir=report_dir)
+
+                if group_name is not None:
+                    group_name = group_name.strip()
+                    selected_groups = group_name.split(',')
+                else:
+                    selected_groups = []
+
+                if profile_name is not None:
+                    profile_name = profile_name.strip()
+                    selected_profiles = profile_name.split(',')
+                else:
+                    selected_profiles = []
+
+                self.teams_test_obj = TeamsAutomation(audio=audio, video=video, lanforge_ip=lanforge_ip, test_name=testname, duration=duration, upstream_port=upstream_port, do_webui=do_webUI, report_dir=report_dir,config=config, selected_groups=selected_groups, selected_profiles=selected_profiles)
                 self.port_clean_up(5005)
                 upstream_port_teams=self.teams_test_obj.change_port_to_ip(upstream_port)
                 self.teams_test_obj.upstream_port=upstream_port_teams
@@ -5549,7 +5587,117 @@ class Candela(Realm):
                                                             passwd_6g='',
                                                             encryption_6g='',
                                                             selected_bands=['5G'])
-                self.teams_test_obj.select_real_devices(real_sta_list=resource_list)
+                # self.teams_test_obj.select_real_devices(real_sta_list=resource_list)
+                if teams_host not in self.device_list:
+                    return False 
+                if config and group_name is None and file_name is None and profile_name is None:
+                    self.teams_test_obj.select_real_devices(real_sta_list=resources)
+                if group_name and profile_name and file_name:
+                    config = True
+                if config:
+                    if file_name:
+                        if '.csv' in file_name:
+                            file_name = file_name.removesuffix(".csv")
+                    config_obj = DeviceConfig.DeviceConfig(lanforge_ip=lanforge_ip, file_name=file_name, wait_time=wait_time)
+                    self.teams_test_obj.config_obj = config_obj
+                    
+                    # Case 1: Group name, file name, and profile name are provided, but device list is empty
+                    if group_name is not None and file_name is not None and profile_name is not None and resources is None:
+                        selected_groups = group_name.split(',')
+                        selected_profiles = profile_name.split(',')
+                        config_devices = {}
+                        for i in range(len(selected_groups)):
+                            config_devices[selected_groups[i]] = selected_profiles[i]
+
+                        config_obj.initiate_group()
+                        asyncio.run(config_obj.connectivity(config_devices))
+
+                        adbresponse = config_obj.adb_obj.get_devices()
+                        resource_manager = config_obj.laptop_obj.get_devices()
+                        all_res = {}
+                        df1 = config_obj.display_groups(config_obj.groups)
+                        groups_list = df1.to_dict(orient='list')
+                        group_devices = {}
+
+                        for adb in adbresponse:
+                            group_devices[adb['serial']] = adb['eid']
+                        for res in resource_manager:
+                            all_res[res['hostname']] = res['shelf'] + '.' + res['resource']
+                        eid_list = []
+                        for grp_name in groups_list.keys():
+                            for g_name in selected_groups:
+                                if grp_name == g_name:
+                                    for j in groups_list[grp_name]:
+                                        if j in group_devices.keys():
+                                            eid_list.append(group_devices[j])
+                                        elif j in all_res.keys():
+                                            eid_list.append(all_res[j])
+
+                        resources = ",".join(id for id in eid_list)
+                        self.teams_test_obj.resources = resources.split(',')
+                        print("Resources selected for testing: ", resources)
+                        # self.real_sta_list= resources.split(',')
+                    else:
+                        config_dict = {
+                            'ssid': ssid,
+                            'passwd': passwd,
+                            'enc': encryp,
+                            'eap_method': eap_method,
+                            'eap_identity': eap_identity,
+                            'ieee80211': ieee8021x,
+                            'ieee80211u': ieee80211u,
+                            'ieee80211w': ieee80211w,
+                            'enable_pkc': enable_pkc,
+                            'bss_transition': bss_transition,
+                            'power_save': power_save,
+                            'disable_ofdma': disable_ofdma,
+                            'roam_ft_ds': roam_ft_ds,
+                            'key_management': key_management,
+                            'pairwise': pairwise,
+                            'private_key': private_key,
+                            'ca_cert': ca_cert,
+                            'client_cert': client_cert,
+                            'pk_passwd': pk_passwd,
+                            'pac_file': pac_file,
+                            'server_ip': self.teams_test_obj.upstream_port,
+
+                        }
+                        if resources:
+                            all_devices = config_obj.get_all_devices()
+                            if group_name is None and file_name is None and profile_name is None:
+                                dev_list = resources.split(',')
+                                if config:
+                                    # Extract only shelf.resource (first two parts) from each device string, removing any extra interface details
+                                    conn_dev_list = ['.'.join(device.split('.')[:2]) for device in dev_list]
+                                    dev_list = asyncio.run(config_obj.connectivity(device_list=conn_dev_list, wifi_config=config_dict))
+                                resources = ",".join(id for id in dev_list)
+                                self.teams_test_obj.resources = resources.split(',')
+                        else:
+                            # If no resources provided, prompt user to select devices manually
+                            if config:
+                                all_devices = config_obj.get_all_devices()
+                                device_list = []
+                                for device in all_devices:
+                                    if device["type"] != 'laptop':
+                                        device_list.append(device["shelf"] + '.' + device["resource"] + " " + device["serial"])
+                                    elif device["type"] == 'laptop':
+                                        device_list.append(device["shelf"] + '.' + device["resource"] + " " + device["hostname"])
+                                print("Available Devices For Testing")
+                                for device in device_list:
+                                    print(device)
+                                resources = input("Enter Resources to run the test :")
+                                dev1_list = resources.split(',')
+                                dev1_list = asyncio.run(config_obj.connectivity(device_list=dev1_list, wifi_config=config_dict))
+                                resources = ",".join(id for id in dev1_list)
+                                self.teams_test_obj.resources = resources.split(',')
+                if teams_host:
+                    if teams_host in resources:
+                        resources_list = resources.split(',')
+                        resources_list = [r for r in resources_list if r != teams_host]
+                        resources = ','.join(resources_list)
+                    self.teams_test_obj.select_real_devices(real_sta_list=teams_host+','+resources)
+                else:
+                    self.teams_test_obj.select_real_devices(real_sta_list=resources)
                 if do_webUI:
                     self.teams_test_obj.path = report_dir
                     self.teams_test_obj.update_webui_data()
@@ -9216,7 +9364,8 @@ class Candela(Realm):
                                 "video_pktloss_r": [],
                             }
                             try:
-                                file_path = os.path.join(self.zoom_obj_dict[ce][obj_name]["obj"].report_path_date_time, f'{self.zoom_obj_dict[ce][obj_name]["obj"].device_names[i]}.csv')
+                                # print("the file path iss",file_path)
+                                file_path = os.path.join(self.zoom_obj_dict[ce][obj_name]["obj"].report.path_date_time, f'{self.zoom_obj_dict[ce][obj_name]["obj"].device_names[i]}.csv')
                                 with open(file_path, mode='r', encoding='utf-8', errors='ignore') as file:
                                     csv_reader = csv.DictReader(file)
                                     for row in csv_reader:
@@ -9492,7 +9641,7 @@ class Candela(Realm):
 
                             self.overall_report.set_table_title("Test Audio Results Table:")
                             self.overall_report.build_table_title()
-                            audio_test_results_dict = {
+                            audio_test_results_dict = pd.DataFrame({
                                 'Device Name': [client for client in accepted_clients],
                                 'Avg Latency Sent (ms)': [
                                     round(sum(data["audio_latency_s"]) / len(data["audio_latency_s"]), 2) if len(data["audio_latency_s"]) != 0 else 0
@@ -9522,7 +9671,7 @@ class Candela(Realm):
                                     '<a href="{}.csv" target="_blank">csv data</a>'.format(client)
                                     for client in accepted_clients
                                 ]
-                            }
+                            })
                             self.overall_report.set_table_dataframe(audio_test_results_dict)
                             self.overall_report.dataframe_html = self.overall_report.dataframe.to_html(index=False,
                                                                             justify='center', render_links=True, escape=False)  # have the index be able to be passed in.
@@ -9611,7 +9760,7 @@ class Candela(Realm):
 
                             self.overall_report.set_table_title("Test Video Results Table:")
                             self.overall_report.build_table_title()
-                            video_test_results_dict = {
+                            video_test_results_dict = pd.DataFrame({
                             'Device Name': [client for client in accepted_clients],
                             'Avg Latency Sent (ms)': [
                                 round(sum(data["video_latency_s"]) / len(data["video_latency_s"]), 2) if len(data["video_latency_s"]) != 0 else 0
@@ -9641,7 +9790,7 @@ class Candela(Realm):
                                 '<a href="{}.csv" target="_blank">csv data</a>'.format(client)
                                 for client in accepted_clients
                             ]
-                        }
+                        })
                             self.overall_report.set_table_dataframe(video_test_results_dict)
 
                             self.overall_report.dataframe_html = self.overall_report.dataframe.to_html(index=False,
@@ -10317,6 +10466,36 @@ def validate_args(args):
                         flag_test = False
             if flag_test:
                 logger.info(f"Arg validation check done for {test}")
+
+def validate_groups(args):
+        valid_group_names = [g.strip() for g in args.group_name.split(',') if g.strip()]
+
+        test_group_args = [
+            args.ping_groups,
+            args.http_groups,
+            args.ftp_groups,
+            args.qos_groups,
+            args.thpt_groups,
+            args.mcast_groups,
+            args.rb_groups,
+            args.zoom_groups,
+            args.teams_groups,
+            args.yt_groups,
+            args.vs_groups,
+        ]
+
+        for test_groups in test_group_args:
+
+            if test_groups == "all":
+                continue
+
+            individual_groups = [g.strip() for g in test_groups.split(',') if g.strip()]
+
+            for grp in individual_groups:
+                if grp not in valid_group_names:
+                    raise ValueError(
+                        f"The group '{grp}' is not present in --group_name  in the selected groups are {valid_group_names}"
+                    )
 
 def return_valid_grp_list(grp_res_dict,test_grps,candela_apis):
     dev_list = []
@@ -11115,10 +11294,40 @@ def parse_the_args():
                           action="store_true",
                           help='teams_test consists')
     parser.add_argument('--teams_duration', type=int, help='duration to run the test in min')
-    parser.add_argument('--teams_participants', type=int, help='No of Devices in the test')
+    # parser.add_argument('--teams_participants', type=int, help='No of Devices in the test', required=True)
     parser.add_argument('--teams_device_list', help='Specify the real device ports seperated by comma')
     parser.add_argument('--teams_audio', action='store_true')
     parser.add_argument('--teams_video', action='store_true')
+    #teams with groups and profile configuration
+    parser.add_argument('--teams_file_name', type=str, help='Specify the file name containing group details. Example:file1')
+    parser.add_argument('--teams_group_name', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2')
+    parser.add_argument('--teams_profile_name', type=str, help='Specify the profile name to apply configurations to the devices.')
+
+    #teams configuration with --config
+    parser.add_argument("--teams_config", action="store_true", help="Specify for configuring the devices")
+    parser.add_argument('--teams_ssid', help='WiFi SSID for script objects to associate to')
+    parser.add_argument('--teams_passwd', '--teams_password', '--teams_key', default="[BLANK]", help='WiFi passphrase/password/key')
+    parser.add_argument('--teams_security', help='WiFi Security protocol: < open | wep | wpa | wpa2 | wpa3 >', default="open")
+    parser.add_argument('--teams_host', help='Specify the Teams Host',default=None)
+    #Optional teams config args
+    parser.add_argument("--teams_eap_method", type=str, default='DEFAULT', help="Specify the EAP method for authentication.")
+    parser.add_argument("--teams_eap_identity", type=str, default='', help="Specify the EAP identity for authentication.")
+    parser.add_argument("--teams_ieee8021x", action="store_true", help='Enables 802.1X enterprise authentication for test stations.')
+    parser.add_argument("--teams_ieee80211u", action="store_true", help='Enables IEEE 802.11u (Hotspot 2.0) support.')
+    parser.add_argument("--teams_ieee80211w", type=int, default=1, help='Enables IEEE 802.11w (Management Frame Protection) support.')
+    parser.add_argument("--teams_enable_pkc", action="store_true", help='Enables pkc support.')
+    parser.add_argument("--teams_bss_transition", action="store_true", help='Enables BSS transition support.')
+    parser.add_argument("--teams_power_save", action="store_true", help='Enables power-saving features.')
+    parser.add_argument("--teams_disable_ofdma", action="store_true", help='Disables OFDMA support.')
+    parser.add_argument("--teams_roam_ft_ds", action="store_true", help='Enables fast BSS transition (FT) support')
+    parser.add_argument("--teams_key_management", type=str, default='DEFAULT', help='Specify the key management method (e.g., WPA-PSK, WPA-EAP')
+    parser.add_argument("--teams_pairwise", type=str, default='NA')
+    parser.add_argument("--teams_private_key", type=str, default='NA', help='Specify EAP private key certificate file.')
+    parser.add_argument("--teams_ca_cert", type=str, default='NA', help='Specifiy the CA certificate file name')
+    parser.add_argument("--teams_client_cert", type=str, default='NA', help='Specify the client certificate file name')
+    parser.add_argument("--teams_pk_passwd", type=str, default='NA', help='Specify the password for the private key')
+    parser.add_argument("--teams_pac_file", type=str, default='NA', help='Specify the pac file name')
+    parser.add_argument("--teams_wait_time", type=int, help='Specify the maximum time to wait for Configuration', default=60)
 
     #whole config
     parser.add_argument('--group_name', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2')
@@ -11926,13 +12135,39 @@ def run_teams_test(args, candela_apis):
     return candela_apis.run_teams_test(
         upstream_port=args.upstream_port,
         duration=args.teams_duration,
-        participants_req=args.teams_participants,
         audio=args.teams_audio,
         video=args.teams_video,
-        resource_list=args.teams_device_list,
+        resources=args.teams_device_list,
         do_webUI=args.dowebgui,
         report_dir=args.result_dir,
-        testname=args.test_name   
+        testname=args.test_name,
+        file_name=args.teams_file_name,
+        group_name=args.teams_group_name,
+        profile_name=args.teams_profile_name,
+        config=args.teams_config,
+        ssid=args.teams_ssid,
+        passwd=args.teams_passwd,
+        encryp=args.teams_security,
+        eap_method=args.teams_eap_method,
+        eap_identity=args.teams_eap_identity,
+        ieee8021x=args.teams_ieee8021x,
+        ieee80211u=args.teams_ieee80211u,
+        ieee80211w=args.teams_ieee80211w,
+        enable_pkc=args.teams_enable_pkc,
+        bss_transition=args.teams_bss_transition,
+        power_save=args.teams_power_save,
+        disable_ofdma=args.teams_disable_ofdma,
+        roam_ft_ds=args.teams_roam_ft_ds,
+        key_management=args.teams_key_management,
+        pairwise=args.teams_pairwise,
+        private_key=args.teams_private_key,
+        ca_cert=args.teams_ca_cert,
+        client_cert=args.teams_client_cert,
+        pk_passwd=args.teams_pk_passwd,
+        pac_file=args.teams_pac_file,
+        wait_time=args.teams_wait_time,
+        teams_host=args.teams_host
+           
     )
 # def browser_cleanup(args,candela_apis):
 #     return candela_apis.browser_cleanup(args)

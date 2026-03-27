@@ -6,11 +6,11 @@
 
     EXAMPLE-1:
     Command Line Interface to run Teams:
-    python3 lf_interop_teams.py --mgr 192.168.204.75 --upstream_port 1.1.eth1 --participants 3 --duration 1 --audio --video
+    python3 lf_interop_teams.py --mgr 192.168.204.75 --upstream_port 1.1.eth1 --duration 1 --audio --video
 
     EXAMPLE-2:
     Command Line Interface to run Teams on Specified Resources:
-    python3 lf_interop_teams.py --mgr 192.168.204.75 --upstream_port 1.1.eth1 --participants 3 --duration 1 --audio --video --resources 1.95,1.400,1.300
+    python3 lf_interop_teams.py --mgr 192.168.204.75 --upstream_port 1.1.eth1 --duration 1 --audio --video --resources 1.95,1.400,1.300
 
 
     NOTES:
@@ -36,7 +36,9 @@ import logging
 import json
 import sys
 import traceback
+import asyncio
 import glob
+from collections import Counter
 
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), '../..'))
@@ -69,6 +71,24 @@ log.setLevel(logging.ERROR)
 # Import LF logger configuration module
 lf_logger_config = importlib.import_module("py-scripts.lf_logger_config")
 
+os.makedirs("test_logs", exist_ok=True)
+
+# 1. Configure the logging system
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler(
+            f"test_logs/lf_interop_teams_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.log",
+            mode="w",
+        ),  # Writes to file
+        logging.StreamHandler(sys.stdout),  # Writes to terminal
+    ],
+)
+
+# 2. Create the logger instance
+logger = logging.getLogger(__name__)
+
 
 class TeamsAutomation(Realm):
     def __init__(self,
@@ -77,12 +97,17 @@ class TeamsAutomation(Realm):
                  upstream_port=None,
                  no_pre_cleanup=None,
                  no_post_cleanup=None,
-                 participants_req=None,
                  audio=None,
                  video=None,
                  do_webui=None,
                  test_name=None,
-                 report_dir=None
+                 report_dir=None,
+                 config=None,
+                 selected_groups=None,
+                 selected_profiles=None,
+                 ssid=None,
+                 teams_host=None,
+                 enable_mobile_stats=False
 
                  ):
         super().__init__(lfclient_host=lanforge_ip)
@@ -98,13 +123,13 @@ class TeamsAutomation(Realm):
         self.real_sta_os_types = []
         self.real_sta_hostname = []
         self.hostname_os_combination = []
-        self.wifi_interfaces = []
+        self.wifi_interfaces_list = []
         self.windows = 0
         self.linux = 0
         self.mac = 0
+        self.android = 0
         self.meet_link = None
-        self.participants_joined = None
-        self.participants_req = participants_req
+        self.participants_joined = 0
         self.test_start = False
         self.start_time = None
         self.end_time = None
@@ -113,12 +138,17 @@ class TeamsAutomation(Realm):
         self.login_completed = False
         self.credentials = []
         self.cred_index = 0
+        self.teams_host = teams_host
         self.tz = pytz.timezone('Asia/Kolkata')
         self.generic_endps_profile = self.new_generic_endp_profile()
         self.generic_endps_profile.name_prefix = "teams"
         self.generic_endps_profile.type = "teams"
         self.audio = audio
         self.video = video
+        self.config = config
+        self.selected_groups = selected_groups
+        self.selected_profiles = selected_profiles
+        self.ssid = ssid
         self.audio_stats_header = [
             'Sent Audio bitrate(Kbps)',
             'Sent Audio Packets',
@@ -157,6 +187,52 @@ class TeamsAutomation(Realm):
         self.test_name = test_name
         self.report_dir = report_dir
         self.execute_finally = False
+        self.lanforge_port_list = []
+        self.serial_list = []
+        self.lanforge_os_type = []
+        self.device_names = []
+        self.user_list = []
+        self.enable_mobile_stats = enable_mobile_stats
+
+    def change_port_to_ip(self, upstream_port):
+        """
+        Convert a given port name to its corresponding IP address if it's not already an IP.
+
+        This function checks whether the provided `upstream_port` is a valid IPv4 address.
+        If it's not, it attempts to extract the IP address of the port by resolving it
+        via the internal `name_to_eid()` method and then querying the IP using `json_get()`.
+
+        Args:
+            upstream_port (str): The name or IP of the upstream port. This could be a
+                                 LANforge port name like '1.1.eth1' or an IP address.
+
+        Returns:
+            str: The resolved IP address if the port name was converted successfully,
+                otherwise returns the original input if it was already an IP or
+                if resolution fails.
+
+        Logs:
+            - A warning if the port is not Ethernet or IP resolution fails.
+            - Info logs for the resolved or passed IP.
+
+        """
+        if upstream_port.count(".") != 3:
+            target_port_list = self.name_to_eid(upstream_port)
+            shelf, resource, port, _ = target_port_list
+            try:
+                target_port_ip = self.json_get(
+                    f"/port/{shelf}/{resource}/{port}?fields=ip"
+                )["interface"]["ip"]
+                upstream_port = target_port_ip
+            except Exception as e:
+                logging.warning(
+                    f"The upstream port is not an ethernet port. Proceeding with the given upstream_port {upstream_port}. Exception: {e}"
+                )
+            logging.info(f"Upstream port IP {upstream_port}")
+        else:
+            logging.info(f"Upstream port IP {upstream_port}")
+
+        return upstream_port
 
     def updating_webui_runningjson(self, obj):
         data = {}
@@ -208,36 +284,48 @@ class TeamsAutomation(Realm):
         logging.error("Flask server did not start within 10 seconds. Exiting.")
         sys.exit(1)
 
-    def run(self):
-        flask_thread = threading.Thread(target=self.start_flask_server)
-        flask_thread.daemon = True
-        flask_thread.start()
-        self.wait_for_flask()
-
-        if self.generic_endps_profile.create(ports=[self.real_sta_list[0]], real_client_os_types=[self.real_sta_os_types[0]]):
-            logging.info('Real client generic endpoint creation completed.')
+    def create_host(self):
+        if self.generic_endps_profile.create(
+            ports=[self.real_sta_list[0]],
+            real_client_os_types=[self.real_sta_os_types[0]],
+        ):
+            logging.info("Real client generic endpoint creation completed.")
         else:
-            logging.error('Real client generic endpoint creation failed.')
+            logging.error("Real client generic endpoint creation failed.")
             exit(0)
 
         if self.real_sta_os_types[0] == "windows":
             cmd = f"py teams_host.py --ip {self.upstream_port}"
-            self.generic_endps_profile.set_cmd(self.generic_endps_profile.created_endp[0], cmd)
-        elif self.real_sta_os_types[0] == 'linux':
+            self.generic_endps_profile.set_cmd(
+                self.generic_endps_profile.created_endp[0], cmd
+            )
+        elif self.real_sta_os_types[0] == "linux":
 
-            cmd = "su -l lanforge ctteams.bash %s %s %s" % (self.wifi_interfaces[0], self.upstream_port, "host")
+            cmd = "su -l lanforge ctteams.bash %s %s %s" % (
+                self.wifi_interfaces_list[0],
+                self.upstream_port,
+                "host",
+            )
 
-            self.generic_endps_profile.set_cmd(self.generic_endps_profile.created_endp[0], cmd)
-        elif self.real_sta_os_types[0] == 'macos':
+            self.generic_endps_profile.set_cmd(
+                self.generic_endps_profile.created_endp[0], cmd
+            )
+        elif self.real_sta_os_types[0] == "macos":
             cmd = "sudo bash ctteams.bash %s %s" % (self.upstream_port, "host")
-            self.generic_endps_profile.set_cmd(self.generic_endps_profile.created_endp[0], cmd)
+            self.generic_endps_profile.set_cmd(
+                self.generic_endps_profile.created_endp[0], cmd
+            )
         self.generic_endps_profile.start_cx()
         time.sleep(5)
+
+    def wait_for_login(self):
 
         while not self.login_completed:
             try:
 
-                generic_endpoint = self.json_get(f'/generic/{self.generic_endps_profile.created_endp[0]}')
+                generic_endpoint = self.json_get(
+                    f"/generic/{self.generic_endps_profile.created_endp[0]}"
+                )
                 endp_status = generic_endpoint["endpoint"]["status"]
                 if endp_status == "Stopped":
                     logging.error("Failed to Start the Host Device")
@@ -248,38 +336,235 @@ class TeamsAutomation(Realm):
                 logging.info(f"Error while checking login_completed status: {e}")
                 time.sleep(5)
 
-        if self.generic_endps_profile.create(ports=self.real_sta_list[1:], real_client_os_types=self.real_sta_os_types[1:]):
-            logging.info('Real client generic endpoint creation completed.')
-        else:
-            logging.error('Real client generic endpoint creation failed.')
-            exit(0)
+    def create_android(
+        self,
+        lanforge_res,
+        ports=None,
+        sleep_time=0.5,
+        debug_=False,
+        suppress_related_commands_=None,
+        real_client_os_types=None,
+    ):
+        if ports and real_client_os_types and len(real_client_os_types) == 0:
+            logger.error("Real client operating systems types is empty list")
+            raise ValueError("Real client operating systems types is empty list")
+        created_cx = []
+        created_endp = []
+
+        if not ports:
+            ports = []
+
+        if self.debug:
+            debug_ = True
+
+        post_data = []
+        endp_tpls = []
+        for port_name in ports:
+            port_info = self.name_to_eid(port_name)
+            resource = port_info[1]
+            shelf = port_info[0]
+            if real_client_os_types:
+                name = port_name
+            else:
+                name = port_info[2]
+
+            gen_name_a = "%s-%s" % ("teams", "_".join(port_name.split(".")))
+            endp_tpls.append((shelf, resource, name, gen_name_a))
+
+        for endp_tpl in endp_tpls:
+            shelf = endp_tpl[0]
+            resource = endp_tpl[1]
+            if real_client_os_types:
+                name = endp_tpl[2].split(".")[2]
+            else:
+                name = endp_tpl[2]
+            gen_name_a = endp_tpl[3]
+
+            data = {
+                "alias": gen_name_a,
+                "shelf": shelf,
+                "resource": lanforge_res.split(".")[1],
+                "port": "eth0",
+                "type": "gen_generic",
+            }
+            self.json_post("cli-json/add_gen_endp", data, debug_=self.debug)
+
+        self.json_post("/cli-json/nc_show_endpoints", {"endpoint": "all"})
+        if sleep_time:
+            time.sleep(sleep_time)
+
+        for endp_tpl in endp_tpls:
+            gen_name_a = endp_tpl[3]
+            self.generic_endps_profile.set_flags(gen_name_a, "ClearPortOnStart", 1)
+
+        for endp_tpl in endp_tpls:
+            name = endp_tpl[2]
+            gen_name_a = endp_tpl[3]
+            cx_name = "CX_%s-%s" % ("generic", gen_name_a)
+            data = {"alias": cx_name, "test_mgr": "default_tm", "tx_endp": gen_name_a}
+            post_data.append(data)
+            created_cx.append(cx_name)
+            created_endp.append(gen_name_a)
+
+        for data in post_data:
+            url = "/cli-json/add_cx"
+            self.json_post(
+                url,
+                data,
+                debug_=debug_,
+                suppress_related_commands_=suppress_related_commands_,
+            )
+            # time.sleep(2)
+        if sleep_time:
+            time.sleep(sleep_time)
+
+        for data in post_data:
+            self.json_post(
+                "/cli-json/show_cx",
+                {"test_mgr": "default_tm", "cross_connect": data["alias"]},
+            )
+        return True, created_cx, created_endp
+    
+    def wait_for_test_start(self):
+        check_count = 0
+        while len(self.real_sta_list) != self.participants_joined:
+            logger.info(
+                f"Waiting for all participants to join the call. Joined: {self.participants_joined}, Expected: {len(self.real_sta_list)}"
+            )
+            time.sleep(5)
+            check_count += 1
+            if check_count > 24:
+                logger.warning(
+                    f"Waited for 2 minutes but not all participants joined. Proceeding with the test with the participants that have joined. Joined: {self.participants_joined}, Expected: {len(self.real_sta_list)}"
+                )
+                break
+        if len(self.real_sta_list) == self.participants_joined:
+            logger.info("All participants have joined the call. Starting the test.")
+        self.set_start_time()
+        logger.info("TEST WILL BE STARTING")
+
+    def create_participants(self):
+        logger.debug(
+            "Creating participants and setting up the calls with the following details"
+        )
+        logger.debug(self.lanforge_port_list)
+        logger.debug(self.real_sta_hostname)
+        logger.debug(self.serial_list)
+        for i in range(1, len(self.real_sta_os_types)):
+            if self.real_sta_os_types[i] == "android":
+                status, created_cx, created_endp = self.create_android(
+                    lanforge_res=self.lanforge_port_list[i],
+                    ports=[self.real_sta_list[i]],
+                    real_client_os_types=["Linux"],
+                )
+                self.generic_endps_profile.created_endp.extend(created_endp)
+                self.generic_endps_profile.created_cx.extend(created_cx)
+                logger.debug(self.generic_endps_profile.created_cx)
+                # cmd = (
+                #     f"{os.path.join(os.getcwd(), 'python3')} teams_android.py "
+                #     f"--devices {self.serial_list[i]} "
+                #     f"--meet_link '{self.meet_link}' "
+                #     f"--participant_name '{self.real_sta_hostname[i]}' "
+                #     f"--upstream_port {self.upstream_port} "
+                #     f"--duration {self.duration}"
+                # )
+                if self.enable_mobile_stats:
+                    cmd = (
+                        f"python3 /home/lanforge/lanforge-scripts/py-scripts/real_application_tests/teams_automation/teams_android.py "
+                        f"--devices {self.serial_list[i]} "
+                        f"--meet_link '{self.meet_link}' "
+                        f"--participant_name '{self.real_sta_hostname[i]}' "
+                        f"--upstream_port {self.upstream_port} "
+                        f"--duration {self.duration} "
+                        "--audio "
+                        "--video "
+                    )
+                else:
+
+                    cmd = (
+                        f"python3 /home/lanforge/lanforge-scripts/py-scripts/real_application_tests/teams_automation/teams_android_app.py "
+                        f"--device {self.serial_list[i]} "
+                        f"--meet_link '{self.meet_link}' "
+                        f"--participant_name '{self.real_sta_hostname[i]}' "
+                        f"--upstream_port {self.lanforge_ip} "
+                        "--audio "
+                        "--video "
+                    )
+                self.generic_endps_profile.set_cmd(
+                    self.generic_endps_profile.created_endp[i], cmd
+                )
+
+            else:
+                self.generic_endps_profile.create(
+                    ports=[self.real_sta_list[i]],
+                    real_client_os_types=[self.real_sta_os_types[i]],
+                )
+
         for i in range(1, len(self.real_sta_os_types)):
 
             if self.real_sta_os_types[i] == "windows":
                 cmd = f"py teams_client.py --ip {self.upstream_port}"
-                self.generic_endps_profile.set_cmd(self.generic_endps_profile.created_endp[i], cmd)
-            elif self.real_sta_os_types[i] == 'linux':
-                cmd = "su -l lanforge ctteams.bash %s %s %s" % (self.wifi_interfaces[i], self.upstream_port, "client")
-                self.generic_endps_profile.set_cmd(self.generic_endps_profile.created_endp[i], cmd)
-            elif self.real_sta_os_types[i] == 'macos':
+                self.generic_endps_profile.set_cmd(
+                    self.generic_endps_profile.created_endp[i], cmd
+                )
+            elif self.real_sta_os_types[i] == "linux":
+                cmd = "su -l lanforge ctteams.bash %s %s %s" % (
+                    self.wifi_interfaces_list[i],
+                    self.upstream_port,
+                    "client",
+                )
+                self.generic_endps_profile.set_cmd(
+                    self.generic_endps_profile.created_endp[i], cmd
+                )
+            elif self.real_sta_os_types[i] == "macos":
                 cmd = "sudo bash ctteams.bash %s %s" % (self.upstream_port, "client")
-                self.generic_endps_profile.set_cmd(self.generic_endps_profile.created_endp[i], cmd)
+                self.generic_endps_profile.set_cmd(
+                    self.generic_endps_profile.created_endp[i], cmd
+                )
 
-        self.generic_endps_profile.start_cx()
+            cx_name = self.generic_endps_profile.created_cx[i]
+            self.json_post(
+                "/cli-json/set_cx_state",
+                {"test_mgr": "default_tm", "cx_name": cx_name, "cx_state": "RUNNING"},
+                debug_=True,
+            )
+            logger.info(f"sending running state to.. {cx_name}")
 
-        while not self.test_start:
+    def delete_current_csv_files(self):
+        filename_pattern = (
+            f"*_{self.current_coord}_{self.current_rotation}.csv"
+            if self.rotations_enabled
+            else f"*_{self.current_coord}.csv"
+        )
+        csv_files_pattern = os.path.join(self.path, filename_pattern)
+        csv_files = glob.glob(csv_files_pattern)
 
-            logging.info("WAITING FOR THE TEST TO BE STARTED")
-            time.sleep(5)
-
-        self.set_start_time()
-        logging.info("TEST WILL BE STARTING")
-
+        for file_path in csv_files:
+            try:
+                os.remove(file_path)
+                logger.info(f"Deleted CSV file: {file_path}")
+            except Exception as e:
+                logger.error(f"Error deleting file {file_path}: {e}")
+                
+    def monitor_test(self):
         while datetime.now(self.tz) < self.end_time or not self.check_gen_cx():
             if self.stop_signal:
                 break
 
             time.sleep(5)
+
+    def run(self):
+        flask_thread = threading.Thread(target=self.start_flask_server)
+        flask_thread.daemon = True
+        flask_thread.start()
+        self.wait_for_flask()
+        self.create_host()
+        self.wait_for_login()
+        self.create_participants()
+        self.wait_for_test_start()
+        self.monitor_test()
+        
+
 
     def generate_report(self):
         report = lf_report(_output_pdf='teams_call_report.pdf',
@@ -307,14 +592,39 @@ class TeamsAutomation(Realm):
         elif self.video:
             testtype = "VIDEO"
 
-        test_parameters = pd.DataFrame([{
-
+        if self.config:
+            test_parameters = pd.DataFrame([{
+            "Configured Devices": self.resources,
             'No of Clients': f'W({self.windows}),L({self.linux}),M({self.mac})',
             'Test Duration(min)': self.duration,
             "HOST": self.real_sta_list[0],
             "TEST TYPE": testtype
 
         }])
+        elif len(self.selected_groups) > 0 and len(self.selected_profiles) > 0:
+            # Map each group with a profile
+            gp_pairs = zip(self.selected_groups, self.selected_profiles)
+
+            # Create a string by joining the mapped pairs
+            gp_map = ", ".join(f"{group} -> {profile}" for group, profile in gp_pairs)
+            test_parameters = pd.DataFrame([{
+            "Configuration": gp_map,
+            "Configures Devies": self.resources,
+            'No of Clients': f'W({self.windows}),L({self.linux}),M({self.mac})',
+            'Test Duration(min)': self.duration,
+            "HOST": self.real_sta_list[0],
+            "TEST TYPE": testtype
+
+        }])
+        else:
+            test_parameters = pd.DataFrame([{
+
+                'No of Clients': f'W({self.windows}),L({self.linux}),M({self.mac})',
+                'Test Duration(min)': self.duration,
+                "HOST": self.real_sta_list[0],
+                "TEST TYPE": testtype
+
+            }])
         report.set_table_dataframe(test_parameters)
         report.build_table()
 
@@ -369,7 +679,7 @@ class TeamsAutomation(Realm):
                 _yaxis_categories=df["Device Name"].tolist(),
                 _yaxis_step=1,
                 _yticks_font=8,
-                _bar_height=.25,
+                _bar_height=0.25,
                 _color_name=["orange"],
                 _show_bar_value=True,
                 _figsize=(16, len(df) * 1 + 4),
@@ -402,11 +712,17 @@ class TeamsAutomation(Realm):
             }
 
             filtered_df = df[selected_columns].rename(columns=column_headings)
-
-            report.set_table_title("Test Audio Results Table")
-            report.build_table_title()
-            report.set_table_dataframe(filtered_df)
-            report.build_table()
+            # If both groups and profiles are selected, generate separate audio results tables per group; otherwise show a single combined results table.
+            if self.selected_groups and self.selected_profiles:
+                for group in self.selected_groups:
+                        group_specific_audio_test_results = self.get_test_results_data(filtered_df, group)
+                        if not group_specific_audio_test_results['Device Name']:
+                            continue
+            
+                        report.set_table_title("Test Audio Results Table")
+                        report.build_table_title()
+                        report.set_table_dataframe(group_specific_audio_test_results)
+                        report.build_table()
 
         if self.video:
             selected_columns = [
@@ -536,6 +852,66 @@ class TeamsAutomation(Realm):
         self.device_list = filtered_list
         return filtered_list
 
+    def get_device_data(self):
+        """
+        Collect and correlate device, resource, and port information for real stations.
+
+        This method gathers metadata for devices listed in `self.real_sta_list` by:
+        1. Extracting user-specified resource identifiers from real station entries.
+        2. Querying the '/resource/all' API to map resources to device names,
+        controller IPs, EIDs, and associated users.
+        3. Querying the '/port/all' API to locate ports belonging to the matched
+        resources, preserving the order defined by the real station list.
+        4. Extracting wireless-specific attributes for ports associated with
+        the 'wiphy0' parent device.
+
+        The method builds several internal lists that are later used for endpoint
+        creation, test execution, and result processing.
+
+        Side Effects:
+        - Populates self.device_names with matched device hostnames
+        - Populates self.user_list with users associated with each resource
+        - Populates self.mac_list with MAC addresses for wireless ports
+        - Populates self.rssi_list with signal strength values
+        - Populates self.link_rate_list with RX link rates
+        - Populates self.ssid_list with SSID values
+
+        Notes:
+        - The method preserves the order of devices as specified in
+        `self.real_sta_list`.
+        - Only ports whose parent device is 'wiphy0' are considered wireless
+        and used to collect RSSI, MAC, link rate, and SSID information.
+        - This method does not return any value; all results are stored as
+        instance attributes.
+
+        Returns:
+            None
+        """
+
+        ports_list = []
+        user_resources = [".".join(item.split(".")[:2]) for item in self.real_sta_list]
+
+        # Step 1: Retrieve information about all resources
+        response = self.json_get("/resource/all")
+
+        resource_data_list = response.get("resources", [])
+
+        # Step 2. Loop through the user resources you want to find
+        for user_resource in user_resources:
+
+            # Look through the data to find that user
+            for element in resource_data_list:
+
+                # Check if the user_resource (e.g., "1.1") exists in this dictionary element
+                if user_resource in element:
+                    resource_values = element[user_resource]
+
+                    # Extract the data
+                    self.device_names.append(resource_values["hostname"])
+                    self.user_list.append(resource_values["user"])
+                    # Found it! Stop searching specifically for this user_resource
+                    break
+
     def select_real_devices(self, real_sta_list=None):
         """
         Selects real devices for testing.
@@ -607,7 +983,7 @@ class TeamsAutomation(Realm):
             f"{hostname} ({os_type})"
             for hostname, os_type in zip(self.real_sta_hostname, self.real_sta_os_types)
         ]
-        self.wifi_interfaces = [item.split('.')[2] for item in self.real_sta_list]
+        self.wifi_interfaces_list = [item.split('.')[2] for item in self.real_sta_list]
 
         # Count OS types
         for os_type in self.real_sta_os_types:
@@ -618,51 +994,78 @@ class TeamsAutomation(Realm):
             elif os_type == 'macos':
                 self.mac += 1
         logger.info(f"Selected Real Devices: {self.real_sta_list}")
+        self.get_device_data()
+        self.get_android_device_data()
 
         return self.real_sta_list
+
+    def get_android_device_data(self):
+        """
+        Fetch and process Android device information from the ADB interop API.
+
+        This method queries the '/adb' endpoint to retrieve connected Android
+        device details, matches devices against the configured user list,
+        and extracts relevant metadata for test execution.
+
+        Behavior:
+        - Supports both dictionary and list response formats from the API
+        - Filters devices based on matching 'user-name' entries
+        - Extracts device serial numbers and LANforge resource IDs
+        - Builds LANforge port identifiers in the format: 1.<resource>.eth0
+        - Populates internal lists used for endpoint and test setup
+
+        Side Effects:
+        - Updates self.serial_list with Android device serial numbers
+        - Updates self.lanforge_port_list with LANforge port identifiers
+        - Sets self.lanforge_os_type to 'Linux' for all discovered devices
+        - Generates a comma-separated serial string in self.serial_list_str
+
+        Returns:
+            None
+        """
+        interop_data = self.json_get("/adb")
+        interop_mobile_data = interop_data.get("devices", {})
+
+        if isinstance(interop_mobile_data, dict):
+            for user in self.user_list:
+                if user != "":
+                    if interop_mobile_data.get("user-name") == user:
+
+                        serial = interop_mobile_data.get("name", "")
+                        resource = serial.split(".")[1]
+                        serial_no = serial.split(".")[2]
+                        self.serial_list.append(serial_no)
+                        lanforge_port = f"1.{resource}.eth0"
+                        self.lanforge_port_list.append(lanforge_port)
+                else:
+                    self.serial_list.append("")
+                    self.lanforge_port_list.append("")
+
+        else:
+            for user in self.user_list:
+                if user != "":
+                    for mobile_device in interop_mobile_data:
+                        for serial, device_data in mobile_device.items():
+                            if device_data.get("user-name") == user:
+                                resource = serial.split(".")[1]
+                                serial_no = serial.split(".")[2]
+                                self.serial_list.append(serial_no)
+                                lanforge_port = f"1.{resource}.eth0"
+                                self.lanforge_port_list.append(lanforge_port)
+                                break
+                else:
+                    self.serial_list.append("")
+                    self.lanforge_port_list.append("")
+
+        self.lanforge_os_type = ["Linux"] * len(self.lanforge_port_list)
+
 
     # Load the credentials on server startup
     def load_credentials(self):
         with open('teams_cred.csv', newline='') as csvfile:
             reader = csv.DictReader(csvfile)
             self.credentials = list(reader)
-
-    def change_port_to_ip(self, upstream_port):
-        """
-        Convert a given port name to its corresponding IP address if it's not already an IP.
-
-        This function checks whether the provided `upstream_port` is a valid IPv4 address.
-        If it's not, it attempts to extract the IP address of the port by resolving it
-        via the internal `name_to_eid()` method and then querying the IP using `json_get()`.
-
-        Args:
-            upstream_port (str): The name or IP of the upstream port. This could be a
-                                 LANforge port name like '1.1.eth1' or an IP address.
-
-        Returns:
-            str: The resolved IP address if the port name was converted successfully,
-                otherwise returns the original input if it was already an IP or
-                if resolution fails.
-
-        Logs:
-            - A warning if the port is not Ethernet or IP resolution fails.
-            - Info logs for the resolved or passed IP.
-
-        """
-        if upstream_port.count('.') != 3:
-            target_port_list = self.name_to_eid(upstream_port)
-            shelf, resource, port, _ = target_port_list
-            try:
-                target_port_ip = self.json_get(f'/port/{shelf}/{resource}/{port}?fields=ip')['interface']['ip']
-                upstream_port = target_port_ip
-            except Exception as e:
-                logging.warning(f'The upstream port is not an ethernet port. Proceeding with the given upstream_port {upstream_port}. Exception: {e}')
-            logging.info(f"Upstream port IP {upstream_port}")
-        else:
-            logging.info(f"Upstream port IP {upstream_port}")
-
-        return upstream_port
-
+        print(f"Loaded credentials for {len(self.credentials)} accounts.")
 
     def move_csv_files(self):
         for file in os.listdir(self.path):
@@ -727,11 +1130,14 @@ class TeamsAutomation(Realm):
         def get_participants_joined():
             return jsonify({"participants": self.participants_joined})
 
-        @self.app.route('/set_participants_joined', methods=['POST'])
+        @self.app.route("/set_participants_joined", methods=["GET"])
         def set_participants_joined():
-            data = request.json
-            self.participants_joined = data.get('participants_joined', None)
-            return jsonify({"message": f"Updated participants jopind status to {self.participants_joined}"})
+            self.participants_joined += 1
+            return jsonify(
+                {
+                    "message": f"Updated participants joined status to {self.participants_joined}"
+                }
+            )
 
         @self.app.route('/get_participants_req', methods=['GET'])
         def get_participants_req():
@@ -746,24 +1152,29 @@ class TeamsAutomation(Realm):
                 self.test_start = data.get('test_started', False)
                 return jsonify({"message": f"Updated test_start status to {self.test_start}"})
 
-        @self.app.route('/get_start_end_time', methods=['GET'])
+        @self.app.route("/get_start_end_time", methods=["GET"])
         def get_start_end_time():
-            return jsonify({
-                "start_time": self.start_time.isoformat() if self.start_time is not None else None,
-                "end_time": self.end_time.isoformat() if self.end_time is not None else None
-            })
+            return jsonify(
+                {
+                    "start_time": (
+                        self.start_time.isoformat()
+                        if self.start_time is not None
+                        else None
+                    ),
+                    "end_time": (
+                        self.end_time.isoformat() if self.end_time is not None else None
+                    ),
+                }
+            )
 
-        @self.app.route('/stats_opt', methods=['GET'])
+        @self.app.route("/stats_opt", methods=["GET"])
         def stats_to_be_collected():
-            return jsonify({
-                'audio_stats': self.audio,
-                "video_stats": self.video
-            })
+            return jsonify({"audio_stats": self.audio, "video_stats": self.video})
 
         @self.app.route('/stop_teams', methods=['GET'])
         def stop_teams():
             """
-            Endpoint to stop the Zoom test and trigger a graceful application shutdown.
+            Endpoint to stop the Teams test and trigger a graceful application shutdown.
             """
             logging.info("Stopping the test through web UI")
             self.stop_signal = True
@@ -939,9 +1350,10 @@ def main():
         required.add_argument('--mgr', type=str, help="hostname where LANforge GUI is running", required=True)
         required.add_argument('--duration', type=int, help='duration to run the test in min', required=True)
         required.add_argument('--upstream_port', type=str, help='Specify The Upstream Port name or IP address', required=True)
-        required.add_argument('--participants', type=int, help='No of Devices in the test', required=True)
+        # required.add_argument('--participants', type=int, help='No of Devices in the test', required=True)
 
         # Add optional arguments
+        optional.add_argument('--teams_host', help='Specify the Teams Host',default=None)
         optional.add_argument('--resources', help='Specify the real device ports seperated by comma')
         optional.add_argument('--no_pre_cleanup', action="store_true", help='specify this flag to stop cleaning up generic cxs before the test')
         optional.add_argument('--no_post_cleanup', action="store_true", help='specify this flag to stop cleaning up generic cxs after the test')
@@ -952,6 +1364,40 @@ def main():
         optional.add_argument('--do_webUI', action='store_true', help='useful to specify whether we are running through webui or cli')
         optional.add_argument('--testname', help="report directory while running test through web ui")
         optional.add_argument('--report_dir', help="report directory while running test through web ui")
+        optional.add_argument("--enable_mobile_stats",action="store_true",help="Used to specify whether to collect mobile stats through chrome browser based UI automation or not")
+        # Arguments Related to Device Configurations
+        optional.add_argument('--file_name', help="File name for DeviceConfig")
+
+        optional.add_argument('--group_name', type=str, help='specify the group name')
+        optional.add_argument('--profile_name', type=str, help='specify the profile name')
+
+        optional.add_argument("--ssid", default=None, help='specify ssid on which the test will be running')
+        optional.add_argument("--passwd", default=None, help='specify encryption password  on which the test will '
+                            'be running')
+        optional.add_argument("--encryp", default=None, help='specify the encryption type  on which the test will be '
+                            'running eg :open|psk|psk2|sae|psk2jsae')
+
+        optional.add_argument("--eap_method", type=str, default='DEFAULT', help="Specify the EAP method for authentication.")
+        optional.add_argument("--eap_identity", type=str, default='DEFAULT', help="Specify the EAP identity for authentication.")
+        optional.add_argument("--ieee8021x", action="store_true", help='Enables IEEE 802.1x support.')
+        optional.add_argument("--ieee80211u", action="store_true", help='Enables IEEE 802.11u (Hotspot 2.0) support.')
+        optional.add_argument("--ieee80211w", type=int, default=1, help='Enables IEEE 802.11w (Management Frame Protection) support.')
+        optional.add_argument("--enable_pkc", action="store_true", help='Enables pkc support.')
+        optional.add_argument("--bss_transition", action="store_true", help='Enables BSS transition support.')
+        optional.add_argument("--power_save", action="store_true", help='Enables power-saving features.')
+        optional.add_argument("--disable_ofdma", action="store_true", help='Disables OFDMA support.')
+        optional.add_argument("--roam_ft_ds", action="store_true", help='Enables fast BSS transition (FT) support')
+        optional.add_argument("--key_management", type=str, default='DEFAULT', help='Specify the key management method (e.g., WPA-PSK, WPA-EAP)')
+        optional.add_argument("--pairwise", type=str, default='NA', help='Specify the pairwise cipher')
+        optional.add_argument("--private_key", type=str, default='NA', help='Specify EAP private key certificate file.')
+        optional.add_argument("--ca_cert", type=str, default='NA', help='Specify the CA certificate file name')
+        optional.add_argument("--client_cert", type=str, default='NA', help='Specify the client certificate file name')
+        optional.add_argument("--pk_passwd", type=str, default='NA', help='Specify the password for the private key')
+        optional.add_argument("--pac_file", type=str, default='NA', help='Specify the pac file name')
+        optional.add_argument("--expected_passfail_value", help="Specify the expected urlcount value for pass/fail")
+        optional.add_argument("--device_csv_name", type=str, help="Specify the device csv name for pass/fail", default=None)
+        optional.add_argument('--config', action='store_true', help='specify this flag whether to config devices or not')
+        optional.add_argument("--wait_time", type=int, default=30, help='time set to wait for the csv files')
 
         args = parser.parse_args()
 
@@ -965,18 +1411,55 @@ def main():
             logger_config.lf_logger_config_json = args.lf_logger_config_json
             logger_config.load_lf_logger_config()
 
+        if args.expected_passfail_value is not None and args.device_csv_name is not None:
+            logging.error("Specify either expected_passfail_value or device_csv_name")
+            exit(1)
+
+        if args.group_name is not None:
+            args.group_name = args.group_name.strip()
+            selected_groups = args.group_name.split(',')
+        else:
+            selected_groups = []
+
+        if args.profile_name is not None:
+            args.profile_name = args.profile_name.strip()
+            selected_profiles = args.profile_name.split(',')
+        else:
+            selected_profiles = []
+
+        if len(selected_groups) != len(selected_profiles):
+            logging.error("Number of groups should match number of profiles")
+            exit(0)
+        elif args.group_name is not None and args.profile_name is not None and args.file_name is not None and args.resources is not None:
+            logging.error("Either group name or device list should be entered not both")
+            exit(0)
+        elif args.ssid is not None and args.profile_name is not None:
+            logging.error("Either ssid or profile name should be given")
+            exit(0)
+        elif args.file_name is not None and (args.group_name is None or args.profile_name is None):
+            logging.error("Please enter the correct set of arguments")
+            exit(0)
+        elif args.config and ((args.ssid is None or (args.passwd is None and args.security.lower() != 'open') or (args.passwd is None and args.security is None))):
+            logging.error("Please provide ssid password and security for configuration of devices")
+            exit(0)
+
         teams = TeamsAutomation(
             lanforge_ip=args.mgr,
             duration=args.duration,
             upstream_port=args.upstream_port,
             no_pre_cleanup=args.no_pre_cleanup,
             no_post_cleanup=args.no_post_cleanup,
-            participants_req=args.participants,
             audio=args.audio,
             video=args.video,
             do_webui=args.do_webUI,
             test_name=args.testname,
-            report_dir=args.report_dir
+            report_dir=args.report_dir,
+            config=args.config,
+            selected_groups=selected_groups,
+            selected_profiles=selected_profiles,
+            ssid=args.ssid,
+            teams_host=args.teams_host,
+            enable_mobile_stats=args.enable_mobile_stats
 
         )
         teams.upstream_port = teams.change_port_to_ip(args.upstream_port)
@@ -993,8 +1476,116 @@ def main():
                                       passwd_6g='',
                                       encryption_6g='',
                                       selected_bands=['5G'])
+        if args.config and args.group_name is None and args.file_name is None and args.profile_name is None:
+            teams.select_real_devices(real_sta_list=args.resources)
+        if args.group_name and args.profile_name and args.file_name:
+            args.config = True
+        if args.config:
+            if args.file_name:
+                if '.csv' in args.file_name:
+                    args.file_name = args.file_name.removesuffix(".csv")
+            config_obj = DeviceConfig.DeviceConfig(lanforge_ip=args.mgr, file_name=args.file_name, wait_time=args.wait_time)
+            teams.config_obj = config_obj
+            
+            if not args.expected_passfail_value and args.device_csv_name is None:
+                config_obj.device_csv_file(csv_name="device.csv")
+            # Case 1: Group name, file name, and profile name are provided, but device list is empty
+            if args.group_name is not None and args.file_name is not None and args.profile_name is not None and args.resources is None:
+                selected_groups = args.group_name.split(',')
+                selected_profiles = args.profile_name.split(',')
+                config_devices = {}
+                for i in range(len(selected_groups)):
+                    config_devices[selected_groups[i]] = selected_profiles[i]
 
-        teams.select_real_devices(real_sta_list=args.resources)
+                config_obj.initiate_group()
+                asyncio.run(config_obj.connectivity(config_devices))
+
+                adbresponse = config_obj.adb_obj.get_devices()
+                resource_manager = config_obj.laptop_obj.get_devices()
+                all_res = {}
+                df1 = config_obj.display_groups(config_obj.groups)
+                groups_list = df1.to_dict(orient='list')
+                group_devices = {}
+
+                for adb in adbresponse:
+                    group_devices[adb['serial']] = adb['eid']
+                for res in resource_manager:
+                    all_res[res['hostname']] = res['shelf'] + '.' + res['resource']
+                eid_list = []
+                for grp_name in groups_list.keys():
+                    for g_name in selected_groups:
+                        if grp_name == g_name:
+                            for j in groups_list[grp_name]:
+                                if j in group_devices.keys():
+                                    eid_list.append(group_devices[j])
+                                elif j in all_res.keys():
+                                    eid_list.append(all_res[j])
+
+                args.resources = ",".join(id for id in eid_list)
+                teams.resources = args.resources.split(',')
+                print("Resources selected for testing: ", args.resources)
+                # self.real_sta_list= args.resources.split(',')
+            else:
+                config_dict = {
+                    'ssid': args.ssid,
+                    'passwd': args.passwd,
+                    'enc': args.encryp,
+                    'eap_method': args.eap_method,
+                    'eap_identity': args.eap_identity,
+                    'ieee80211': args.ieee8021x,
+                    'ieee80211u': args.ieee80211u,
+                    'ieee80211w': args.ieee80211w,
+                    'enable_pkc': args.enable_pkc,
+                    'bss_transition': args.bss_transition,
+                    'power_save': args.power_save,
+                    'disable_ofdma': args.disable_ofdma,
+                    'roam_ft_ds': args.roam_ft_ds,
+                    'key_management': args.key_management,
+                    'pairwise': args.pairwise,
+                    'private_key': args.private_key,
+                    'ca_cert': args.ca_cert,
+                    'client_cert': args.client_cert,
+                    'pk_passwd': args.pk_passwd,
+                    'pac_file': args.pac_file,
+                    'server_ip': teams.upstream_port,
+
+                }
+                if args.resources:
+                    all_devices = config_obj.get_all_devices()
+                    if args.group_name is None and args.file_name is None and args.profile_name is None:
+                        dev_list = args.resources.split(',')
+                        if args.config:
+                            # Extract only shelf.resource (first two parts) from each device string, removing any extra interface details
+                            conn_dev_list = ['.'.join(device.split('.')[:2]) for device in dev_list]
+                            dev_list = asyncio.run(config_obj.connectivity(device_list=conn_dev_list, wifi_config=config_dict))
+                        args.resources = ",".join(id for id in dev_list)
+                        teams.resources = args.resources.split(',')
+                else:
+                    # If no resources provided, prompt user to select devices manually
+                    if args.config:
+                        all_devices = config_obj.get_all_devices()
+                        device_list = []
+                        for device in all_devices:
+                            if device["type"] != 'laptop':
+                                device_list.append(device["shelf"] + '.' + device["resource"] + " " + device["serial"])
+                            elif device["type"] == 'laptop':
+                                device_list.append(device["shelf"] + '.' + device["resource"] + " " + device["hostname"])
+                        print("Available Devices For Testing")
+                        for device in device_list:
+                            print(device)
+                        args.resources = input("Enter Resources to run the test :")
+                        dev1_list = args.resources.split(',')
+                        dev1_list = asyncio.run(config_obj.connectivity(device_list=dev1_list, wifi_config=config_dict))
+                        args.resources = ",".join(id for id in dev1_list)
+                        teams.resources = args.resources.split(',')
+        if args.teams_host:
+            if args.teams_host in args.resources:
+                resources_list = args.resources.split(',')
+                resources_list = [r for r in resources_list if r != args.teams_host]
+                args.resources = ','.join(resources_list)
+            teams.select_real_devices(real_sta_list=args.teams_host+','+args.resources)
+        else:
+            teams.select_real_devices(real_sta_list=args.resources)
         if args.do_webUI:
             teams.path = args.report_dir
             teams.update_webui_data()

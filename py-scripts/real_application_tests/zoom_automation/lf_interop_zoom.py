@@ -755,9 +755,14 @@ class ZoomAutomation(Realm):
                                 if resource_key == user_resource:
                                     eid = resource_values["eid"]
                                     resource_ip = resource_values["ctrl-ip"]
-                                    self.device_names.append(
-                                        resource_values["hostname"]
-                                    )
+                                    if resource_values['device type'] == 'Android':
+                                        self.device_names.append(
+                                        resource_values["user"]
+                                        )
+                                    else:
+                                        self.device_names.append(
+                                            resource_values["hostname"]
+                                        )
                                     self.ports_list.append(
                                         {"eid": eid, "ctrl-ip": resource_ip}
                                     )
@@ -1453,27 +1458,27 @@ class ZoomAutomation(Realm):
             json.dump(data, file, indent=4)
 
     def generate_report(self):
-        report = lf_report(
+        self.report = lf_report(
             _output_pdf="zoom_call_report.pdf",
             _output_html="zoom_call_report.html",
             _results_dir_name="zoom_call_report",
             _path=self.path,
         )
-        report_path_date_time = report.get_path_date_time()
+        report_path_date_time = self.report.get_path_date_time()
 
-        report.set_title("Zoom Call Automated Report")
-        report.build_banner()
+        self.report.set_title("Zoom Call Automated Report")
+        self.report.build_banner()
 
-        report.set_table_title("Objective:")
-        report.build_table_title()
-        report.set_text(
+        self.report.set_table_title("Objective:")
+        self.report.build_table_title()
+        self.report.set_text(
             "The objective is to conduct automated Zoom call tests across multiple laptops to gather statistics on sent audio, video, and received audio, video performance."
             + "The test will collect these statistics and store them in a CSV file. Additionally, automated graphs will be generated using the collected data."
         )
-        report.build_text_simple()
+        self.report.build_text_simple()
 
-        report.set_table_title("Test Parameters:")
-        report.build_table_title()
+        self.report.set_table_title("Test Parameters:")
+        self.report.build_table_title()
         testtype = ""
         if self.audio and self.video:
             testtype = "AUDIO & VIDEO"
@@ -1537,8 +1542,8 @@ class ZoomAutomation(Realm):
             if self.do_bs:
                 test_parameters = test_parameters.drop(columns=["Test Duration(min)"], errors='ignore')
 
-        report.set_table_dataframe(test_parameters)
-        report.build_table()
+        self.report.set_table_dataframe(test_parameters)
+        self.report.build_table()
 
         client_array = []
         accepted_clients = []
@@ -1989,8 +1994,8 @@ class ZoomAutomation(Realm):
 
                 final_dataset.append(per_client_data.copy())
 
-        report.set_table_title("Test Devices:")
-        report.build_table_title()
+        self.report.set_table_title("Test Devices:")
+        self.report.build_table_title()
 
         device_details = pd.DataFrame(
             {
@@ -2002,12 +2007,12 @@ class ZoomAutomation(Realm):
                 "SSID": self.ssid_list,
             }
         )
-        report.set_table_dataframe(device_details)
-        report.build_table()
+        self.report.set_table_dataframe(device_details)
+        self.report.build_table()
 
         if self.audio:
-            report.set_graph_title("Audio Latency (Sent/Received)")
-            report.build_graph_title()
+            self.report.set_graph_title("Audio Latency (Sent/Received)")
+            self.report.build_graph_title()
             x_data_set = [
                 max_audio_latency_s.copy(),
                 min_audio_latency_s.copy(),
@@ -2035,12 +2040,12 @@ class ZoomAutomation(Realm):
                 _label=["Max Sent", "Min Sent", "Max Recv", "Min Recv"],
             )
             graph_image = bar_graph_horizontal.build_bar_graph_horizontal()
-            report.set_graph_image(graph_image)
-            report.move_graph_image()
-            report.build_graph()
+            self.report.set_graph_image(graph_image)
+            self.report.move_graph_image()
+            self.report.build_graph()
 
-            report.set_graph_title("Audio Jitter (Sent/Received)")
-            report.build_graph_title()
+            self.report.set_graph_title("Audio Jitter (Sent/Received)")
+            self.report.build_graph_title()
             x_data_set = [
                 max_audio_jitter_s.copy(),
                 min_audio_jitter_s.copy(),
@@ -2068,12 +2073,12 @@ class ZoomAutomation(Realm):
                 _label=["Max Sent", "Min Sent", "Max Recv", "Min Recv"],
             )
             graph_image = bar_graph_horizontal.build_bar_graph_horizontal()
-            report.set_graph_image(graph_image)
-            report.move_graph_image()
-            report.build_graph()
+            self.report.set_graph_image(graph_image)
+            self.report.move_graph_image()
+            self.report.build_graph()
 
-            report.set_graph_title("Audio Packet Loss (Sent/Received)")
-            report.build_graph_title()
+            self.report.set_graph_title("Audio Packet Loss (Sent/Received)")
+            self.report.build_graph_title()
             x_data_set = [
                 max_audio_pktloss_s.copy(),
                 min_audio_pktloss_s.copy(),
@@ -2101,12 +2106,12 @@ class ZoomAutomation(Realm):
                 _label=["Max Sent", "Min Sent", "Max Recv", "Min Recv"],
             )
             graph_image = bar_graph_horizontal.build_bar_graph_horizontal()
-            report.set_graph_image(graph_image)
-            report.move_graph_image()
-            report.build_graph()
+            self.report.set_graph_image(graph_image)
+            self.report.move_graph_image()
+            self.report.build_graph()
 
-            report.set_table_title("Test Audio Results Table:")
-            report.build_table_title()
+            self.report.set_table_title("Test Audio Results Table:")
+            self.report.build_table_title()
             audio_test_details = pd.DataFrame(
                 {
                     "Device Name": [client for client in accepted_clients],
@@ -2188,14 +2193,14 @@ class ZoomAutomation(Realm):
                     ],
                 }
             )
-            report.set_table_dataframe(audio_test_details)
-            report.dataframe_html = report.dataframe.to_html(
+            self.report.set_table_dataframe(audio_test_details)
+            self.report.dataframe_html = self.report.dataframe.to_html(
                 index=False, justify="center", render_links=True, escape=False
             )  # have the index be able to be passed in.
-            report.html += report.dataframe_html
+            self.report.html += self.report.dataframe_html
         if self.video:
-            report.set_graph_title("Video Latency (Sent/Received)")
-            report.build_graph_title()
+            self.report.set_graph_title("Video Latency (Sent/Received)")
+            self.report.build_graph_title()
             x_data_set = [
                 max_video_latency_s.copy(),
                 min_video_latency_s.copy(),
@@ -2222,12 +2227,12 @@ class ZoomAutomation(Realm):
                 _label=["Max Sent", "Min Sent", "Max Recv", "Min Recv"],
             )
             graph_image = bar_graph_horizontal.build_bar_graph_horizontal()
-            report.set_graph_image(graph_image)
-            report.move_graph_image()
-            report.build_graph()
+            self.report.set_graph_image(graph_image)
+            self.report.move_graph_image()
+            self.report.build_graph()
 
-            report.set_graph_title("Video Jitter (Sent/Received)")
-            report.build_graph_title()
+            self.report.set_graph_title("Video Jitter (Sent/Received)")
+            self.report.build_graph_title()
             x_data_set = [
                 max_video_jitter_s.copy(),
                 min_video_jitter_s.copy(),
@@ -2254,12 +2259,12 @@ class ZoomAutomation(Realm):
                 _label=["Max Sent", "Min Sent", "Max Recv", "Min Recv"],
             )
             graph_image = bar_graph_horizontal.build_bar_graph_horizontal()
-            report.set_graph_image(graph_image)
-            report.move_graph_image()
-            report.build_graph()
+            self.report.set_graph_image(graph_image)
+            self.report.move_graph_image()
+            self.report.build_graph()
 
-            report.set_graph_title("Video Packet Loss (Sent/Received)")
-            report.build_graph_title()
+            self.report.set_graph_title("Video Packet Loss (Sent/Received)")
+            self.report.build_graph_title()
             x_data_set = [
                 max_video_pktloss_s.copy(),
                 min_video_pktloss_s.copy(),
@@ -2286,12 +2291,12 @@ class ZoomAutomation(Realm):
                 _label=["Max Sent", "Min Sent", "Max Recv", "Min Recv"],
             )
             graph_image = bar_graph_horizontal.build_bar_graph_horizontal()
-            report.set_graph_image(graph_image)
-            report.move_graph_image()
-            report.build_graph()
+            self.report.set_graph_image(graph_image)
+            self.report.move_graph_image()
+            self.report.build_graph()
 
-            report.set_table_title("Test Video Results Table:")
-            report.build_table_title()
+            self.report.set_table_title("Test Video Results Table:")
+            self.report.build_table_title()
             video_test_details = pd.DataFrame(
                 {
                     "Device Name": [client for client in accepted_clients],
@@ -2373,17 +2378,17 @@ class ZoomAutomation(Realm):
                     ],
                 }
             )
-            report.set_table_dataframe(video_test_details)
+            self.report.set_table_dataframe(video_test_details)
 
-            report.dataframe_html = report.dataframe.to_html(
+            self.report.dataframe_html = self.report.dataframe.to_html(
                 index=False, justify="center", render_links=True, escape=False
             )  # have the index be able to be passed in.
-            report.html += report.dataframe_html
-        report.set_custom_html("<br/><hr/>")
-        report.build_custom()
+            self.report.html += self.report.dataframe_html
+        self.report.set_custom_html("<br/><hr/>")
+        self.report.build_custom()
 
-        report.write_html()
-        report.write_pdf(_page_size="Legal", _orientation="Landscape")
+        self.report.write_html()
+        self.report.write_pdf(_page_size="Legal", _orientation="Landscape")
         for client in accepted_clients:
             file_to_move_path = os.path.join(self.path, f"{client}.csv")
             self.move_files(file_to_move_path, report_path_date_time)
