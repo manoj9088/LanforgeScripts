@@ -2120,7 +2120,8 @@ class ThroughputQOS(Realm):
             table_df.update({"No of Stations": []})
             table_df.update({"Throughput for Load {}".format(rate_up + "-upload"): []})
             graph_df.update({rate_up: upload_throughput_df})
-            table_df.update({"No of Stations": str(len(self.input_devices_list))})
+            _n_both = (len(self.input_devices_list) + len(self.sta_list)) if _client_type == 'Both' else len(self.input_devices_list)
+            table_df.update({"No of Stations": str(_n_both)})
             table_df["Throughput for Load {}".format(rate_up + "-upload")].append(upload_throughput[0])
             res_copy = copy.copy(res)
             res_copy.update({"throughput_table_df": table_df})
@@ -2139,7 +2140,8 @@ class ThroughputQOS(Realm):
             table_df.update({"No of Stations": []})
             table_df.update({"Throughput for Load {}".format(rate_down + "-download"): []})
             graph_df.update({rate_down + "download": download_throughput_df})
-            table_df.update({"No of Stations": str(len(self.input_devices_list))})
+            _n_both = (len(self.input_devices_list) + len(self.sta_list)) if _client_type == 'Both' else len(self.input_devices_list)
+            table_df.update({"No of Stations": str(_n_both)})
             table_df["Throughput for Load {}".format(rate_down + "-download")].append(download_throughput[0])
             res_copy = copy.copy(res)
             res_copy.update({"throughput_table_df": table_df})
@@ -2827,6 +2829,20 @@ class ThroughputQOS(Realm):
         _mac_list     = self.mac_id_list
         _n_clients    = len(self.real_client_list)
         _n_ports      = len(self.input_devices_list)
+        
+        if _client_type == "Real":
+            _client_list  = self.real_client_list
+            _client_list1 = self.real_client_list1
+            _mac_list     = self.mac_id_list
+            _n_clients    = len(self.real_client_list)
+            _n_ports      = len(self.input_devices_list)
+        elif _client_type == "Both":
+            _client_list  = self.real_client_list + self.sta_list
+            _client_list1 = self.real_client_list1 + self.sta_list
+            _mac_list     = self.mac_id_list
+            _n_clients    = len(_client_list)
+            _n_ports      = len(self.input_devices_list) + len(self.sta_list)
+
 
         load = ""
         upload_list, download_list, individual_upload_list, individual_download_list = [], [], [], []
@@ -2978,6 +2994,7 @@ class ThroughputQOS(Realm):
                         f"(WiFi) traffic.  X- axis shows “Throughput in Mbps” and Y-axis shows “number of clients”.")
                     report.build_objective()
                     # print(upload_list, download_list, individual_download_list, individual_upload_list)
+                    print("---------",_client_list1,labels)
                     graph = lf_bar_graph_horizontal(_data_set=individual_set, _xaxis_name="Throughput in Mbps",
                                                     _yaxis_name="Client names",
                                                     _yaxis_categories=[i for i in _client_list1],
@@ -3555,28 +3572,47 @@ class ThroughputQOS(Realm):
         drop_dl = {'BK': [], 'BE': [], 'VI': [], 'VO': []}
         drop_ul = {'BK': [], 'BE': [], 'VI': [], 'VO': []}
 
-        test_cases = list(self.test_case) if self.test_case else []
+        # ── Data structure resolver ──────────────────────────────────── #
+        # Virtual standalone: data is band-keyed → res[case]['test_results']
+        # Both scenario:      data is flat       → res['test_results']
+        # _get_case_res() returns the inner dict that holds 'test_results'
+        # for whichever structure is present, making the loop below work
+        # identically for both.
+        def _get_case_res(res, case):
+            if 'test_results' in res:
+                return res           # flat path (Both)
+            if case in res and 'test_results' in res[case]:
+                return res[case]     # band-keyed path (Virtual standalone)
+            # fallback: search for any key containing test_results
+            for v in res.values():
+                if isinstance(v, dict) and 'test_results' in v:
+                    return v
+            return res               # last resort — will raise naturally
+
+        test_cases = list(self.test_case) if self.test_case else ['default']
 
         for case in test_cases:
             case = case.strip()
+            cr = _get_case_res(res, case)   # resolved inner dict
+
             if self.direction == 'Upload':
                 load    = rate_up
-                tos_ul  = res[case]['test_results'][0][1]   # {rate_up: {...}}
+                tos_ul  = cr['test_results'][0][1]   # {rate_up: {...}}
                 data_set = tos_ul
                 for tk in ['BK', 'BE', 'VI', 'VO']:
-                    drop_ul[tk] = res[case]['test_results'][0][2]['drop_per']['rx_drop_b'].get(tk, [])
+                    drop_ul[tk] = cr['test_results'][0][2]['drop_per']['rx_drop_b'].get(tk, [])
 
             elif self.direction == 'Download':
                 load    = rate_down
-                tos_dl  = res[case]['test_results'][0][0]   # {rate_down: {...}}
+                tos_dl  = cr['test_results'][0][0]   # {rate_down: {...}}
                 data_set = tos_dl
                 for tk in ['BK', 'BE', 'VI', 'VO']:
-                    drop_dl[tk] = res[case]['test_results'][0][2]['drop_per']['rx_drop_a'].get(tk, [])
+                    drop_dl[tk] = cr['test_results'][0][2]['drop_per']['rx_drop_a'].get(tk, [])
 
             elif self.direction == 'Bi-direction':
                 load     = 'Upload' + ':' + rate_up + ',' + 'Download' + ':' + rate_down
-                dl_dict  = res[case]['test_results'][0][0]   # {rate_down: {...}}
-                ul_dict  = res[case]['test_results'][0][1]   # {rate_up:   {...}}
+                dl_dict  = cr['test_results'][0][0]   # {rate_down: {...}}
+                ul_dict  = cr['test_results'][0][1]   # {rate_up:   {...}}
                 data_set = dl_dict
                 # Accumulate totals: first from download keys, then upload keys
                 for key in dl_dict:
@@ -3590,8 +3626,8 @@ class ThroughputQOS(Realm):
                     list_bk.append(ul_dict[key]['BK'])
                     list_be.append(ul_dict[key]['BE'])
                 for tk in ['BK', 'BE', 'VI', 'VO']:
-                    drop_dl[tk] = res[case]['test_results'][0][2]['drop_per']['rx_drop_a'].get(tk, [])
-                    drop_ul[tk] = res[case]['test_results'][0][2]['drop_per']['rx_drop_b'].get(tk, [])
+                    drop_dl[tk] = cr['test_results'][0][2]['drop_per']['rx_drop_a'].get(tk, [])
+                    drop_ul[tk] = cr['test_results'][0][2]['drop_per']['rx_drop_b'].get(tk, [])
 
         # Remove throughput_table_df / graph_df so iteration keys are clean
         res.pop("throughput_table_df", None)
@@ -5045,15 +5081,17 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
             connections_download, connections_upload, drop_a_per, drop_b_per)
         test_results['test_results'].append(qos_eval)
 
-        if args.client_type in ('Virtual', 'Both'):
-            # Virtual: wrap under band key exactly like throughput_qos.py
-            # bands_list was built before the object loop; use primary band as key
+        if args.client_type == 'Virtual':
+            # Virtual: band-keyed structure for _set_report_data_virtual
             _primary_band = bands_list[0] if bands_list else "2.4G"
             data.update({_primary_band: test_results})
-            # Also set test_case on the object so set_report_data_virtual works
             throughput_qos.test_case = bands_list
-        if args.client_type == "Real":
+        else:
+            # Real and Both: flat structure for set_report_data (Real/Both path)
+            # test_case is still set so _generate_individual_graph_virtual
+            # can iterate bands in the Both Section-2 virtual graph section.
             data.update(test_results)
+            throughput_qos.test_case = bands_list
 
     test_end_time = datetime.now().strftime("%Y %d %H:%M:%S")
     print("Test ended at: ", test_end_time)
