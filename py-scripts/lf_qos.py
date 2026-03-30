@@ -123,7 +123,13 @@ EXAMPLES:       --- FOR REAL DEVICES ---
             python3 lf_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080
             --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
             --num_stations_2g 4 --radio_2g wiphy0 --ssid_2g "NETGEAR_2G_wpa2" --passwd_2g Password@123 --security_2g wpa2
-            --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands dualband --upstream eth1 --test_duration 1m --download 1000000 --upload 1000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
+            --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2
+            --bands dualband --upstream eth1 --test_duration 1m --download 1000000 --upload 1000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
+
+            # Run Download Scenario By Configuring Both Real Devices and Virtual Stations in 5g band scenario with TOS values "VI,VO".
+            python3 lf_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
+            --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands 5g
+            --upstream eth1 --test_duration 1m --download 10000000 --traffic_type lf_tcp --tos "VI,VO" --create_sta --timebreak 5s --expected_passfail_value 5
 
             # Run Bi_Directional Scenario for both real and virtual stations in 5g band scenario with all TOS values.
             python3 lf_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 
@@ -441,6 +447,10 @@ class ThroughputQOS(Realm):
         self.qos_data = {}
         self.timebreak = self.parse_timebreak(timebreak)
         print("timebreak:", self.timebreak)
+
+        self.report_ssid_list = []
+        self.report_mac_list = []
+        self.report_channel_list = []
         
         # Initializing robot test parameters
         self.robot_test = robot_test
@@ -2813,35 +2823,37 @@ class ThroughputQOS(Realm):
         return image_paths_by_tos, rssi_image_paths_by_floor
 
     def generate_individual_graph(self, res, report, connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b, totalfloors=None, multicast_exists=False, graph_no=''):
-        # ── Dispatch: Virtual stations use a completely different data structure ─ #
+        logger.info(f"We are Printing RES : {res}")
+        
         _client_type = getattr(self, '_client_type', 'Real')
-        if _client_type == 'Virtual':
-            self._generate_individual_graph_virtual(res, report)
-            return
+        # if _client_type == 'Virtual':
+        #     self._generate_individual_graph_virtual(res, report)
+        #     return
 
         # Required when generate_individual_graph() called explicitly from mixed traffic
         if totalfloors is not None:
             self.total_floors = totalfloors
 
+        print("We are printing MAC ID List : ",self.mac_id_list)
+        print("We are printing MAC ID List 1 : ",self.mac_id1_list)
+
         # Client-list aliases — both Real and Both use real_client_list
-        _client_list  = self.real_client_list
-        _client_list1 = self.real_client_list1
-        _mac_list     = self.mac_id_list
-        _n_clients    = len(self.real_client_list)
-        _n_ports      = len(self.input_devices_list)
-        
         if _client_type == "Real":
             _client_list  = self.real_client_list
             _client_list1 = self.real_client_list1
             _mac_list     = self.mac_id_list
             _n_clients    = len(self.real_client_list)
             _n_ports      = len(self.input_devices_list)
+
+            print(f"{_client_list} : {_client_list1} : {_mac_list} : {_n_clients} : {_n_ports}")
         elif _client_type == "Both":
             _client_list  = self.real_client_list + self.sta_list
             _client_list1 = self.real_client_list1 + self.sta_list
             _mac_list     = self.mac_id_list
             _n_clients    = len(_client_list)
             _n_ports      = len(self.input_devices_list) + len(self.sta_list)
+
+            print(f"{_client_list} : {_client_list1} : {_mac_list} : {_n_clients} : {_n_ports}")
 
 
         load = ""
@@ -2856,6 +2868,7 @@ class ThroughputQOS(Realm):
         except Exception:
             logger.error("Live View images not found")
         # Initialized dictionaries to store average upload ,download and drop values with respect to tos
+
         avg_res = {'Upload': {
             'VO': [],
             'VI': [],
@@ -2931,6 +2944,7 @@ class ThroughputQOS(Realm):
             vo_tos_list.append(tos_type[3])
             load_list.append(load)
             traffic_direction_list.append(self.direction)
+
         # print(traffic_type_list,traffic_direction_list,bk_tos_list,be_tos_list,vi_tos_list,vo_tos_list)
         if self.direction == "Bi-direction":
             load = 'Upload' + ':' + rate_up + ',' + 'Download' + ':' + rate_down
@@ -2956,6 +2970,7 @@ class ThroughputQOS(Realm):
             for key, val in avg_drop_a.items():
                 tos = key.split('_')[-1].split('-')[0]
                 drop_res['drop_a'][tos].append(val)
+        
         x_fig_size = 15
         y_fig_size = _n_clients * .5 + 4
         if len(res.keys()) > 0:
@@ -2969,6 +2984,7 @@ class ThroughputQOS(Realm):
                 # If a CSV filename is provided, retrieve the expected values for each device from the CSV file
                 if not self.expected_passfail_val and self.csv_name:
                     test_input_list = self.get_csv_expected_val()
+
                 if "BK" in self.tos:
                     if self.direction == "Bi-direction":
                         individual_set = list1[2]
@@ -2988,11 +3004,13 @@ class ThroughputQOS(Realm):
                         elif self.direction == "Download":
                             individual_download_list = avg_res['Download']['BK']
                             individual_drop_a_list = drop_res['drop_a']['BK']
+
                     report.set_obj_html(
                         _obj_title=f"Individual {self.direction} throughput with intended load {load}/station for traffic BK(WiFi).",
                         _obj=f"The below graph represents individual throughput for {_n_ports} clients running BK "
                         f"(WiFi) traffic.  X- axis shows “Throughput in Mbps” and Y-axis shows “number of clients”.")
                     report.build_objective()
+
                     # print(upload_list, download_list, individual_download_list, individual_upload_list)
                     print("---------",_client_list1,labels)
                     graph = lf_bar_graph_horizontal(_data_set=individual_set, _xaxis_name="Throughput in Mbps",
@@ -3021,6 +3039,7 @@ class ThroughputQOS(Realm):
                     report.set_csv_filename(graph_png)
                     report.move_csv_file()
                     report.build_graph()
+
                     if (self.dowebgui and self.get_live_view) or multicast_exists:
                         if not self.robot_test:
                             for image_path in tos_images['BK']:
@@ -3046,8 +3065,6 @@ class ThroughputQOS(Realm):
                                 dataframe = self.generate_dataframe(
                                     val,
                                     self.real_client_list,
-                                    self.mac_id_list,
-                                    self.ssid_list,
                                     bk_tos_list,
                                     upload_list,
                                     download_list,
@@ -3061,8 +3078,6 @@ class ThroughputQOS(Realm):
                                 dataframe = self.generate_dataframe(
                                     val,
                                     self.real_client_list,
-                                    self.mac_id_list,
-                                    self.ssid_list,
                                     bk_tos_list,
                                     upload_list,
                                     download_list,
@@ -3082,8 +3097,6 @@ class ThroughputQOS(Realm):
                     else:
                         bk_dataframe = {
                             " Client Name ": _client_list,
-                            " MAC ": _mac_list,
-                            " SSID ": self.ssid_list,
                             " Type of traffic ": bk_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -3097,8 +3110,9 @@ class ThroughputQOS(Realm):
                             bk_dataframe[" Status "] = pass_fail_list
                         dataframe1 = pd.DataFrame(bk_dataframe)
                         report.set_table_dataframe(dataframe1)
-                        report.build_table()
+                        report.build_table() 
                 logger.info("Graph and table for BK tos are built")
+
                 if "BE" in self.tos:
                     if self.direction == "Bi-direction":
                         individual_set = list1[3]
@@ -3175,8 +3189,6 @@ class ThroughputQOS(Realm):
                                 dataframe = self.generate_dataframe(
                                     val,
                                     self.real_client_list,
-                                    self.mac_id_list,
-                                    self.ssid_list,
                                     be_tos_list,
                                     upload_list,
                                     download_list,
@@ -3210,8 +3222,6 @@ class ThroughputQOS(Realm):
                     else:
                         be_dataframe = {
                             " Client Name ": _client_list,
-                            " MAC ": _mac_list,
-                            " SSID ": self.ssid_list,
                             " Type of traffic ": be_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -3225,8 +3235,9 @@ class ThroughputQOS(Realm):
                             be_dataframe[" Status "] = pass_fail_list
                         dataframe2 = pd.DataFrame(be_dataframe)
                         report.set_table_dataframe(dataframe2)
-                        report.build_table()
+                        report.build_table()                
                 logger.info("Graph and table for BE tos are built")
+
                 if "VI" in self.tos:
                     if self.direction == "Bi-direction":
                         individual_set = list1[0]
@@ -3303,8 +3314,6 @@ class ThroughputQOS(Realm):
                                 dataframe = self.generate_dataframe(
                                     val,
                                     self.real_client_list,
-                                    self.mac_id_list,
-                                    self.ssid_list,
                                     vi_tos_list,
                                     upload_list,
                                     download_list,
@@ -3318,8 +3327,6 @@ class ThroughputQOS(Realm):
                                 dataframe = self.generate_dataframe(
                                     val,
                                     self.real_client_list,
-                                    self.mac_id_list,
-                                    self.ssid_list,
                                     vi_tos_list,
                                     upload_list,
                                     download_list,
@@ -3338,8 +3345,6 @@ class ThroughputQOS(Realm):
                     else:
                         vi_dataframe = {
                             " Client Name ": _client_list,
-                            " MAC ": _mac_list,
-                            " SSID ": self.ssid_list,
                             " Type of traffic ": vi_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -3353,8 +3358,9 @@ class ThroughputQOS(Realm):
                             vi_dataframe[" Status "] = pass_fail_list
                         dataframe3 = pd.DataFrame(vi_dataframe)
                         report.set_table_dataframe(dataframe3)
-                        report.build_table()
+                        report.build_table()                
                 logger.info("Graph and table for VI tos are built")
+
                 if "VO" in self.tos:
                     if self.direction == "Bi-direction":
                         individual_set = list1[1]
@@ -3432,8 +3438,6 @@ class ThroughputQOS(Realm):
                                 dataframe = self.generate_dataframe(
                                     val,
                                     self.real_client_list,
-                                    self.mac_id_list,
-                                    self.ssid_list,
                                     vo_tos_list,
                                     upload_list,
                                     download_list,
@@ -3447,8 +3451,6 @@ class ThroughputQOS(Realm):
                                 dataframe = self.generate_dataframe(
                                     val,
                                     self.real_client_list,
-                                    self.mac_id_list,
-                                    self.ssid_list,
                                     vo_tos_list,
                                     upload_list,
                                     download_list,
@@ -3467,8 +3469,6 @@ class ThroughputQOS(Realm):
                     else:
                         vo_dataframe = {
                             " Client Name ": _client_list,
-                            " MAC ": _mac_list,
-                            " SSID ": self.ssid_list,
                             " Type of traffic ": vo_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -3482,8 +3482,10 @@ class ThroughputQOS(Realm):
                             vo_dataframe[" Status "] = pass_fail_list
                         dataframe4 = pd.DataFrame(vo_dataframe)
                         report.set_table_dataframe(dataframe4)
-                        report.build_table()
+                        report.build_table() 
                 logger.info("Graph and table for VO tos are built")
+
+
             if self.dowebgui and self.get_live_view and not multicast_exists:
                 if not self.robot_test:
                     for _floor, rssi_image_path in rssi_images.items():
@@ -3726,7 +3728,6 @@ class ThroughputQOS(Realm):
             df_data = {
                 " Client Name ":                list(self.sta_list),
                 " Mac ":                         mac_list_n,
-                " Channel ":                     channel_list_n,
                 " SSID ":                        ssid_list_n,
                 " Type of traffic ":             tos_list,
                 " Traffic Direction ":           traffic_direction_list,
@@ -3755,6 +3756,17 @@ class ThroughputQOS(Realm):
         _tos_section("BE", be_tos_list)
         _tos_section("VI", vi_tos_list)
         _tos_section("VO", vo_tos_list)
+
+        # storing real time data for CXs in seperate CSVs
+        for cx in self.real_time_data:
+            for tos in self.real_time_data[cx]:
+                if tos in self.tos and len(self.real_time_data[cx][tos]['time']) != 0:
+                    try:
+                        cx_df = pd.DataFrame(self.real_time_data[cx][tos])
+                        cx_df.to_csv('{}/{}_{}_realtime_data.csv'.format(report.path_date_time, cx, tos), index=False)
+                    except Exception:
+                        logger.info(f'failed cx {cx} tos {tos}')
+                        #logger.info(f"overall Data {self.real_time_data}")
 
         # Store overall throughput CSV in report directory
         logger.info('Storing real time values in a CSV (virtual)')
