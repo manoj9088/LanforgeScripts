@@ -325,7 +325,13 @@ class ThroughputQOS(Realm):
             mac_list = []
 
 
-        self.ssid_list = []
+        self.ssid_list = []       # We will be using these for report generation.
+        self.macid_list = []
+        self.mode_list = []
+        self.bssid_list = []
+        self.channels_list = []
+        self.rssi_list = []
+
         self.upstream = upstream
         self.host = host
         self.port = port
@@ -1657,6 +1663,7 @@ class ThroughputQOS(Realm):
                             mode    = pdata.get("mode", "-")
                             channel = pdata.get("channel", "-")
                             bssid   = pdata.get("ap", "-")
+                            ssid = pdata.get("ssid","-")
                             port_stats[eid] = {
                                 "rx": rx, "tx": tx, "rssi": rssi,
                                 "mode": mode, "channel": channel, "bssid": bssid,
@@ -1664,6 +1671,7 @@ class ThroughputQOS(Realm):
                             rates_data[f"{eid} rx_rate"].append(rx)
                             rates_data[f"{eid} tx_rate"].append(tx)
                             rates_data[f"{eid} RSSI"].append(rssi)
+
                 except Exception:
                     logger.warning("Failed /ports/all/ for Real devices")
 
@@ -2299,6 +2307,31 @@ class ThroughputQOS(Realm):
         print("SSID_List : ",ssid_list)
         return ssid_list
 
+    def get_portmgr_data(self, device_list):
+        ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list = [], [], [], [], [], []
+        port_json = self.json_get('/port/all')['interfaces']
+        for block in port_json:
+            for dev, data in block.items():
+                if dev not in (device_list):
+                    continue
+                ssid = data.get("ssid","-")
+                mode = data.get("mode","-")
+                channel = data.get("channel", "-")
+                bssid = data.get("ap","-")
+                print("Prt mgr ",port_json)
+                print("--------------------------------------")
+                print("BSSID : ",bssid)
+                mac = data.get("mac","-")
+                rssi = data.get("signal","-")
+                if dev in device_list:
+                    ssid_list.append(ssid)
+                    mac_list.append(mac)
+                    bssid_list.append(bssid)
+                    channel_list.append(channel)
+                    mode_list.append(mode)
+                    rssi_list.append(rssi)
+        return ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list
+
     def generate_report(self, data, input_setup_info,
                         connections_download_avg=None, connections_upload_avg=None,
                         avg_drop_a=None, avg_drop_b=None,
@@ -2321,19 +2354,8 @@ class ThroughputQOS(Realm):
 
         _client_type = getattr(self, '_client_type', 'Real')
 
-        # SSID list: source depends on client type
-        if _client_type == "Both":
-            total_devices_list = self.sta_list + self.input_devices_list
-            print("We are printing Total Test Devices : ",total_devices_list)
-            self.ssid_list = self.get_ssid_list(total_devices_list)
-        elif _client_type == 'Virtual':
-            print("Station List : ",self.sta_list)
-            self.ssid_list = self.get_ssid_list(self.sta_list)
-        else:
-            print("Input Real Device List : ",self.input_devices_list)
-            self.ssid_list = self.get_ssid_list(self.input_devices_list)
-        
-        print("SELF SSID LIST : ", self.ssid_list)
+        print("We are printing Port Manager Tab Data : ")
+        print(f"{self.ssid_list}  --- {self.macid_list} --- {self.mode_list} --- {self.bssid_list} --- {self.channels_list} --- {self.rssi_list}")        
 
         if selected_real_clients_names is not None:  # for real scenario only.
             self.num_stations = selected_real_clients_names
@@ -2746,14 +2768,16 @@ class ThroughputQOS(Realm):
         if len(clients) != 0:
             bk_dataframe = {
                 " Client Name ": clients,
-                " MAC ": macids,
-                " SSID ": ssids,
+                " MAC " : self.macid_list,
+                " SSID " : self.ssid_list,
+                " BSSID " : self.bssid_list,
+                " Channel " : self.channels_list,
+                " RSSI " : self.rssi_list,
                 " Type of traffic ": tos_a,
                 " Offered upload rate(Mbps) ": uploads,
                 " Offered download rate(Mbps) ": downloads,
                 " Observed average upload rate(Mbps) ": individual_uploads,
                 " Observed average download rate(Mbps)": individual_downloads,
-
             }
             if self.direction == "Bi-direction":
                 bk_dataframe[" Observed Upload Drop (%)"] = individual_b_drop
@@ -2841,8 +2865,8 @@ class ThroughputQOS(Realm):
 
             print(f"{_client_list} : {_client_list1} : {_mac_list} : {_n_clients} : {_n_ports}")
         elif _client_type == "Both":
-            _client_list  = self.real_client_list + self.sta_list
-            _client_list1 = self.real_client_list1 + self.sta_list
+            _client_list  = self.sta_list + self.real_client_list
+            _client_list1 = self.sta_list + self.real_client_list1
             _mac_list     = self.mac_id_list
             _n_clients    = len(_client_list)
             _n_ports      = len(self.input_devices_list) + len(self.sta_list)
@@ -3091,6 +3115,11 @@ class ThroughputQOS(Realm):
                     else:
                         bk_dataframe = {
                             " Client Name ": _client_list,
+                            " MAC " : self.macid_list,
+                            " SSID " : self.ssid_list,
+                            " BSSID " : self.bssid_list,
+                            " Channel " : self.channels_list,
+                            " RSSI " : self.rssi_list,
                             " Type of traffic ": bk_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -3216,6 +3245,11 @@ class ThroughputQOS(Realm):
                     else:
                         be_dataframe = {
                             " Client Name ": _client_list,
+                            " MAC " : self.macid_list,
+                            " SSID " : self.ssid_list,
+                            " BSSID " : self.bssid_list,
+                            " Channel " : self.channels_list,
+                            " RSSI " : self.rssi_list,
                             " Type of traffic ": be_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -3339,6 +3373,11 @@ class ThroughputQOS(Realm):
                     else:
                         vi_dataframe = {
                             " Client Name ": _client_list,
+                            " MAC " : self.macid_list,
+                            " SSID " : self.ssid_list,
+                            " BSSID " : self.bssid_list,
+                            " Channel " : self.channels_list,
+                            " RSSI " : self.rssi_list,
                             " Type of traffic ": vi_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -3463,6 +3502,11 @@ class ThroughputQOS(Realm):
                     else:
                         vo_dataframe = {
                             " Client Name ": _client_list,
+                            " MAC " : self.macid_list,
+                            " SSID " : self.ssid_list,
+                            " BSSID " : self.bssid_list,
+                            " Channel " : self.channels_list,
+                            " RSSI " : self.rssi_list,
                             " Type of traffic ": vo_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -3515,7 +3559,6 @@ class ThroughputQOS(Realm):
                         logger.info(f'failed cx {cx} tos {tos}')
                         logger.info(f"Overall Data : {self.real_time_data}")
 
-
     def _generate_individual_graph_virtual(self, res, report):
         """
         Individual per-TOS graphs and tables for Virtual stations.
@@ -3558,9 +3601,12 @@ class ThroughputQOS(Realm):
             lst = list(lst) if lst else []
             return (lst + [fill] * n)[:n]
 
-        mac_list_n     = _safe(self.mac_list)
-        channel_list_n = _safe(self.channel_list)
+        mac_list_n     = _safe(self.macid_list)
+        channel_list_n = _safe(self.channels_list)
         ssid_list_n    = _safe(self.ssid_list)
+        rssi_list_n = _safe(self.rssi_list)
+        mode_list_n = _safe(self.mode_list)
+        bssid_list_n = _safe(self.bssid_list)
 
         # Bi-direction running totals — flat lists: [dl_total, ul_total]
         # Matches throughput_qos.py list[0..3] exactly
@@ -3733,6 +3779,10 @@ class ThroughputQOS(Realm):
                 " Client Name ":                list(self.sta_list),
                 " Mac ":                         mac_list_n,
                 " SSID ":                        ssid_list_n,
+                " BSSID ":                       bssid_list_n,
+                " Mode " :                       mode_list_n,
+                " Channel" :                     channel_list_n,
+                " RSSI ":                        rssi_list_n,
                 " Type of traffic ":             tos_list,
                 " Traffic Direction ":           traffic_direction_list,
                 " Traffic Protocol ":            traffic_type_list,
@@ -5097,6 +5147,28 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
 
         logger.info("connections download {}".format(connections_download))
         logger.info("connections upload {}".format(connections_upload))
+
+        ssid_list = []
+        mac_list = []
+        mode_list = []
+        bssid_list = []
+        channel_list = []
+        rssi_list = []
+
+        if args.client_type == "Both":
+            total_devices_list = throughput_qos.sta_list + throughput_qos.input_devices_list
+            ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list = throughput_qos.get_portmgr_data(total_devices_list)
+            throughput_qos.ssid_list, throughput_qos.macid_list, throughput_qos.mode_list, throughput_qos.bssid_list, throughput_qos.channels_list, throughput_qos.rssi_list = ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list
+            print("We are printing Total Test Devices : ",total_devices_list)
+        elif args.client_type == 'Virtual':
+            print("Station List : ",throughput_qos.sta_list)
+            ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list = throughput_qos.get_portmgr_data(throughput_qos.sta_list)
+            throughput_qos.ssid_list, throughput_qos.macid_list, throughput_qos.mode_list, throughput_qos.bssid_list, throughput_qos.channels_list, throughput_qos.rssi_list = ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list
+        else:
+            print("Input Real Device List : ",throughput_qos.input_devices_list)
+            ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list = throughput_qos.get_portmgr_data(throughput_qos.input_devices_list)
+            throughput_qos.ssid_list, throughput_qos.macid_list, throughput_qos.mode_list, throughput_qos.bssid_list, throughput_qos.channels_list, throughput_qos.rssi_list = ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list
+
         throughput_qos.stop()
         time.sleep(5)
         qos_eval = throughput_qos.evaluate_qos(
