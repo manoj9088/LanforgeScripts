@@ -17,34 +17,39 @@ NOTES:      Desired TOS must be specified with abbreviated name in all capital l
 EXAMPLES:   # Run download scenario with Voice TOS in 2.4GHz band
             ./throughput_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 32 --radio_2g wiphy0
                 --ssid_2g Cisco --passwd_2g cisco@123 --security_2g wpa2 --bands 2.4g --upstream eth1 --test_duration 1m
-                --download 1000000 --upload 0 --traffic_type lf_udp --tos "VO" --timebreak 5s --create_sta
+                --download 1000000 --upload 0 --traffic_type lf_udp --tos "VO" --create_sta
 
             # Run download scenario with Voice and Video TOS in 5GHz band
             ./throughput_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 32 --radio_5g wiphy1
                 --ssid_5g Cisco --passwd_5g cisco@123 --security_5g wpa2 --bands 5g --upstream eth1 --test_duration 1m
-                --download 1000000 --upload 0 --traffic_type lf_tcp --timebreak 5s --tos "VO,VI" --create_sta
+                --download 1000000 --upload 0 --traffic_type lf_tcp --tos "VO,VI" --create_sta
 
             # Run download scenario with Voice and Video TOS in 6GHz band
             ./throughput_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 32 --radio_6g wiphy1
                 --ssid_6g Cisco --passwd_6g cisco@123 --security_6g wpa2 --bands 6g --upstream eth1 --test_duration 1m
-                --download 1000000 --upload 0 --traffic_type lf_tcp --timebreak 5s --tos "VO,VI" --create_sta
+                --download 1000000 --upload 0 --traffic_type lf_tcp --tos "VO,VI" --create_sta
 
             # Run upload scenario with Background, Best Effort, Video, and Voice TOS in 2.4GHz and 5GHz bands
             ./throughput_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 64 --radio_2g wiphy0
                 --ssid_2g Cisco --passwd_2g cisco@123 --security_2g wpa2 --radio_5g wiphy1 --ssid_5g Cisco --passwd_5g cisco@123
-                --security_5g wpa2 --bands dualband --upstream eth1 --test_duration 1m --timebreak 5s --download 0 --upload 1000000
+                --security_5g wpa2 --bands dualband --upstream eth1 --test_duration 1m --download 0 --upload 1000000
                 --traffic_type lf_udp --tos "BK,BE,VI,VO" --create_sta
 
             # Run upload scenario with Background, Best Effort, Video and Voice TOS in 2.4GHz and 5GHz bands with 'Open' security
             ./throughput_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 64 --radio_2g wiphy0
                 --ssid_2g Cisco --passwd_2g [BLANK] --security_2g open --radio_5g wiphy1 --ssid_5g Cisco --passwd_5g [BLANK]
-                --security_5g open --bands dualband --upstream eth1 --test_duration 1m --timebreak 5s --download 0 --upload 1000000
+                --security_5g open --bands dualband --upstream eth1 --test_duration 1m--download 0 --upload 1000000
                 --traffic_type lf_udp --tos "BK,BE,VI,VO" --create_sta
 
             # Run bi-directional scenario with Video and Voice TOS in 6GHz band
             ./throughput_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 32 --radio_6g wiphy1
-                --ssid_6g Cisco --passwd_6g cisco@123 --security_6g wpa2 --bands 6g --upstream eth1 --test_duration 1m --timebreak 5s
+                --ssid_6g Cisco --passwd_6g cisco@123 --security_6g wpa2 --bands 6g --upstream eth1 --test_duration 1m
                 --download 1000000 --upload 10000000 --traffic_type lf_udp --tos "VO,VI" --create_sta
+            
+            # Run download scenario with Voice TOS in 2.4GHz band with time_break for monitoring.
+            ./throughput_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 32 --radio_2g wiphy0
+                --ssid_2g Cisco --passwd_2g cisco@123 --security_2g wpa2 --bands 2.4g --upstream eth1 --test_duration 1m
+                --download 1000000 --upload 0 --traffic_type lf_udp --tos "VO" --timebreak 5s --create_sta
 
 SCRIPT_CLASSIFICATION:
             Test
@@ -205,7 +210,7 @@ class ThroughputQOS(Realm):
         self.cx_profile.side_b_min_bps = side_b_min_rate
         self.cx_profile.side_b_max_bps = side_b_max_rate
         self.timebreak = self.parse_timebreak(timebreak)
-        print("timebreak:", self.timebreak)
+        print(f"timebreak: {self.timebreak}")
 
     def start(self, print_pass=False, print_fail=False):
         if len(self.cx_profile.created_cx) > 0:
@@ -460,7 +465,7 @@ class ThroughputQOS(Realm):
         index = -1
         connections_upload = dict.fromkeys(list(self.cx_profile.created_cx.keys()), float(0))
         connections_download = dict.fromkeys(list(self.cx_profile.created_cx.keys()), float(0))
-        print(connections_download)
+        print(f"Connections Download : {connections_download}")
         [(upload.append([]), download.append([]), drop_a.append([]), drop_b.append([])) for i in range(len(self.cx_profile.created_cx))]
         
         time_stamp_list = []
@@ -486,10 +491,6 @@ class ThroughputQOS(Realm):
         download_throughput = [float(f"{(sum(i) / 1000000) / len(i): .2f}") for i in download]
         drop_a_per = [float(round(sum(i) / len(i), 2)) for i in drop_a]
         drop_b_per = [float(round(sum(i) / len(i), 2)) for i in drop_b]
-        counter = 0
-        for cx_names in self.cx_profile.created_cx.keys():
-            self.create_combined_csv(str(cx_names), upload[counter], download[counter], drop_a[counter], drop_b[counter], time_stamp_list, start_time, end_time)
-            counter += 1
             
         keys = list(connections_upload.keys())
         keys = list(connections_download.keys())
@@ -500,7 +501,7 @@ class ThroughputQOS(Realm):
             connections_upload.update({keys[i]: float(f"{(upload_throughput[i]):.2f}")})
         return connections_download, connections_upload, drop_a_per, drop_b_per
          
-    def monitor2(self):
+    def monitor_for_runtime_csv(self):
         print("This is the station list : ",self.sta_list)
         last_write_time = datetime.now()
         if int(self.cx_profile.side_b_min_bps) != 0 and int(self.cx_profile.side_a_min_bps) != 0:
@@ -1087,7 +1088,6 @@ class ThroughputQOS(Realm):
                            _results_dir_name=result_dir_name)
         report_path = report.get_path()
         report_path_date_time = report.get_path_date_time()
-        #self.move_cx_csv_to_report_dir(report_path_date_time)
         self.move_station_csv_to_report(report_path_date_time)
         print("path: {}".format(report_path))
         print("path_date_time: {}".format(report_path_date_time))
@@ -1141,7 +1141,7 @@ class ThroughputQOS(Realm):
                              _graph_image_name=f"tos_{self.direction}_{key}Hz",
                              _label=["BK", "BE", "VI", "VO"],
                              _xaxis_step=1,
-                             _graph_title=f"Overall {self.direction} throughput – BK,BE,VO,VI traffic streams",
+                             _graph_title=f"Overall {self.direction} throughput : BK,BE,VO,VI traffic streams",
                              _title_size=16,
                              _color=['orange', 'lightcoral', 'steelblue', 'lightgrey'],
                              _color_edge='black',
@@ -1888,7 +1888,7 @@ def main():
 
             throughput_qos.start(False, False)
             time.sleep(10)
-            connections_download, connections_upload, drop_a_per, drop_b_per = throughput_qos.monitor2()
+            connections_download, connections_upload, drop_a_per, drop_b_per = throughput_qos.monitor_for_runtime_csv()
             #print("connections download", connections_download)
             #print("connections upload", connections_upload)
             throughput_qos.stop()
