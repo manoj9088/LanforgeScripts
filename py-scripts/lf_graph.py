@@ -295,16 +295,12 @@ class lf_bar_graph_horizontal:
         self.yticks_rotation = _yticks_rotation
 
     def build_bar_graph_horizontal(self):
-        print("manoj",self.color)
-        print(self.data_set)
         if self.color is None:
             i = 0
             self.color = []
             for _ in self.data_set:
                 self.color.append(self.color_name[i])
                 i = i + 1
-        print("durga1",self.color)
-        print(self.data_set)
         fig_size, ax = plt.subplots(figsize=self.figsize, gridspec_kw=self.alignment)
         i = 0
         # to remove the borders

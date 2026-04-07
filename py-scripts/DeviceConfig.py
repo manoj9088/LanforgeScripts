@@ -915,7 +915,7 @@ class DeviceConfig(Realm):
     def __init__(self, lanforge_ip=None,
                  port=8080, file_name=None,
                  _debug_on=False, csv_name=None, create_csv=False,
-                 wait_time=20
+                 wait_time=60
                  ):
         super().__init__(lfclient_host=lanforge_ip,
                          debug_=_debug_on)

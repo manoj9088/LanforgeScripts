@@ -1176,7 +1176,7 @@ class RealDevice(Realm):
 
             if (selected_laptops == []):
                 logging.info("WAITING FOR 120 seconds")
-                time.sleep(10)
+                time.sleep(120)
         if (selected_laptops != []):
             # if laptop['eap_method']!="" or laptop['eap_method']!= None or laptop['eap_method']!="NA":
             await self.laptops_obj.rm_station(port_list=selected_laptops)
@@ -1195,7 +1195,7 @@ class RealDevice(Realm):
             # time.sleep(60)
             # logging.info('Applying the new Wi-Fi configuration. Waiting for 2 minutes for the new configuration to apply.')
             logging.info("WAITING TOTAL 70 SECONDS FOR CONFIGURATION TO APPLY")
-            time.sleep(10)
+            time.sleep(70)
             exclude_laptops_con = []
             for laptop in selected_laptops:
                 current_laptop_port_data = self.json_get('/port/{}/{}/{}'.format(laptop['shelf'], laptop['resource'], laptop['sta_name']))
