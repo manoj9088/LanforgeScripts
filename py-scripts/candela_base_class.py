@@ -1743,11 +1743,14 @@ class Candela(Realm):
 
     def run_http_test(
         self,
+        lfclient_host=None,
+        lfclient_port=8080,
+        time_break=None,
         upstream_port='eth2',
         num_stations=0,
-        twog_radio='wiphy3',
-        fiveg_radio='wiphy0',
-        sixg_radio='wiphy2',
+        twog_radio=None,
+        fiveg_radio=None,
+        sixg_radio=None,
         twog_security=None,
         twog_ssid=None,
         twog_passwd=None,
@@ -1814,10 +1817,11 @@ class Candela(Realm):
         config=False,
         get_live_view=False,
         total_floors="0"
-    ):
+):
             if self.dowebgui:
                 if not self.webgui_stop_check("http"):
                     return False
+                
             bands.sort()
 
             # Error checking to prevent case issues
@@ -1837,6 +1841,8 @@ class Candela(Realm):
                 raise ValueError("'Both' test type must be used independently!")
 
             # validate_args(args)
+
+            # validating test duration
             if duration.endswith('s') or duration.endswith('S'):
                 duration = int(duration[0:-1])
             elif duration.endswith('m') or duration.endswith('M'):
@@ -1845,6 +1851,21 @@ class Candela(Realm):
                 duration = int(duration[0:-1]) * 60 * 60
             elif duration.endswith(''):
                 duration = int(duration)
+            else:
+                raise ValueError("Invalid duration format! Please specify duration with 's', 'm', or 'h' suffix (e.g., 30s, 5m, 1h).")
+            
+            # validating time_break
+            if time_break.endswith('s') or time_break.endswith('S'):
+                time_break = int(time_break[0:-1])
+            elif time_break.endswith('m') or time_break.endswith('M'):
+                time_break = int(time_break[0:-1]) * 60
+            elif time_break.endswith('h') or time_break.endswith('H'):
+                time_break = int(time_break[0:-1]) * 60 * 60
+            else:
+                raise ValueError("Invalid duration format! Please specify duration with 's', 'm', or 'h' suffix (e.g., 30s, 5m, 1h).")
+            
+            if(duration < time_break):
+                raise ValueError("Time break should be less than total duration of the test")
 
             list6G, list6G_bytes, list6G_speed, list6G_urltimes = [], [], [], []
             list5G, list5G_bytes, list5G_speed, list5G_urltimes = [], [], [], []
@@ -1873,28 +1894,52 @@ class Candela(Realm):
             avg5 = []
             avg_both = []
             port_list, dev_list, macid_list = [], [], []
+
+            real_ssid = ""
+            real_password = ""
+            real_security = ""
             for band in bands:
                 # For real devices while ensuring no blocker for Virtual devices
                 if client_type == 'Real':
                     ssid = ssid
                     passwd = passwd
                     security = security
-                elif band == "2.4G":
-                    security = [twog_security]
-                    ssid = [twog_ssid]
-                    passwd = [twog_passwd]
-                elif band == "5G":
-                    security = [fiveg_security]
-                    ssid = [fiveg_ssid]
-                    passwd = [fiveg_passwd]
-                elif band == "6G":
-                    security = [sixg_security]
-                    ssid = [sixg_ssid]
-                    passwd = [sixg_passwd]
-                elif band == "Both":
-                    security = [twog_security, fiveg_security]
-                    ssid = [twog_ssid, fiveg_ssid]
-                    passwd = [twog_passwd, fiveg_passwd]
+                elif client_type == 'Virtual':
+                    if band == "2.4G":
+                        security = [twog_security]
+                        ssid = [twog_ssid]
+                        passwd = [twog_passwd]
+                    elif band == "5G":
+                        security = [fiveg_security]
+                        ssid = [fiveg_ssid]
+                        passwd = [fiveg_passwd]
+                    elif band == "6G":
+                        security = [sixg_security]
+                        ssid = [sixg_ssid]
+                        passwd = [sixg_passwd]
+                    elif band == "Both":
+                        security = [twog_security, fiveg_security]
+                        ssid = [twog_ssid, fiveg_ssid]
+                        passwd = [twog_passwd, fiveg_passwd]
+                elif client_type == "Both":
+                    real_ssid = ssid
+                    real_password = passwd
+                    real_security = security
+                    print(f"Real Configuration - {real_ssid} - {real_password} - {real_security}")
+                    if band == "2.4G":
+                        print(f"Virtual Configuration - {twog_ssid} - {twog_passwd} - {twog_security}")
+                        security = [twog_security]
+                        ssid = [twog_ssid]
+                        passwd = [twog_passwd]
+                    elif band == "5G":
+                        security = [fiveg_security]
+                        ssid = [fiveg_ssid]
+                        passwd = [fiveg_passwd]
+                    elif band == "6G":
+                        security = [sixg_security]
+                        ssid = [sixg_ssid]
+                        passwd = [sixg_passwd]
+
                 ce = self.current_exec #seires
                 if ce == "parallel":
                     obj_name = "http_test"
@@ -1947,15 +1992,27 @@ class Candela(Realm):
                                     wait_time=wait_time,
                                     config=config,
                                     get_live_view= get_live_view,
-                                    total_floors = total_floors
+                                    total_floors = total_floors,
+                                    duration=duration,
+                                    time_break=time_break
                                     )
-                if client_type == "Real":
+                if client_type == "Both":
+                    self.http_obj_dict[ce][obj_name]["obj"].real_ssid = real_ssid
+                    self.http_obj_dict[ce][obj_name]["obj"].real_password = real_password
+                    self.http_obj_dict[ce][obj_name]["obj"].real_security = real_security
+
+                client_type_list, device_type_list = [], []
+                if client_type == "Real" or client_type == "Both":
                     if not isinstance(device_list, list):
                         self.http_obj_dict[ce][obj_name]["obj"].device_list = self.http_obj_dict[ce][obj_name]["obj"].filter_iOS_devices(device_list)
                         if len(self.http_obj_dict[ce][obj_name]["obj"].device_list) == 0:
                             logger.info("There are no devices available")
                             return False
-                    port_list, dev_list, macid_list, configuration = self.http_obj_dict[ce][obj_name]["obj"].get_real_client_list()
+                    port_list, dev_list, macid_list, eid_list, configuration = self.http_obj_dict[ce][obj_name]["obj"].get_real_client_list()
+                    # Use these lists for report columns - 
+                    client_type_list, device_type_list = self.http_obj_dict[ce][obj_name]["obj"].get_client_type_list(eid_list=eid_list)
+                    self.http_obj_dict[ce][obj_name]["obj"].client_type_list = client_type_list
+                    self.http_obj_dict[ce][obj_name]["obj"].device_type_list = device_type_list
                     if dowebgui and group_name:
                         if len(dev_list) == 0:
                             logger.info("No device is available to run the test")
@@ -1971,17 +2028,47 @@ class Candela(Realm):
                                 "configuration_status": "configured"
                             }
                             self.http_obj_dict[ce][obj_name]["obj"].updating_webui_runningjson(obj)
-                    num_stations = len(port_list)
+                    
+                    if client_type == "Real":
+                        num_stations = len(port_list)
                 if not get_url_from_file:
                     self.http_obj_dict[ce][obj_name]["obj"].file_create(ssh_port=ssh_port)
                 else:
                     if file_path is None:
                         print("WARNING: Please Specify the path of the file, if you select the --get_url_from_file")
                         return False
+                    
                 self.http_obj_dict[ce][obj_name]["obj"].set_values()
+
+                station_list = self.http_obj_dict[ce][obj_name]["obj"].station_list
+                
+                all_client_list = []
+                if client_type == "Real":
+                    all_client_list = port_list
+                elif client_type == "Virtual":
+                    all_client_list = station_list[0]
+                elif client_type == "Both":
+                    all_client_list = port_list + station_list[0]
+
+                if client_type  == "Both":
+                    num_stations = len(port_list)+len(station_list[0])
+                    for sta in station_list[0]:
+                        client_type_list.append("-")
+                        device_type_list.append("Virtual")
+                    self.http_obj_dict[ce][obj_name]["obj"].client_type_list = client_type_list
+                    self.http_obj_dict[ce][obj_name]["obj"].device_type_list = device_type_list
+                elif client_type == "Virtual":
+                    for sta in station_list[0]:
+                        client_type_list.append("-")
+                        device_type_list.append("Virtual")
+                    self.http_obj_dict[ce][obj_name]["obj"].client_type_list = client_type_list
+                    self.http_obj_dict[ce][obj_name]["obj"].device_type_list = device_type_list
+                
+                logger.info(f"All Client List : {all_client_list}")
+                    
                 self.http_obj_dict[ce][obj_name]["obj"].precleanup()
-                self.http_obj_dict[ce][obj_name]["obj"].build()
-                if client_type == 'Real':
+                self.http_obj_dict[ce][obj_name]["obj"].build_cx()
+                if client_type == 'Real' or client_type == "Both":
                     self.http_obj_dict[ce][obj_name]["obj"].monitor_cx()
                     logger.info(f'Test started on the devices : {self.http_obj_dict[ce][obj_name]["obj"].port_list}')
                 test_time = datetime.datetime.now()
@@ -1993,11 +2080,17 @@ class Candela(Realm):
                     # FOR WEBGUI, -This fumction is called to fetch the runtime data from layer-4
                     self.http_obj_dict[ce][obj_name]["obj"].monitor_for_runtime_csv(duration)
                 elif client_type == 'Real':
-                    # To fetch runtime csv during runtime
+                    # To fetch runtime csv during runtime (only for real devices)
                     self.http_obj_dict[ce][obj_name]["obj"].monitor_for_runtime_csv(duration)
-                else:
-                    time.sleep(duration)
+                elif client_type == "Virtual":
+                    # To fetch runtime csv during runtime (only for virtual stations)
+                    self.http_obj_dict[ce][obj_name]["obj"].monitor_for_runtime_csv(duration)
+                elif client_type == "Both":
+                    # To fetch runtime csv during runtime (for both real devices and virtual stations)
+                    self.http_obj_dict[ce][obj_name]["obj"].monitor_for_runtime_csv(duration)
+
                 self.http_obj_dict[ce][obj_name]["obj"].stop()
+
                 # taking self.http_obj_dict[ce][obj_name]["obj"].data, which got updated in the monitor_for_runtime_csv method
                 if client_type == 'Real':
                     uc_avg_val = self.http_obj_dict[ce][obj_name]["obj"].data['uc_avg']
@@ -2005,13 +2098,20 @@ class Candela(Realm):
                     rx_bytes_val = self.http_obj_dict[ce][obj_name]["obj"].data['bytes_rd']
                     print('rx_rate_Val',self.http_obj_dict[ce][obj_name]["obj"].data['rx rate (1m)'])
                     rx_rate_val = list(self.http_obj_dict[ce][obj_name]["obj"].data['rx rate (1m)'])
-                else:
+                elif client_type == 'Virtual':
                     uc_avg_val = self.http_obj_dict[ce][obj_name]["obj"].my_monitor('uc-avg')
                     url_times = self.http_obj_dict[ce][obj_name]["obj"].my_monitor('total-urls')
                     rx_bytes_val = self.http_obj_dict[ce][obj_name]["obj"].my_monitor('bytes-rd')
                     rx_rate_val = self.http_obj_dict[ce][obj_name]["obj"].my_monitor('rx rate')
+                elif client_type == "Both":
+                    uc_avg_val = self.http_obj_dict[ce][obj_name]["obj"].data['uc_avg']
+                    url_times = self.http_obj_dict[ce][obj_name]["obj"].data['url_data']
+                    rx_bytes_val = self.http_obj_dict[ce][obj_name]["obj"].data['bytes_rd']
+                    rx_rate_val = list(self.http_obj_dict[ce][obj_name]["obj"].data['rx rate (1m)'])
+
                 if dowebgui:
                     self.http_obj_dict[ce][obj_name]["obj"].data_for_webui["url_data"] = url_times  # storing the layer-4 url data at the end of test
+
                 if client_type == 'Real':  # for real clients
                     listReal.extend(uc_avg_val)
                     listReal_bytes.extend(rx_bytes_val)
@@ -2028,7 +2128,7 @@ class Candela(Realm):
                     final_dict[band]['bytes_rd'] = listReal_bytes
                     final_dict[band]['speed'] = listReal_speed
                     final_dict[band]['url_times'] = listReal_urltimes
-                else:
+                elif client_type == "Virtual":
                     if band == "5G":
                         list5G.extend(uc_avg_val)
                         list5G_bytes.extend(rx_bytes_val)
@@ -2076,7 +2176,7 @@ class Candela(Realm):
                         final_dict['2.4G']['bytes_rd'] = list2G_bytes
                         final_dict['2.4G']['speed'] = list2G_speed
                         final_dict['2.4G']['url_times'] = list2G_urltimes
-                    elif bands == "Both":
+                    elif band == "Both":
                         Both.extend(uc_avg_val)
                         Both_bytes.extend(rx_bytes_val)
                         Both_speed.extend(rx_rate_val)
@@ -2091,6 +2191,60 @@ class Candela(Realm):
                         final_dict['Both']['bytes_rd'] = Both_bytes
                         final_dict['Both']['speed'] = Both_speed
                         final_dict['Both']['url_times'] = Both_urltimes
+                elif client_type == "Both":
+                    if band == "2.4G":
+                        list2G.extend(uc_avg_val)
+                        list2G_bytes.extend(rx_bytes_val)
+                        list2G_speed.extend(rx_rate_val)
+                        list2G_urltimes.extend(url_times)
+                        logger.info("%s %s %s", list2G, list2G_bytes, list2G_speed)
+                        final_dict['2.4G']['dl_time'] = list2G
+                        min2.append(min(list2G))
+                        final_dict['2.4G']['min'] = min2
+                        max2.append(max(list2G))
+                        final_dict['2.4G']['max'] = max2
+                        avg2.append((sum(list2G) / num_stations))
+                        final_dict['2.4G']['avg'] = avg2
+                        final_dict['2.4G']['bytes_rd'] = list2G_bytes
+                        final_dict['2.4G']['speed'] = list2G_speed
+                        final_dict['2.4G']['url_times'] = list2G_urltimes
+                        print("Printing list's : ")
+                        print("List2G : ",list2G)
+                        print("List2G_bytes : ",list2G_bytes)
+                        print("List 2G_Speed : ",list2G_speed)
+                        print("List 2g url-times : ",list2G_urltimes)
+                    elif band == "5G":
+                        list5G.extend(uc_avg_val)
+                        list5G_bytes.extend(rx_bytes_val)
+                        list5G_speed.extend(rx_rate_val)
+                        list5G_urltimes.extend(url_times)
+                        logger.info("%s %s %s %s", list5G, list5G_bytes, list5G_speed, list5G_urltimes)
+                        final_dict['5G']['dl_time'] = list5G
+                        min5.append(min(list5G))
+                        final_dict['5G']['min'] = min5
+                        max5.append(max(list5G))
+                        final_dict['5G']['max'] = max5
+                        avg5.append((sum(list5G) / num_stations))
+                        final_dict['5G']['avg'] = avg5
+                        final_dict['5G']['bytes_rd'] = list5G_bytes
+                        final_dict['5G']['speed'] = list5G_speed
+                        final_dict['5G']['url_times'] = list5G_urltimes
+                    elif band == "6G":
+                        list6G.extend(uc_avg_val)
+                        list6G_bytes.extend(rx_bytes_val)
+                        list6G_speed.extend(rx_rate_val)
+                        list6G_urltimes.extend(url_times)
+                        final_dict['6G']['dl_time'] = list6G
+                        min6.append(min(list6G))
+                        final_dict['6G']['min'] = min6
+                        max6.append(max(list6G))
+                        final_dict['6G']['max'] = max6
+                        avg6.append((sum(list6G) / num_stations))
+                        final_dict['6G']['avg'] = avg6
+                        final_dict['6G']['bytes_rd'] = list6G_bytes
+                        final_dict['6G']['speed'] = list6G_speed
+                        final_dict['6G']['url_times'] = list6G_urltimes
+                    
 
             result_data = final_dict
             print("result", result_data)
@@ -2136,40 +2290,41 @@ class Candela(Realm):
             else:
                 if int(duration == 3600) or (int(duration) > 3600):
                     duration = str(duration / 3600) + "h"
-
-            android_devices, windows_devices, linux_devices, mac_devices = 0, 0, 0, 0
-            all_devices_names = []
-            device_type = []
-            total_devices = ""
-            for i in self.http_obj_dict[ce][obj_name]["obj"].devices_list:
-                split_device_name = i.split(" ")
-                if 'android' in split_device_name:
-                    all_devices_names.append(split_device_name[2] + ("(Android)"))
-                    device_type.append("Android")
-                    android_devices += 1
-                elif 'Win' in split_device_name:
-                    all_devices_names.append(split_device_name[2] + ("(Windows)"))
-                    device_type.append("Windows")
-                    windows_devices += 1
-                elif 'Lin' in split_device_name:
-                    all_devices_names.append(split_device_name[2] + ("(Linux)"))
-                    device_type.append("Linux")
-                    linux_devices += 1
-                elif 'Mac' in split_device_name:
-                    all_devices_names.append(split_device_name[2] + ("(Mac)"))
-                    device_type.append("Mac")
-                    mac_devices += 1
-
-            # Build total_devices string based on counts
-            if android_devices > 0:
-                total_devices += f" Android({android_devices})"
-            if windows_devices > 0:
-                total_devices += f" Windows({windows_devices})"
-            if linux_devices > 0:
-                total_devices += f" Linux({linux_devices})"
-            if mac_devices > 0:
-                total_devices += f" Mac({mac_devices})"
+            
             if client_type == "Real":
+                android_devices, windows_devices, linux_devices, mac_devices = 0, 0, 0, 0
+                all_devices_names = []
+                device_type = []
+                total_devices = ""
+                for i in self.http_obj_dict[ce][obj_name]["obj"].devices_list:
+                    split_device_name = i.split(" ")
+                    if 'android' in split_device_name:
+                        all_devices_names.append(split_device_name[2] + ("(Android)"))
+                        device_type.append("Android")
+                        android_devices += 1
+                    elif 'Win' in split_device_name:
+                        all_devices_names.append(split_device_name[2] + ("(Windows)"))
+                        device_type.append("Windows")
+                        windows_devices += 1
+                    elif 'Lin' in split_device_name:
+                        all_devices_names.append(split_device_name[2] + ("(Linux)"))
+                        device_type.append("Linux")
+                        linux_devices += 1
+                    elif 'Mac' in split_device_name:
+                        all_devices_names.append(split_device_name[2] + ("(Mac)"))
+                        device_type.append("Mac")
+                        mac_devices += 1
+
+                # Build total_devices string based on counts
+                if android_devices > 0:
+                    total_devices += f" Android({android_devices})"
+                if windows_devices > 0:
+                    total_devices += f" Windows({windows_devices})"
+                if linux_devices > 0:
+                    total_devices += f" Linux({linux_devices})"
+                if mac_devices > 0:
+                    total_devices += f" Mac({mac_devices})"
+                
                 if group_name:
                     group_names = ', '.join(configuration.keys())
                     profile_names = ', '.join(configuration.values())
@@ -2192,7 +2347,7 @@ class Candela(Realm):
                         "Traffic Direction": "Download",
                         "Traffic Duration ": duration
                     }
-            else:
+            elif client_type == "Virtual":
                 test_setup_info = {
                     "AP Name": ap_name,
                     "SSID": ssid,
@@ -2201,6 +2356,58 @@ class Candela(Realm):
                     "Traffic Direction": "Download",
                     "Traffic Duration ": duration
                 }
+            elif client_type == "Both":
+                android_devices, windows_devices, linux_devices, mac_devices = 0, 0, 0, 0
+                all_devices_names = []
+                device_type = []
+                total_devices = ""
+                print("Device List : ",self.http_obj_dict[ce][obj_name]["obj"].device_list) 
+                for i in self.http_obj_dict[ce][obj_name]["obj"].devices_list:
+                    split_device_name = i.split(" ")
+                    if 'android' in split_device_name:
+                        all_devices_names.append(split_device_name[2] + ("(Android)"))
+                        device_type.append("Android")
+                        android_devices += 1
+                    elif 'Win' in split_device_name:
+                        all_devices_names.append(split_device_name[2] + ("(Windows)"))
+                        device_type.append("Windows")
+                        windows_devices += 1
+                    elif 'Lin' in split_device_name:
+                        all_devices_names.append(split_device_name[2] + ("(Linux)"))
+                        device_type.append("Linux")
+                        linux_devices += 1
+                    elif 'Mac' in split_device_name:
+                        all_devices_names.append(split_device_name[2] + ("(Mac)"))
+                        device_type.append("Mac")
+                        mac_devices += 1
+
+                # Build total_devices string based on counts
+                if android_devices > 0:
+                    total_devices += f" Android({android_devices})"
+                if windows_devices > 0:
+                    total_devices += f" Windows({windows_devices})"
+                if linux_devices > 0:
+                    total_devices += f" Linux({linux_devices})"
+                if mac_devices > 0:
+                    total_devices += f" Mac({mac_devices})"
+
+                real_device_names = total_devices
+                virtual_device_names = f"Stations({len(station_list[0])})"
+                test_setup_info = {
+                    "AP_Name" : ap_name,
+                    "SSID" : self.http_obj_dict[ce][obj_name]["obj"].real_ssid,
+                    "Security (Real)" : self.http_obj_dict[ce][obj_name]["obj"].real_security,
+                    "SSID 2G" : twog_ssid,
+                    "SSID 5G" : fiveg_ssid,
+                    "SSID 6G" : sixg_ssid,
+                    "Security (Virtual)": security,
+                    "No of Devices": len(self.http_obj_dict[ce][obj_name]["obj"].port_list)+len(station_list[0]),
+                    "Real Devices" : f"Total: {len(self.http_obj_dict[ce][obj_name]["obj"].port_list)}"+real_device_names,
+                    "Virtual Stations" : virtual_device_names,
+                    "Traffic Direction": "Download",
+                    "Traffic Duration ": duration
+                }
+            
             test_input_infor = {
                 "LANforge ip": self.lanforge_ip,
                 "Bands": bands,
@@ -2211,13 +2418,14 @@ class Candela(Realm):
                 "Duration": duration,
                 "Contact": "support@candelatech.com"
             }
+
             if not file_path:
                 test_setup_info["File size"] = file_size
                 test_setup_info["File location"] = "/usr/local/lanforge/nginx/html"
                 test_input_infor["File size"] = file_size
             else:
                 test_setup_info["File location (URLs from the File)"] = file_path
-            if client_type == "Real":
+            if client_type == "Real" or client_type == "Both":
                 test_setup_info["failed_cx's"] = self.http_obj_dict[ce][obj_name]["obj"].failed_cx if self.http_obj_dict[ce][obj_name]["obj"].failed_cx else "NONE"
             # dataset = self.http_obj_dict[ce][obj_name]["obj"].download_time_in_sec(result_data=result_data)
             rx_rate = []
@@ -2234,8 +2442,14 @@ class Candela(Realm):
                 for i in range(1, num_stations * 2 + 1):
                     lis.append(i)
             else:
-                for i in range(1, num_stations + 1):
-                    lis.append(i)
+                devices = []
+                if client_type == "Real":
+                    devices = port_list
+                elif client_type == "Virtual":
+                    devices = station_list
+                elif client_type == "Both":
+                    devices = port_list + station_list[0]
+                lis = list(range(1, len(devices) + 1))
 
             if dowebgui:
                 self.http_obj_dict[ce][obj_name]["obj"].data_for_webui["status"] = ["STOPPED"] * len(self.http_obj_dict[ce][obj_name]["obj"].devices_list)
@@ -2247,6 +2461,8 @@ class Candela(Realm):
                 df1 = pd.DataFrame(self.http_obj_dict[ce][obj_name]["obj"].data_for_webui)
                 df1.to_csv('{}/http_datavalues.csv'.format(self.http_obj_dict[ce][obj_name]["obj"].result_dir), index=False)
 
+            self.http_obj_dict[ce][obj_name]["obj"].client_type_list = client_type_list
+            self.http_obj_dict[ce][obj_name]["obj"].device_type_list = device_type_list
             self.http_obj_dict[ce][obj_name]["obj"].generate_report(date, num_stations=num_stations,
                                 duration=duration, test_setup_info=test_setup_info, dataset=dataset, lis=lis,
                                 bands=bands, threshold_2g=threshold_2g, threshold_5g=threshold_5g,
@@ -6218,9 +6434,13 @@ class Candela(Realm):
                     while obj_name in self.http_obj_dict[ce]:
                         if ce == "parallel":
                             obj_no = ''
-                        # report_path = self.result_path
-                        # print("Current working directory:", os.getcwd())
                         http_data = self.http_obj_dict[ce][obj_name]["data"]
+                        if http_data is None:
+                            logger.error(f"No data available for {obj_name}, skipping report generation.")
+                            if ce == "series":
+                                obj_no += 1
+                                obj_name = f"http_test_{obj_no}"
+                            break
                         if http_data["bands"] == "Both":
                             num_stations = num_stations * 2
 
@@ -6261,7 +6481,7 @@ class Candela(Realm):
                         self.overall_report.build_objective()
 
                         self.http_obj_dict[ce][obj_name]["obj"].response_port = self.http_obj_dict[ce][obj_name]["obj"].local_realm.json_get("/port/all")
-                        self.http_obj_dict[ce][obj_name]["obj"].channel_list, self.http_obj_dict[ce][obj_name]["obj"].mode_list, self.http_obj_dict[ce][obj_name]["obj"].ssid_list = [], [], []
+                        self.http_obj_dict[ce][obj_name]["obj"].channel_list, self.http_obj_dict[ce][obj_name]["obj"].mode_list, self.http_obj_dict[ce][obj_name]["obj"].ssid_list, self.http_obj_dict[ce][obj_name]["obj"].signal_list, self.http_obj_dict[ce][obj_name]["obj"].bssid_list= [], [], [], [], []
 
                         if self.http_obj_dict[ce][obj_name]["obj"].client_type == "Real":
                             self.http_obj_dict[ce][obj_name]["obj"].devices = self.http_obj_dict[ce][obj_name]["obj"].devices_list
@@ -6270,7 +6490,10 @@ class Candela(Realm):
                                     if port in self.http_obj_dict[ce][obj_name]["obj"].port_list:
                                         self.http_obj_dict[ce][obj_name]["obj"].channel_list.append(str(port_data['channel']))
                                         self.http_obj_dict[ce][obj_name]["obj"].mode_list.append(str(port_data['mode']))
+                                        self.http_obj_dict[ce][obj_name]["obj"].macid_list.append(str(port_data['mac']))
                                         self.http_obj_dict[ce][obj_name]["obj"].ssid_list.append(str(port_data['ssid']))
+                                        self.http_obj_dict[ce][obj_name]["obj"].signal_list.append(str(port_data['signal']))
+                                        self.http_obj_dict[ce][obj_name]["obj"].bssid_list.append(str(port_data['ap']))
                         elif self.http_obj_dict[ce][obj_name]["obj"].client_type == "Virtual":
                             self.http_obj_dict[ce][obj_name]["obj"].devices = self.http_obj_dict[ce][obj_name]["obj"].station_list[0]
                             for interface in self.http_obj_dict[ce][obj_name]["obj"].response_port['interfaces']:
@@ -6280,6 +6503,20 @@ class Candela(Realm):
                                         self.http_obj_dict[ce][obj_name]["obj"].mode_list.append(str(port_data['mode']))
                                         self.http_obj_dict[ce][obj_name]["obj"].macid_list.append(str(port_data['mac']))
                                         self.http_obj_dict[ce][obj_name]["obj"].ssid_list.append(str(port_data['ssid']))
+                                        self.http_obj_dict[ce][obj_name]["obj"].signal_list.append(str(port_data['signal']))
+                                        self.http_obj_dict[ce][obj_name]["obj"].bssid_list.append(str(port_data['ap']))
+                        elif self.http_obj_dict[ce][obj_name]["obj"].client_type == "Both":
+                            self.http_obj_dict[ce][obj_name]["obj"].devices = self.http_obj_dict[ce][obj_name]["obj"].devices_list + self.http_obj_dict[ce][obj_name]["obj"].station_list[0]
+                            for interface in self.http_obj_dict[ce][obj_name]["obj"].response_port['interfaces']:
+                                for port, port_data in interface.items():
+                                    if port in self.http_obj_dict[ce][obj_name]["obj"].station_list[0] or port in self.http_obj_dict[ce][obj_name]["obj"].port_list:
+                                        self.http_obj_dict[ce][obj_name]["obj"].channel_list.append(str(port_data['channel']))
+                                        self.http_obj_dict[ce][obj_name]["obj"].mode_list.append(str(port_data['mode']))
+                                        self.http_obj_dict[ce][obj_name]["obj"].macid_list.append(str(port_data['mac']))
+                                        self.http_obj_dict[ce][obj_name]["obj"].ssid_list.append(str(port_data['ssid']))
+                                        self.http_obj_dict[ce][obj_name]["obj"].signal_list.append(str(port_data['signal']))
+                                        self.http_obj_dict[ce][obj_name]["obj"].bssid_list.append(str(port_data['ap']))
+
 
                         # Processing result_data
                         z, z1, z2 = [], [], []
@@ -6349,15 +6586,15 @@ class Candela(Realm):
                                 for key, val in self.http_obj_dict[ce][obj_name]["obj"].group_device_map.items():
                                     if self.http_obj_dict[ce][obj_name]["obj"].expected_passfail_value or self.http_obj_dict[ce][obj_name]["obj"].device_csv_name:
                                         dataframe = self.http_obj_dict[ce][obj_name]["obj"].generate_dataframe(
-                                            val, self.http_obj_dict[ce][obj_name]["obj"].devices, self.http_obj_dict[ce][obj_name]["obj"].macid_list, self.http_obj_dict[ce][obj_name]["obj"].channel_list,
+                                            val, self.http_obj_dict[ce][obj_name]["obj"].devices, self.http_obj_dict[ce][obj_name]["obj"].client_type_list, self.http_obj_dict[ce][obj_name]["obj"].device_type_list,self.http_obj_dict[ce][obj_name]["obj"].macid_list, self.http_obj_dict[ce][obj_name]["obj"].channel_list,
                                             self.http_obj_dict[ce][obj_name]["obj"].ssid_list, self.http_obj_dict[ce][obj_name]["obj"].mode_list, http_data["dataset2"], test_input_list,
-                                            http_data["dataset"], http_data["dataset1"], http_data["rx_rate"], pass_fail_list, self.http_obj_dict[ce][obj_name]["obj"].data["total_err"]
+                                            http_data["dataset"], http_data["dataset1"], http_data["rx_rate"], pass_fail_list, self.http_obj_dict[ce][obj_name]["obj"].signal_list, self.http_obj_dict[ce][obj_name]["obj"].bssid_list,self.http_obj_dict[ce][obj_name]["obj"].data["total_err"]
                                         )
                                     else:
                                         dataframe = self.http_obj_dict[ce][obj_name]["obj"].generate_dataframe(
-                                            val, self.http_obj_dict[ce][obj_name]["obj"].devices, self.http_obj_dict[ce][obj_name]["obj"].macid_list, self.http_obj_dict[ce][obj_name]["obj"].channel_list,
+                                            val, self.http_obj_dict[ce][obj_name]["obj"].devices, self.http_obj_dict[ce][obj_name]["obj"].client_type_list, self.http_obj_dict[ce][obj_name]["obj"].device_type_list,self.http_obj_dict[ce][obj_name]["obj"].macid_list, self.http_obj_dict[ce][obj_name]["obj"].channel_list,
                                             self.http_obj_dict[ce][obj_name]["obj"].ssid_list, self.http_obj_dict[ce][obj_name]["obj"].mode_list, http_data["dataset2"], [], http_data["dataset"],
-                                            http_data["dataset1"], http_data["rx_rate"], [], self.http_obj_dict[ce][obj_name]["obj"].data["total_err"]
+                                            http_data["dataset1"], http_data["rx_rate"], [], self.http_obj_dict[ce][obj_name]["obj"].signal_list, self.http_obj_dict[ce][obj_name]["obj"].bssid_list, self.http_obj_dict[ce][obj_name]["obj"].data["total_err"]
                                         )
                                     if dataframe:
                                         self.overall_report.set_obj_html("", "Group: {}".format(key))
@@ -6368,10 +6605,12 @@ class Candela(Realm):
                             else:
                                 dataframe = {
                                     " Clients": self.http_obj_dict[ce][obj_name]["obj"].devices,
-                                    " MAC ": self.http_obj_dict[ce][obj_name]["obj"].macid_list,
-                                    " Channel": self.http_obj_dict[ce][obj_name]["obj"].channel_list,
-                                    " SSID ": self.http_obj_dict[ce][obj_name]["obj"].ssid_list,
-                                    " Mode": self.http_obj_dict[ce][obj_name]["obj"].mode_list,
+                                    " MAC ":   self.http_obj_dict[ce][obj_name]["obj"].data.get("MAC", self.http_obj_dict[ce][obj_name]["obj"].macid_list),
+                                    " Channel": self.http_obj_dict[ce][obj_name]["obj"].data.get("Channel", self.http_obj_dict[ce][obj_name]["obj"].channel_list),
+                                    " SSID ": self.http_obj_dict[ce][obj_name]["obj"].data.get("SSID", self.http_obj_dict[ce][obj_name]["obj"].ssid_list),
+                                    " Mode": self.http_obj_dict[ce][obj_name]["obj"].data.get("Mode", self.http_obj_dict[ce][obj_name]["obj"].mode_list),
+                                    " RSSI " : self.http_obj_dict[ce][obj_name]["obj"].data.get("RSSI", self.http_obj_dict[ce][obj_name]["obj"].signal_list),
+                                    " BSSID " : self.http_obj_dict[ce][obj_name]["obj"].data.get("BSSID", self.http_obj_dict[ce][obj_name]["obj"].bssid_list),
                                     " No of times File downloaded ": http_data["dataset2"],
                                     " Average time taken to Download file (ms)": http_data["dataset"],
                                     " Bytes-rd (Mega Bytes) ": http_data["dataset1"],
@@ -6384,13 +6623,16 @@ class Candela(Realm):
                                 dataframe1 = pd.DataFrame(dataframe)
                                 self.overall_report.set_table_dataframe(dataframe1)
                                 self.overall_report.build_table()
-                        else:
+                        elif self.http_obj_dict[ce][obj_name]["obj"].client_type == "Virtual":
                             dataframe = {
                                 " Clients": self.http_obj_dict[ce][obj_name]["obj"].devices,
-                                " MAC ": self.http_obj_dict[ce][obj_name]["obj"].macid_list,
-                                " Channel": self.http_obj_dict[ce][obj_name]["obj"].channel_list,
-                                " SSID ": self.http_obj_dict[ce][obj_name]["obj"].ssid_list,
-                                " Mode": self.http_obj_dict[ce][obj_name]["obj"].mode_list,
+                                " Device Type " : self.http_obj_dict[ce][obj_name]["obj"].device_type_list,
+                                " MAC ":   self.http_obj_dict[ce][obj_name]["obj"].data.get("MAC", self.http_obj_dict[ce][obj_name]["obj"].macid_list),
+                                " Channel": self.http_obj_dict[ce][obj_name]["obj"].data.get("Channel", self.http_obj_dict[ce][obj_name]["obj"].channel_list),
+                                " SSID ": self.http_obj_dict[ce][obj_name]["obj"].data.get("SSID", self.http_obj_dict[ce][obj_name]["obj"].ssid_list),
+                                " Mode": self.http_obj_dict[ce][obj_name]["obj"].data.get("Mode", self.http_obj_dict[ce][obj_name]["obj"].mode_list),
+                                " RSSI " : self.http_obj_dict[ce][obj_name]["obj"].data.get("RSSI", self.http_obj_dict[ce][obj_name]["obj"].signal_list),
+                                " BSSID " : self.http_obj_dict[ce][obj_name]["obj"].data.get("BSSID", self.http_obj_dict[ce][obj_name]["obj"].bssid_list),
                                 " No of times File downloaded ": http_data["dataset2"],
                                 " Average time taken to Download file (ms)": http_data["dataset"],
                                 " Bytes-rd (Mega Bytes) ": http_data["dataset1"]
@@ -6398,6 +6640,54 @@ class Candela(Realm):
                             dataframe1 = pd.DataFrame(dataframe)
                             self.overall_report.set_table_dataframe(dataframe1)
                             self.overall_report.build_table()
+                        elif self.http_obj_dict[ce][obj_name]["obj"].client_type == "Both":
+                            if self.http_obj_dict[ce][obj_name]["obj"].expected_passfail_value or self.http_obj_dict[ce][obj_name]["obj"].device_csv_name:
+                                test_input_list, pass_fail_list = self.http_obj_dict[ce][obj_name]["obj"].get_pass_fail_list(http_data["dataset2"])
+
+                            if self.http_obj_dict[ce][obj_name]["obj"].group_name:
+                                for key, val in self.http_obj_dict[ce][obj_name]["obj"].group_device_map.items():
+                                    if self.http_obj_dict[ce][obj_name]["obj"].expected_passfail_value or self.http_obj_dict[ce][obj_name]["obj"].device_csv_name:
+                                        dataframe = self.http_obj_dict[ce][obj_name]["obj"].generate_dataframe(
+                                            val, self.http_obj_dict[ce][obj_name]["obj"].devices, self.http_obj_dict[ce][obj_name]["obj"].client_type_list, self.http_obj_dict[ce][obj_name]["obj"].device_type_list,self.http_obj_dict[ce][obj_name]["obj"].macid_list, self.http_obj_dict[ce][obj_name]["obj"].channel_list,
+                                            self.http_obj_dict[ce][obj_name]["obj"].ssid_list, self.http_obj_dict[ce][obj_name]["obj"].mode_list, http_data["dataset2"], test_input_list,
+                                            http_data["dataset"], http_data["dataset1"], http_data["rx_rate"], pass_fail_list, self.http_obj_dict[ce][obj_name]["obj"].signal_list, self.http_obj_dict[ce][obj_name]["obj"].bssid_list,self.http_obj_dict[ce][obj_name]["obj"].data["total_err"]
+                                        )
+                                    else:
+                                        dataframe = self.http_obj_dict[ce][obj_name]["obj"].generate_dataframe(
+                                            val, self.http_obj_dict[ce][obj_name]["obj"].devices, self.http_obj_dict[ce][obj_name]["obj"].client_type_list, self.http_obj_dict[ce][obj_name]["obj"].device_type_list,self.http_obj_dict[ce][obj_name]["obj"].macid_list, self.http_obj_dict[ce][obj_name]["obj"].channel_list,
+                                            self.http_obj_dict[ce][obj_name]["obj"].ssid_list, self.http_obj_dict[ce][obj_name]["obj"].mode_list, http_data["dataset2"], [], http_data["dataset"],
+                                            http_data["dataset1"], http_data["rx_rate"], [], self.http_obj_dict[ce][obj_name]["obj"].signal_list, self.http_obj_dict[ce][obj_name]["obj"].bssid_list, self.http_obj_dict[ce][obj_name]["obj"].data["total_err"]
+                                        )
+                                    if dataframe:
+                                        self.overall_report.set_obj_html("", "Group: {}".format(key))
+                                        self.overall_report.build_objective()
+                                        dataframe1 = pd.DataFrame(dataframe)
+                                        self.overall_report.set_table_dataframe(dataframe1)
+                                        self.overall_report.build_table()
+                            else:
+                                dataframe = {
+                                    " Clients": self.http_obj_dict[ce][obj_name]["obj"].report_station_names,
+                                    " Client Type " : self.http_obj_dict[ce][obj_name]["obj"].client_type_list,
+                                    " Device Type " : self.http_obj_dict[ce][obj_name]["obj"].device_type_list,
+                                    " MAC ":   self.http_obj_dict[ce][obj_name]["obj"].data.get("MAC", self.http_obj_dict[ce][obj_name]["obj"].macid_list),
+                                    " Channel": self.http_obj_dict[ce][obj_name]["obj"].data.get("Channel", self.http_obj_dict[ce][obj_name]["obj"].channel_list),
+                                    " SSID ": self.http_obj_dict[ce][obj_name]["obj"].data.get("SSID", self.http_obj_dict[ce][obj_name]["obj"].ssid_list),
+                                    " Mode": self.http_obj_dict[ce][obj_name]["obj"].data.get("Mode", self.http_obj_dict[ce][obj_name]["obj"].mode_list),
+                                    " RSSI " : self.http_obj_dict[ce][obj_name]["obj"].data.get("RSSI", self.http_obj_dict[ce][obj_name]["obj"].signal_list),
+                                    " BSSID " : self.http_obj_dict[ce][obj_name]["obj"].data.get("BSSID", self.http_obj_dict[ce][obj_name]["obj"].bssid_list),
+                                    " No of times File downloaded ": http_data["dataset2"],
+                                    " Average time taken to Download file (ms)": http_data["dataset"],
+                                    " Bytes-rd (Mega Bytes) ": http_data["dataset1"],
+                                    "Rx Rate (Mbps)": http_data["rx_rate"],
+                                    "Failed url's": self.http_obj_dict[ce][obj_name]["obj"].data["total_err"]
+                                }
+                                if self.http_obj_dict[ce][obj_name]["obj"].expected_passfail_value or self.http_obj_dict[ce][obj_name]["obj"].device_csv_name:
+                                    dataframe[" Expected value of no of times file downloaded"] = test_input_list
+                                    dataframe["Status"] = pass_fail_list
+                                dataframe1 = pd.DataFrame(dataframe)
+                                self.overall_report.set_table_dataframe(dataframe1)
+                                self.overall_report.build_table()
+
 
                         # self.http_obj_dict[ce]
                         if ce == "series":
@@ -10820,6 +11110,7 @@ def parse_the_args():
     parser.add_argument('--http_duration', help='Please enter the duration in s,m,h (seconds or minutes or hours).Eg: 30s,5m,48h')
     parser.add_argument('--http_file_size', type=str, help='specify the size of file you want to download', default='5MB')
     parser.add_argument('--http_device_list', help="Enter the devices on which the ping test should be run", default=[])
+    parser.add_argument('--http_client_type', help='Enter the type of client. Example:"Real","Virtual","Both"')
     #http pass fail value
     parser.add_argument("--http_expected_passfail_value", help="Specify the expected number of urls", default=None)
     parser.add_argument("--http_device_csv_name", type=str, help='Specify the csv name to store expected url values', default=None)
@@ -10850,10 +11141,57 @@ def parse_the_args():
     parser.add_argument("--http_client_cert", type=str, default='NA', help='Specify the client certificate file name')
     parser.add_argument("--http_pk_passwd", type=str, default='NA', help='Specify the password for the private key')
     parser.add_argument("--http_pac_file", type=str, default='NA', help='Specify the pac file name')
+
+    # HTTP for virtual clients
+    parser.add_argument("--http_num_stations",type=int,help='number of stations to create for virtual stations',default=0)
+    parser.add_argument('--http_twog_radio', help='specify radio for 2.4G clients')
+    parser.add_argument('--http_fiveg_radio', help='specify radio for 5 GHz client')
+    parser.add_argument('--http_sixg_radio', help='Specify radio for 6GHz client')
+    parser.add_argument('--http_twog_security', help='WiFi Security protocol: {open|wep|wpa2|wpa3} for 2.4G clients')
+    parser.add_argument('--http_twog_ssid', help='WiFi SSID for script object to associate for 2.4G clients')
+    parser.add_argument('--http_twog_passwd', help='WiFi passphrase/password/key for 2.4G clients')
+    parser.add_argument('--http_fiveg_security', help='WiFi Security protocol: {open|wep|wpa2|wpa3} for 5G clients')
+    parser.add_argument('--http_fiveg_ssid', help='WiFi SSID for script object to associate for 5G clients')
+    parser.add_argument('--http_fiveg_passwd', help='WiFi passphrase/password/key for 5G clients')
+    parser.add_argument('--http_sixg_security', help='WiFi Security protocol: {open|wep|wpa2|wpa3} for 6G clients')
+    parser.add_argument('--http_sixg_ssid', help='WiFi SSID for script object to associate for 6G clients')
+    parser.add_argument('--http_sixg_passwd', help='WiFi passphrase/password/key for G clients')
+    parser.add_argument('--http_threshold_5g', help="Enter the threshold value for 5G Pass/Fail criteria", default="60")
+    parser.add_argument('--http_threshold_2g', help="Enter the threshold value for 2.4G Pass/Fail criteria", default="90")
+    parser.add_argument('--http_threshold_both', help="Enter the threshold value for Both Pass/Fail criteria", default="50")
+    parser.add_argument('--http_ap_name', help="specify the ap model ", default="TestAP")
+    parser.add_argument('--http_target_per_ten', help='number of request per 10 minutes', default=100)
+
+    parser.add_argument('--http_lf_username', help="Enter the lanforge user name. Example : 'lanforge' ", default="lanforge")
+    parser.add_argument('--http_lf_password', help="Enter the lanforge password. Example : 'lanforge' ", default="lanforge")
+    parser.add_argument('--http_ssh_port', type=int, help="specify the ssh port eg 22", default=22)
+    parser.add_argument("--http_test_rig", default="", help="test rig for kpi.csv, testbed that the tests are run on")
+    parser.add_argument("--http_test_tag", default="",
+                          help="test tag for kpi.csv,  test specific information to differentiate the test")
+    parser.add_argument("--http_dut_hw_version", default="",
+                          help="dut hw version for kpi.csv, hardware version of the device under test")
+    parser.add_argument("--http_dut_sw_version", default="",
+                          help="dut sw version for kpi.csv, software version of the device under test")
+    parser.add_argument("--http_dut_model_num", default="",
+                          help="dut model for kpi.csv,  model number / name of the device under test")
+    parser.add_argument("--http_dut_serial_num", default="",
+                          help="dut serial for kpi.csv, serial number / serial number of the device under test")
+    parser.add_argument("--http_test_priority", default="", help="dut model for kpi.csv,  test-priority is arbitrary number")
+    parser.add_argument("--http_test_id", default="lf_webpage", help="test-id for kpi.csv,  script or test name")
+    parser.add_argument('--http_csv_outfile', help="--csv_outfile <Output file for csv data>", default="")
+    parser.add_argument('--http_time_break',help="Time break helps us to generate the csv after every time_break seconds to analyze the intermediate results", default='10s')
+    parser.add_argument('--http_get_url_from_file', help='Specify to enable the get url from file flag for cx',
+                          action='store_true')
+    parser.add_argument('--http_file_path', help='Specify the path of the file, which has the URLs to download'
+                                              ' or upload the URLs', default=None)
+    parser.add_argument('--http_help_summary', action="store_true", help='Show summary of what this script does')
     # parser.add_argument('--http_file_name', type=str, help='Specify the file name containing group details. Example:file1')
     # parser.add_argument('--http_group_name', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2')
     # parser.add_argument('--http_profile_name', type=str, help='Specify the profile name to apply configurations to the devices.')
     parser.add_argument("--http_wait_time", type=int, help='Specify the maximum time to wait for Configuration', default=60)
+    parser.add_argument('--http_get_live_view', help="If true will heatmap will be generated from testhouse automation WebGui ", action='store_true')
+    parser.add_argument('--http_total_floors', help="Total floors from testhouse automation WebGui ", default="0")
+
 
     #ftp
     parser.add_argument('--ftp_test',
@@ -10909,6 +11247,7 @@ def parse_the_args():
     parser.add_argument('--qos_traffic_type', help='Select the Traffic Type [lf_udp, lf_tcp]', required=False)
     parser.add_argument('--qos_tos', help='Enter the tos. Example1 : "BK,BE,VI,VO" , Example2 : "BK,VO", Example3 : "VI" ')
     parser.add_argument('--qos_device_list', help="Enter the devices on which the ping test should be run", default=[])
+    parser.add_argument('--qos_client_type',help="It is used to specify the type of test. Example : Real/Virtual/Both. ")
     #qos pass fail value
     parser.add_argument("--qos_expected_passfail_value", help="Specify the expected number of urls", default=None)
     parser.add_argument("--qos_device_csv_name", type=str, help='Specify the csv name to store expected url values', default=None)
@@ -10940,10 +11279,37 @@ def parse_the_args():
     parser.add_argument("--qos_client_cert", type=str, default='NA', help='Specify the client certificate file name')
     parser.add_argument("--qos_pk_passwd", type=str, default='NA', help='Specify the password for the private key')
     parser.add_argument("--qos_pac_file", type=str, default='NA', help='Specify the pac file name')
+
+    #qos virtual station args
+    parser.add_argument("--qos_mode",help='Force specific station mode.',default="0")
+    parser.add_argument('--qos_ssid_2g',help='WiFi SSID for script objects to associate with Virtual Clients',default=None)
+    parser.add_argument('--qos_passwd_2g', '--passwd_2g', default="[BLANK]", help='WiFi passphrase/password/key for 2.4GHz', dest='password_2g')
+    parser.add_argument('--qos_security_2g',default='Open',help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
+    parser.add_argument('--qos_ssid_5g',help='WiFi SSID for script objects to associate with Virtual Clients',default=None)
+    parser.add_argument('--qos_passwd_5g', '--passwd_5g', default="[BLANK]", help='WiFi passphrase/password/key for 5GHz', dest='password_5g')
+    parser.add_argument('--qos_security_5g',default='Open',help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
+    parser.add_argument('--qos_ssid_6g',help='WiFi SSID for script objects to associate with Virtual Clients',default=None)
+    parser.add_argument('--qos_passwd_6g', '--passwd_6g', default="[BLANK]", help='WiFi passphrase/password/key for 6GHz', dest='password_6g')
+    parser.add_argument('--qos_security_6g',default='Open',help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
+    parser.add_argument('--qos_bands',default='2.4G',help='Comma-seperated list of bands for test.')
+    parser.add_argument('--qos_create_sta', help='Create virtual stations for use in test', action='store_true', default=False)
+    parser.add_argument('--qos_sta_names', help='Comma-separated station names when not creating stations', default=None)
+    parser.add_argument('--qos_num_stations_2g', help="Number of 2GHz band stations", type=int, default=0, required=False)
+    parser.add_argument('--qos_num_stations_5g', help="Number of 5GHz band stations", type=int, default=0, required=False)
+    parser.add_argument('--qos_num_stations_6g', help="Number of 6GHz band stations", type=int, default=0, required=False)
+    parser.add_argument('--qos_radio_2g', help="Radio used for 2.4GHz station creation", default="wiphy0")
+    parser.add_argument('--qos_radio_5g', help="Radio used for 5GHz station creation", default="wiphy1")
+    parser.add_argument('--qos_radio_6g', help="Radio used for 6GHz station creation", default="wiphy2")
+    parser.add_argument('--qos_initial_band_pref',
+                        help="If specified, set a band preference for stations created for specific band",
+                        required=False, action='store_true', default=False)
+    parser.add_argument('--qos_timebreak',type=str,default=None,help="CSV aggregation interval like 5s, 5m, 1h")
     # parser.add_argument('--qos_file_name', type=str, help='Specify the file name containing group details. Example:file1')
     # parser.add_argument('--qos_group_name', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2')
     # parser.add_argument('--qos_profile_name', type=str, help='Specify the profile name to apply configurations to the devices.')
     parser.add_argument("--qos_wait_time", type=int, help='Specify the maximum time to wait for Configuration', default=60)
+    
+
 
 
     #vs
@@ -11767,41 +12133,73 @@ def run_ping_test(args, candela_apis):
 
 def run_http_test(args, candela_apis):
     return candela_apis.run_http_test(
-        upstream_port=args.upstream_port,
-        bands=args.http_bands,
-        duration=args.http_duration,
-        file_size=args.http_file_size,
-        device_list=args.http_device_list,
-        expected_passfail_value=args.http_expected_passfail_value,
-        device_csv_name=args.http_device_csv_name,
-        file_name=args.http_file_name,
-        group_name=args.http_group_name,
-        profile_name=args.http_profile_name,
-        config=args.http_config,
-        ssid=args.http_ssid,
-        passwd=args.http_passwd,
-        security=args.http_security,
-        eap_method=args.http_eap_method,
-        eap_identity=args.http_eap_identity,
-        ieee8021x=args.http_ieee8021x,
-        ieee80211u=args.http_ieee80211u,
-        ieee80211w=args.http_ieee80211w,
-        enable_pkc=args.http_enable_pkc,
-        bss_transition=args.http_bss_transition,
-        power_save=args.http_power_save,
-        disable_ofdma=args.http_disable_ofdma,
-        roam_ft_ds=args.http_roam_ft_ds,
-        key_management=args.http_key_management,
-        pairwise=args.http_pairwise,
-        private_key=args.http_private_key,
-        ca_cert=args.http_ca_cert,
-        client_cert=args.http_client_cert,
-        pk_passwd=args.http_pk_passwd,
-        pac_file=args.http_pac_file,
-        wait_time=args.http_wait_time,
-        dowebgui=args.dowebgui,
-        test_name=args.test_name,
-        result_dir=args.result_dir
+                            lfclient_host=args.mgr,
+                            lfclient_port=args.mgr_port,
+                            upstream_port=args.upstream_port, num_stations=args.http_num_stations,
+                            security=args.http_security, ap_name=args.http_ap_name,
+                            ssid=args.http_ssid, passwd=args.http_passwd,
+                            target_per_ten=args.http_target_per_ten,
+                            file_size=args.http_file_size, bands=args.http_bands,
+                            twog_radio=args.http_twog_radio,
+                            twog_security=args.http_twog_security,
+                            twog_ssid=args.http_twog_ssid,
+                            twog_passwd=args.http_twog_passwd,
+                            fiveg_radio=args.http_fiveg_radio,
+                            fiveg_security=args.http_fiveg_security,
+                            fiveg_ssid=args.http_fiveg_ssid,
+                            fiveg_passwd=args.http_fiveg_passwd,
+                            sixg_radio=args.http_sixg_radio,
+                            sixg_security=args.http_sixg_security,
+                            sixg_ssid=args.http_sixg_ssid,
+                            sixg_passwd=args.http_sixg_passwd,
+                            client_type=args.http_client_type,
+                            threshold_5g=args.http_threshold_5g,
+                            threshold_2g=args.http_threshold_2g,
+                            threshold_both=args.http_threshold_both,
+                            dut_hw_version=args.http_dut_hw_version,
+                            dut_sw_version=args.http_dut_sw_version,
+                            dut_model_num=args.http_dut_model_num,
+                            dut_serial_num=args.http_dut_serial_num,
+                            test_priority=args.http_test_priority,
+                            test_id=args.http_test_id,
+                            csv_outfile=args.http_csv_outfile,
+                            result_dir=args.result_dir,
+                            help_summary=args.http_help_summary,
+                            lf_username=args.http_lf_username, lf_password=args.http_lf_password,
+                            device_list=args.http_device_list,
+                            ssh_port=args.http_ssh_port,
+                            test_rig=args.http_test_rig,
+                            test_tag=args.http_test_tag,
+                            get_url_from_file=args.http_get_url_from_file,
+                            file_path=args.http_file_path,
+                            file_name=args.http_file_name,
+                            group_name=args.http_group_name,
+                            profile_name=args.http_profile_name,
+                            eap_method=args.http_eap_method,
+                            eap_identity=args.http_eap_identity,
+                            ieee8021x=args.http_ieee8021x,
+                            ieee80211u=args.http_ieee80211u,
+                            ieee80211w=args.http_ieee80211w,
+                            enable_pkc=args.http_enable_pkc,
+                            bss_transition=args.http_bss_transition,
+                            power_save=args.http_power_save,
+                            disable_ofdma=args.http_disable_ofdma,
+                            roam_ft_ds=args.http_roam_ft_ds,
+                            key_management=args.http_key_management,
+                            pairwise=args.http_pairwise,
+                            private_key=args.http_private_key,
+                            ca_cert=args.http_ca_cert,
+                            client_cert=args.http_client_cert,
+                            pk_passwd=args.http_pk_passwd,
+                            pac_file=args.http_pac_file,
+                            expected_passfail_value=args.http_expected_passfail_value,
+                            device_csv_name=args.http_device_csv_name,
+                            wait_time=args.http_wait_time,
+                            config=args.http_config,
+                            get_live_view=args.http_get_live_view,
+                            total_floors=args.http_total_floors,
+                            duration=args.http_duration,
+                            time_break=args.http_time_break
     )
 
 def run_ftp_test(args, candela_apis):

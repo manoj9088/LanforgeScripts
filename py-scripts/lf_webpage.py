@@ -795,9 +795,11 @@ class HttpDownload(Realm):
                 all_port_list.extend(self.station_profile.station_names)
                 if self.count == 2:
                     self.station_profile.mode = 6
+
         if self.client_type in ["Real", "Both"]:
             logger.info(f"Port List for Real devices : {self.port_list}")
             all_port_list.extend(self.port_list)
+
         logger.info(f"Final Combined Port List : {all_port_list}")
         self.http_profile.direction = "dl"
         self.http_profile.dest = "/dev/null"
@@ -815,6 +817,7 @@ class HttpDownload(Realm):
                         resource=eid[1],
                         port=eid[2])]['ip']
                     print("Upstream port :", ip_upstream)
+
         if self.get_url_from_file:
             self.http_profile.create(
                 ports=all_port_list,
@@ -845,7 +848,7 @@ class HttpDownload(Realm):
                 windows_list=self.windows_ports
             )
 
-        logger.info("CX Names : {self.http_profile.created_cx.keys()}")
+        logger.info(f"CX Names : {self.http_profile.created_cx.keys()}")
         print("Test Build done")
 
     def normalize_list(self, lst, target_len, fill="NA"):
@@ -1070,6 +1073,7 @@ class HttpDownload(Realm):
             self.data["BSSID"] = bssid_list
             self.data["MAC"] = macid_list
             self.data["SSID"] = ssid_list
+            self.data["RSSI"] = rssi_list
 
             individual_rx_data = []
             individual_rx_data.extend([current_time])
@@ -1901,8 +1905,8 @@ class HttpDownload(Realm):
                     " Channel": self.data.get("Channel", self.channel_list),
                     " SSID ": self.data.get("SSID", self.ssid_list),
                     " Mode": self.data.get("Mode", self.mode_list),
-                    " RSSI": self.data.get("BSSID", self.signal_list),  
-                    " BSSI": self.data.get("BSSID", self.bssid_list),
+                    " RSSI": self.data.get("RSSI", self.signal_list),  
+                    " BSSID": self.data.get("BSSID", self.bssid_list),
                     " No of times File downloaded ": dataset2,
                     " Average time taken to Download file (ms)": dataset,
                     " Bytes-rd (Mega Bytes) ": dataset1,
@@ -1923,7 +1927,7 @@ class HttpDownload(Realm):
                 " Channel": self.data.get("Channel", self.channel_list),
                 " SSID ": self.data.get("SSID", self.ssid_list),
                 " Mode": self.data.get("Mode", self.mode_list),
-                " RSSI": self.data.get("BSSID", self.signal_list),  
+                " RSSI": self.data.get("RSSI", self.signal_list),  
                 " BSSI": self.data.get("BSSID", self.bssid_list),
                 " No of times File downloaded ": dataset2,
                 " Average time taken to Download file (ms)": dataset,
@@ -1997,7 +2001,7 @@ class HttpDownload(Realm):
                     " Channel": self.data.get("Channel", self.channel_list),
                     " SSID ": self.data.get("SSID", self.ssid_list),
                     " Mode": self.data.get("Mode", self.mode_list),
-                    " RSSI": self.data.get("BSSID", self.signal_list),  
+                    " RSSI": self.data.get("RSSI", self.signal_list),  
                     " BSSI": self.data.get("BSSID", self.bssid_list),
                     " No of times File downloaded ": dataset2,
                     " Average time taken to Download file (ms)": dataset,
@@ -2228,6 +2232,7 @@ class HttpDownload(Realm):
             devices_names = self.port_list + self.station_profile.station_names
         station_names = devices_names
         print("Station Names : ",station_names)
+        print("CX Names : ",self.http_profile.created_cx.keys())
         self.report_station_names = station_names
 
         signal_list = []
@@ -3146,6 +3151,7 @@ times the file is downloaded.
             http.real_password = real_password
             http.real_security = real_security
 
+        client_type_list, device_type_list = [], []
         if args.client_type == "Real" or args.client_type == "Both":
             if not isinstance(args.device_list, list):
                 http.device_list = http.filter_iOS_devices(args.device_list)
@@ -3154,7 +3160,6 @@ times the file is downloaded.
                     exit(1)
             port_list, device_list, macid_list, eid_list, configuration = http.get_real_client_list()
 
-            client_type_list, device_type_list = [], []
             # Using these lists for report columns - 
             client_type_list, device_type_list = http.get_client_type_list(eid_list=eid_list) # Here we will only get for Real Devices.
             http.client_type_list = client_type_list
