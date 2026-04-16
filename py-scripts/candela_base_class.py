@@ -2053,13 +2053,13 @@ class Candela(Realm):
                 if client_type  == "Both":
                     num_stations = len(port_list)+len(station_list[0])
                     for sta in station_list[0]:
-                        client_type_list.append("-")
+                        client_type_list.append("virtual station")
                         device_type_list.append("Virtual")
                     self.http_obj_dict[ce][obj_name]["obj"].client_type_list = client_type_list
                     self.http_obj_dict[ce][obj_name]["obj"].device_type_list = device_type_list
                 elif client_type == "Virtual":
                     for sta in station_list[0]:
-                        client_type_list.append("-")
+                        client_type_list.append("virtual station")
                         device_type_list.append("Virtual")
                     self.http_obj_dict[ce][obj_name]["obj"].client_type_list = client_type_list
                     self.http_obj_dict[ce][obj_name]["obj"].device_type_list = device_type_list
@@ -2392,7 +2392,6 @@ class Candela(Realm):
                     total_devices += f" Mac({mac_devices})"
 
                 real_device_names = total_devices
-                virtual_device_names = f"Stations({len(station_list[0])})"
                 test_setup_info = {
                     "AP_Name" : ap_name,
                     "SSID" : self.http_obj_dict[ce][obj_name]["obj"].real_ssid,
@@ -2401,9 +2400,9 @@ class Candela(Realm):
                     "SSID 5G" : fiveg_ssid,
                     "SSID 6G" : sixg_ssid,
                     "Security (Virtual)": security,
-                    "No of Devices": len(self.http_obj_dict[ce][obj_name]["obj"].port_list)+len(station_list[0]),
-                    "Real Devices" : f"Total: {len(self.http_obj_dict[ce][obj_name]["obj"].port_list)}"+real_device_names,
-                    "Virtual Stations" : virtual_device_names,
+                    "No of Devices": f"Real : {len(self.http_obj_dict[ce][obj_name]["obj"].port_list)} "+f" Virtual : {len(station_list[0])}",
+                    "Real Devices" : f"Total: {len(self.http_obj_dict[ce][obj_name]["obj"].port_list)}"+" "+", ".join(all_devices_names),
+                    "Virtual Stations" : f"Total: {len(station_list[0])} "+" "+", ".join(station_list[0]),
                     "Traffic Direction": "Download",
                     "Traffic Duration ": duration
                 }
@@ -3094,13 +3093,39 @@ class Candela(Realm):
         
     def run_qos_test(
         self,
+        host="localhost",
+        port=8080,
         device_list=None,
         test_name=None,
         result_dir='',
         upstream_port='eth1',
-        security="open",
+        security=None,
         ssid=None,
-        passwd='[BLANK]',
+        password=None,
+        ssid_2g=None,
+        security_2g=None,
+        password_2g=None,
+        ssid_5g=None,
+        password_5g=None,
+        security_5g=None,
+        ssid_6g=None,
+        security_6g=None,
+        password_6g=None,
+        num_stations_2g=1,
+        num_stations_5g=0,
+        num_stations_6g=0,
+        radio_2g="wiphy0",
+        radio_5g="wiphy1",
+        radio_6g="wiphy2",
+        sta_names=None,
+        mode=0,
+        bands="",
+        initial_band_pref=False,
+        test_case=None,
+        sta_list=None,
+        channel_list=None,
+        create_sta=True,
+        csv_name=None,
         traffic_type=None,
         upload=None,
         download=None,
@@ -3135,28 +3160,35 @@ class Candela(Realm):
         wait_time=60,
         config=False,
         get_live_view=False,
-        total_floors="0"
+        total_floors="0",
+        client_type=None,
+        timebreak=0,
     ):
         if self.dowebgui:
             if not self.webgui_stop_check("qos"):
                 return False
+            
         test_results = {'test_results': []}
         loads = {}
         data = {}
         if download and upload:
             loads = {'upload': str(upload).split(","), 'download': str(download).split(",")}
             loads_data = loads["download"]
+            logger.info(f"Loads Data : {loads_data}")
         elif download:
             loads = {'upload': [], 'download': str(download).split(",")}
             for i in range(len(download)):
                 loads['upload'].append(0)
             loads_data = loads["download"]
+            logger.info(f"Loads Data : {loads_data}")
         else:
             if upload:
                 loads = {'upload': str(upload).split(","), 'download': []}
                 for i in range(len(upload)):
                     loads['download'].append(0)
                 loads_data = loads["upload"]
+                logger.info(f"Loads Data : {loads_data}")
+
         if download and upload:
             direction = 'L3_' + traffic_type.split('_')[1].upper() + '_BiDi'
         elif upload:
@@ -3173,6 +3205,89 @@ class Candela(Realm):
             test_duration = int(test_duration[0:-1]) * 60 * 60
         elif test_duration.endswith(''):
             test_duration = int(test_duration)
+        
+
+        bands_list = [b.strip() for b in bands.split(",")] if bands else ["2.4G"]
+        print("Band List : ",bands_list)
+        station_list=[]
+
+        # If the enduser didn't provided correct band specific num_stations then method will come into action.
+        def any_sta_count():
+            for c in [num_stations_2g, num_stations_5g, num_stations_6g]:
+                if c and c > 0:
+                    return c
+            return 0
+
+        if client_type == "Virtual" or client_type == "Both":
+            if not create_sta:
+                sta_names_arg = sta_names
+                if sta_names_arg:
+                    station_list = sta_names_arg.split(",")
+                    logger.info(f"Station List : {station_list}")
+            else:
+                for band in bands_list:
+                    band = band.strip() # This is extra validation inorder to remove leading and trailing white spaces before band word, inorder to reduce errors.
+                    if band in ("2.4G", "2.4g"):
+                        count = num_stations_2g or any_sta_count()
+                        mode = 13
+                        station_list = LFUtils.portNameSeries(
+                            prefix_="sta", start_id_=0,
+                            end_id_=count - 1,
+                            padding_number_=10000, radio=radio_2g)
+                    elif band in ("5G", "5g"):
+                        count = num_stations_5g or any_sta_count()
+                        mode = 14
+                        station_list = LFUtils.portNameSeries(
+                            prefix_="sta", start_id_=0,
+                            end_id_=count - 1,
+                            padding_number_=10000, radio=radio_5g)
+                    elif band in ("6G", "6g"):
+                        count = num_stations_6g or any_sta_count()
+                        mode = 15
+                        station_list = LFUtils.portNameSeries(
+                            prefix_="sta", start_id_=0,
+                            end_id_=count - 1,
+                            padding_number_=10000, radio=radio_6g)
+                    elif band in ("dualband", "DUALBAND"):
+                        mode = 0
+                        station_list = LFUtils.portNameSeries(
+                            prefix_="sta", start_id_=0,
+                            end_id_=int(num_stations_2g) - 1,
+                            padding_number_=10000, radio=radio_2g)
+                        station_list.extend(LFUtils.portNameSeries(
+                            prefix_="sta",
+                            start_id_=int(num_stations_2g),
+                            end_id_=int(num_stations_2g) + int(num_stations_5g) - 1,
+                            padding_number_=10000, radio=radio_5g))
+                    elif band in ("triband", "TRIBAND"):
+                        mode = 0
+                        station_list = LFUtils.portNameSeries(
+                            prefix_="sta", start_id_=0,
+                            end_id_=int(num_stations_2g) - 1,
+                            padding_number_=10000, radio=radio_2g)
+                        station_list.extend(LFUtils.portNameSeries(
+                            prefix_="sta",
+                            start_id_=int(num_stations_2g),
+                            end_id_=int(num_stations_2g) + int(num_stations_5g) - 1,
+                            padding_number_=10000, radio=radio_5g))
+                        station_list.extend(LFUtils.portNameSeries(
+                            prefix_="sta",
+                            start_id_=int(num_stations_2g) + int(num_stations_5g),
+                            end_id_=int(num_stations_2g) + int(num_stations_5g) + int(num_stations_6g) - 1,
+                            padding_number_=10000, radio=radio_6g))
+                    else:
+                        print(f"Band '{band}' not recognised : skipping station list generation.")
+            print("Virtual station_list:", station_list)
+
+        if client_type == "Real":
+            ssid = ssid
+            password = password
+            security = security
+        else:
+            ssid = ssid
+            password = password if ssid is not None else None
+            security = security if ssid is not None else None
+
         ce = self.current_exec #seires
         if ce == "parallel":
             obj_name = "qos_test"
@@ -3182,6 +3297,7 @@ class Candela(Realm):
                 obj_no+=1 
             obj_name = f"qos_test_{obj_no}" 
         self.qos_obj_dict[ce][obj_name] = {"obj":None,"data":None}
+
         for index in range(len(loads_data)):
             self.qos_obj_dict[ce][obj_name]["obj"] = qos_test.ThroughputQOS(host=self.lanforge_ip,
                                             ip=self.lanforge_ip,
@@ -3191,8 +3307,28 @@ class Candela(Realm):
                                             name_prefix="TOS-",
                                             upstream=upstream_port,
                                             ssid=ssid,
-                                            password=passwd,
+                                            password=password,
                                             security=security,
+                                            ssid_2g=ssid_2g,
+                                            security_2g=security_2g,
+                                            password_2g=password_2g,
+                                            ssid_5g=ssid_5g,
+                                            password_5g=password_5g,
+                                            security_5g=security_5g,
+                                            ssid_6g=ssid_6g,
+                                            password_6g=password_6g,
+                                            security_6g=security_6g,
+                                            create_sta=create_sta,
+                                            sta_list=station_list,  # We need to fix this.
+                                            num_stations_2g=num_stations_2g,
+                                            num_stations_5g=num_stations_5g,
+                                            num_stations_6g=num_stations_6g,
+                                            radio_2g=radio_2g,
+                                            radio_5g=radio_5g,
+                                            radio_6g=radio_6g,
+                                            bands=bands,
+                                            mode=int(mode),
+                                            initial_band_pref='initial_band_pref',
                                             test_duration=test_duration,
                                             use_ht160=False,
                                             side_a_min_rate=int(loads['upload'][index]),
@@ -3230,27 +3366,34 @@ class Candela(Realm):
                                             wait_time=wait_time,
                                             config=config,
                                             get_live_view=get_live_view,
-                                            total_floors=total_floors
+                                            total_floors=total_floors,
+                                            client_type=client_type,
+                                            timebreak=timebreak
                                             )
-            self.qos_obj_dict[ce][obj_name]["obj"].os_type()
-            _, configured_device, _, configuration = self.qos_obj_dict[ce][obj_name]["obj"].phantom_check()
-            if dowebgui and group_name:
-                if len(configured_device) == 0:
-                    logger.warning("No device is available to run the test")
-                    obj1 = {
-                        "status": "Stopped",
-                        "configuration_status": "configured"
-                    }
-                    self.qos_obj_dict[ce][obj_name]["obj"].updating_webui_runningjson(obj1)
-                    return
-                else:
-                    obj1 = {
-                        "configured_devices": configured_device,
-                        "configuration_status": "configured"
-                    }
-                    self.qos_obj_dict[ce][obj_name]["obj"].updating_webui_runningjson(obj1)
+            if client_type in ("Real","Both"):
+                self.qos_obj_dict[ce][obj_name]["obj"].os_type()
+                _, configured_device, _, configuration = self.qos_obj_dict[ce][obj_name]["obj"].phantom_check()
+                if dowebgui and group_name:
+                    if len(configured_device) == 0:
+                        logger.warning("No device is available to run the test")
+                        obj1 = {
+                            "status": "Stopped",
+                            "configuration_status": "configured"
+                        }
+                        self.qos_obj_dict[ce][obj_name]["obj"].updating_webui_runningjson(obj1)
+                        return
+                    else:
+                        obj1 = {
+                            "configured_devices": configured_device,
+                            "configuration_status": "configured"
+                        }
+                        self.qos_obj_dict[ce][obj_name]["obj"].updating_webui_runningjson(obj1)
+            else:
+                self.qos_obj_dict[ce][obj_name]["obj"].qos_data["configuration"] = {}
+                configuration = {}
+
             # checking if we have atleast one device available for running test
-            if self.qos_obj_dict[ce][obj_name]["obj"].dowebgui == "True":
+            if client_type in ("Real","Both") and self.qos_obj_dict[ce][obj_name]["obj"].dowebgui == "True":
                 if self.qos_obj_dict[ce][obj_name]["obj"].device_found is False:
                     logger.warning("No Device is available to run the test hence aborting the test")
                     df1 = pd.DataFrame([{
@@ -3268,24 +3411,67 @@ class Candela(Realm):
                     )
                     df1.to_csv('{}/overall_throughput.csv'.format(self.qos_obj_dict[ce][obj_name]["obj"].result_dir), index=False)
                     raise ValueError("Aborting the test....")
-            self.qos_obj_dict[ce][obj_name]["obj"].build()
-            self.qos_obj_dict[ce][obj_name]["obj"].monitor_cx()
+                
+            # Virtual pre-cleanup (remove Old Stations / CX prefixes)
+            if client_type in ("Virtual","Both"):
+                self.qos_obj_dict[ce][obj_name]["obj"].pre_cleanup()
+            
+            # Build CX (creates stations for Real, Virtual and Both Scenario)
+            self.qos_obj_dict[ce][obj_name]["obj"].build(client_type=client_type)
+
+            if client_type in ("Real","Virtual","Both"):
+                self.qos_obj_dict[ce][obj_name]["obj"].monitor_cx()
+
             self.qos_obj_dict[ce][obj_name]["obj"].start(False, False)
             time.sleep(10)
-            connections_download, connections_upload, drop_a_per, drop_b_per, connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b = self.qos_obj_dict[ce][obj_name]["obj"].monitor()
+
+            connections_download, connections_upload, drop_a_per, drop_b_per, connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b = self.qos_obj_dict[ce][obj_name]["obj"].monitor_for_runtime_csv(runtime_dir="per_client_csv")
+            
             logger.info("connections download {}".format(connections_download))
             logger.info("connections upload {}".format(connections_upload))
+
+            ssid_list = []
+            mac_list = []
+            mode_list = []
+            bssid_list = []
+            channels_list = []
+            rssi_list = []
+
+            if client_type == "Both":
+                total_devices_list = self.qos_obj_dict[ce][obj_name]["obj"].input_devices_list + self.qos_obj_dict[ce][obj_name]["obj"].sta_list
+                ssid_list, mac_list, mode_list, bssid_list, channels_list, rssi_list = self.qos_obj_dict[ce][obj_name]["obj"].get_portmgr_data(total_devices_list)
+                self.qos_obj_dict[ce][obj_name]["obj"].ssid_list, self.qos_obj_dict[ce][obj_name]["obj"].macid_list, self.qos_obj_dict[ce][obj_name]["obj"].mode_list = ssid_list,mac_list,mode_list
+                self.qos_obj_dict[ce][obj_name]["obj"].bssid_list, self.qos_obj_dict[ce][obj_name]["obj"].channels_list, self.qos_obj_dict[ce][obj_name]["obj"].rssi_list = bssid_list, channels_list, rssi_list
+                print("We are printing Total test Devices : ",total_devices_list)
+            elif client_type == "Virtual":
+                ssid_list, mac_list, mode_list, bssid_list, channels_list, rssi_list = self.qos_obj_dict[ce][obj_name]["obj"].get_portmgr_data(self.qos_obj_dict[ce][obj_name]["obj"].sta_list)
+                self.qos_obj_dict[ce][obj_name]["obj"].ssid_list, self.qos_obj_dict[ce][obj_name]["obj"].macid_list, self.qos_obj_dict[ce][obj_name]["obj"].mode_list = ssid_list,mac_list,mode_list
+                self.qos_obj_dict[ce][obj_name]["obj"].bssid_list, self.qos_obj_dict[ce][obj_name]["obj"].channels_list, self.qos_obj_dict[ce][obj_name]["obj"].rssi_list = bssid_list, channels_list, rssi_list
+            else:
+                ssid_list, mac_list, mode_list, bssid_list, channels_list, rssi_list = self.qos_obj_dict[ce][obj_name]["obj"].get_portmgr_data(self.qos_obj_dict[ce][obj_name]["obj"].input_devices_list)
+                self.qos_obj_dict[ce][obj_name]["obj"].ssid_list, self.qos_obj_dict[ce][obj_name]["obj"].macid_list, self.qos_obj_dict[ce][obj_name]["obj"].mode_list = ssid_list,mac_list,mode_list
+                self.qos_obj_dict[ce][obj_name]["obj"].bssid_list, self.qos_obj_dict[ce][obj_name]["obj"].channels_list, self.qos_obj_dict[ce][obj_name]["obj"].rssi_list = bssid_list, channels_list, rssi_list
+  
             self.qos_obj_dict[ce][obj_name]["obj"].stop()
             time.sleep(5)
+
             test_results['test_results'].append(self.qos_obj_dict[ce][obj_name]["obj"].evaluate_qos(connections_download, connections_upload, drop_a_per, drop_b_per))
-            data.update(test_results)
+
+            if client_type == "Virtual":
+                _primary_band = bands_list[0] if bands_list else "2.4G"
+                data.update({_primary_band:test_results})
+                self.qos_obj_dict[ce][obj_name]["obj"].test_case = bands_list
+            else:
+                data.update(test_results)
+                self.qos_obj_dict[ce][obj_name]["obj"].test_case = bands_list
+
+
         test_end_time = datetime.datetime.now().strftime("%Y %d %H:%M:%S")
         print("Test ended at: ", test_end_time)
 
         input_setup_info = {
             "contact": "support@candelatech.com"
         }
-        self.qos_obj_dict[ce][obj_name]["obj"].cleanup()
 
         # Update webgui running json with latest entry and test status completed
         if self.qos_obj_dict[ce][obj_name]["obj"].dowebgui == "True":
@@ -3300,9 +3486,27 @@ class Candela(Realm):
             df1 = pd.DataFrame(self.qos_obj_dict[ce][obj_name]["obj"].df_for_webui)
             df1.to_csv('{}/overall_throughput.csv'.format(result_dir, ), index=False)
 
-            # copying to home directory i.e home/user_name
-            self.qos_obj_dict[ce][obj_name]["obj"].copy_reports_to_home_dir()
-        if group_name:
+        if client_type == "Both":
+            if group_name:
+                self.qos_obj_dict[ce][obj_name]["obj"].generate_report(
+                    data=data,
+                    input_setup_info=input_setup_info,
+                    report_path=self.qos_obj_dict[ce][obj_name]["obj"].result_dir if self.qos_obj_dict[ce][obj_name]["obj"].dowebgui else self.result_path,
+                    connections_upload_avg=connections_upload_avg,
+                    connections_download_avg=connections_download_avg,
+                    avg_drop_a=avg_drop_a,
+                    avg_drop_b=avg_drop_b, config_devices=configuration)
+            else:
+                self.qos_obj_dict[ce][obj_name]["obj"].generate_report(
+                    data=data,
+                    input_setup_info=input_setup_info,
+                    report_path=self.qos_obj_dict[ce][obj_name]["obj"].result_dir if self.qos_obj_dict[ce][obj_name]["obj"].dowebgui else self.result_path,
+                    connections_upload_avg=connections_upload_avg,
+                    connections_download_avg=connections_download_avg,
+                    avg_drop_a=avg_drop_a,
+                    avg_drop_b=avg_drop_b)
+            
+        if client_type == "Virtual":
             self.qos_obj_dict[ce][obj_name]["obj"].generate_report(
                 data=data,
                 input_setup_info=input_setup_info,
@@ -3310,9 +3514,22 @@ class Candela(Realm):
                 connections_upload_avg=connections_upload_avg,
                 connections_download_avg=connections_download_avg,
                 avg_drop_a=avg_drop_a,
-                avg_drop_b=avg_drop_b, config_devices=configuration)
-        else:
-            self.qos_obj_dict[ce][obj_name]["obj"].generate_report(
+                avg_drop_b=avg_drop_b
+            )
+        
+        if client_type == "Real":
+            if group_name:
+                self.qos_obj_dict[ce][obj_name]["obj"].generate_report(
+                data=data,
+                input_setup_info=input_setup_info,
+                report_path=self.qos_obj_dict[ce][obj_name]["obj"].result_dir if self.qos_obj_dict[ce][obj_name]["obj"].dowebgui else self.result_path,
+                connections_upload_avg=connections_upload_avg,
+                connections_download_avg=connections_download_avg,
+                avg_drop_a=avg_drop_a,
+                avg_drop_b=avg_drop_b,
+                config_devices=configuration)
+            else:
+                self.qos_obj_dict[ce][obj_name]["obj"].generate_report(
                 data=data,
                 input_setup_info=input_setup_info,
                 report_path=self.qos_obj_dict[ce][obj_name]["obj"].result_dir if self.qos_obj_dict[ce][obj_name]["obj"].dowebgui else self.result_path,
@@ -3320,6 +3537,7 @@ class Candela(Realm):
                 connections_download_avg=connections_download_avg,
                 avg_drop_a=avg_drop_a,
                 avg_drop_b=avg_drop_b)
+
         params = {
             "data": None,
             "input_setup_info": None,
@@ -6450,8 +6668,16 @@ class Candela(Realm):
                         self.overall_report.build_table_title()
                         self.overall_report.test_setup_table(value="Test Setup Information", test_setup_data=http_data["test_setup_info"])
 
-                        graph2 = self.http_obj_dict[ce][obj_name]["obj"].graph_2(http_data["dataset2"], lis=http_data["lis"], bands=http_data["bands"],graph_name=obj_no)
-                        print("graph name {}".format(graph2))
+                        self.overall_report.set_obj_html("Objective", "The HTTP Download Test is designed to verify that N clients connected on specified band can "
+                                "download some amount of file from HTTP server and measures the "
+                                "time taken by the client to Download the file.")
+                        
+                        self.overall_report.set_obj_html("No of times file Downloads", "The below graph represents number of times a file downloads for each client"
+                            ". X- axis shows “No of times file downloads and Y-axis shows "
+                            "Client names.")
+                        
+                        graph2 = self.http_obj_dict[ce][obj_name]["obj"].graph_2(http_data["dataset2"],lis=http_data["lis"],bands=http_data["bands"])
+                        print("Graph Name : {}".format(graph2))
                         self.overall_report.set_graph_image(graph2)
                         self.overall_report.set_csv_filename(graph2)
                         self.overall_report.move_csv_file()
@@ -6605,6 +6831,8 @@ class Candela(Realm):
                             else:
                                 dataframe = {
                                     " Clients": self.http_obj_dict[ce][obj_name]["obj"].devices,
+                                    " Device Type (OS) " : self.http_obj_dict[ce][obj_name]["obj"].client_type_list,
+                                    " Client Type " : self.http_obj_dict[ce][obj_name]["obj"].device_type_list,
                                     " MAC ":   self.http_obj_dict[ce][obj_name]["obj"].data.get("MAC", self.http_obj_dict[ce][obj_name]["obj"].macid_list),
                                     " Channel": self.http_obj_dict[ce][obj_name]["obj"].data.get("Channel", self.http_obj_dict[ce][obj_name]["obj"].channel_list),
                                     " SSID ": self.http_obj_dict[ce][obj_name]["obj"].data.get("SSID", self.http_obj_dict[ce][obj_name]["obj"].ssid_list),
@@ -6626,7 +6854,7 @@ class Candela(Realm):
                         elif self.http_obj_dict[ce][obj_name]["obj"].client_type == "Virtual":
                             dataframe = {
                                 " Clients": self.http_obj_dict[ce][obj_name]["obj"].devices,
-                                " Device Type " : self.http_obj_dict[ce][obj_name]["obj"].device_type_list,
+                                " Client Type " : self.http_obj_dict[ce][obj_name]["obj"].device_type_list,
                                 " MAC ":   self.http_obj_dict[ce][obj_name]["obj"].data.get("MAC", self.http_obj_dict[ce][obj_name]["obj"].macid_list),
                                 " Channel": self.http_obj_dict[ce][obj_name]["obj"].data.get("Channel", self.http_obj_dict[ce][obj_name]["obj"].channel_list),
                                 " SSID ": self.http_obj_dict[ce][obj_name]["obj"].data.get("SSID", self.http_obj_dict[ce][obj_name]["obj"].ssid_list),
@@ -6667,8 +6895,8 @@ class Candela(Realm):
                             else:
                                 dataframe = {
                                     " Clients": self.http_obj_dict[ce][obj_name]["obj"].report_station_names,
-                                    " Client Type " : self.http_obj_dict[ce][obj_name]["obj"].client_type_list,
-                                    " Device Type " : self.http_obj_dict[ce][obj_name]["obj"].device_type_list,
+                                    " Device Type (OS)" : self.http_obj_dict[ce][obj_name]["obj"].client_type_list,
+                                    " Client Type " : self.http_obj_dict[ce][obj_name]["obj"].device_type_list,
                                     " MAC ":   self.http_obj_dict[ce][obj_name]["obj"].data.get("MAC", self.http_obj_dict[ce][obj_name]["obj"].macid_list),
                                     " Channel": self.http_obj_dict[ce][obj_name]["obj"].data.get("Channel", self.http_obj_dict[ce][obj_name]["obj"].channel_list),
                                     " SSID ": self.http_obj_dict[ce][obj_name]["obj"].data.get("SSID", self.http_obj_dict[ce][obj_name]["obj"].ssid_list),
@@ -8134,6 +8362,10 @@ class Candela(Realm):
                     while obj_name in self.qos_obj_dict[ce]:
                         if ce == "parallel":
                             obj_no = ''
+                        qos_data = self.qos_obj_dict[ce][obj_name]["data"]
+                        if qos_data is None:
+                            logger.error(f"No data available for {obj_name}, skipping report generation.")
+                        
                         params = self.qos_obj_dict[ce][obj_name]["data"]
                         data = params["data"].copy() if isinstance(params["data"], (list, dict, set)) else params["data"]
                         input_setup_info = params["input_setup_info"].copy() if isinstance(params["input_setup_info"], (list, dict, set)) else params["input_setup_info"]
@@ -8145,80 +8377,191 @@ class Candela(Realm):
                         result_dir_name = params["result_dir_name"].copy() if isinstance(params["result_dir_name"], (list, dict, set)) else params["result_dir_name"]
                         selected_real_clients_names = params["selected_real_clients_names"].copy() if isinstance(params["selected_real_clients_names"], (list, dict, set)) else params["selected_real_clients_names"]
                         config_devices = params["config_devices"].copy() if isinstance(params["config_devices"], (list, dict, set)) else params["config_devices"]
-                        self.qos_obj_dict[ce][obj_name]["obj"].ssid_list = self.qos_obj_dict[ce][obj_name]["obj"].get_ssid_list(self.qos_obj_dict[ce][obj_name]["obj"].input_devices_list)
+
+
+                        print("We are printing Port Manager Tab Data : ")
+                        print(f"{self.qos_obj_dict[ce][obj_name]["obj"].ssid_list}  --- {self.qos_obj_dict[ce][obj_name]["obj"].macid_list} --- {self.qos_obj_dict[ce][obj_name]["obj"].mode_list} --- {self.qos_obj_dict[ce][obj_name]["obj"].bssid_list} --- {self.qos_obj_dict[ce][obj_name]["obj"].channels_list} --- {self.qos_obj_dict[ce][obj_name]["obj"].rssi_list}")        
+                        
                         if selected_real_clients_names is not None:
                             self.qos_obj_dict[ce][obj_name]["obj"].num_stations = selected_real_clients_names
+
                         data_set, load, res = self.qos_obj_dict[ce][obj_name]["obj"].generate_graph_data_set(data)
-                        # Initialize counts and lists for device types
-                        android_devices, windows_devices, linux_devices, ios_devices, ios_mob_devices = 0, 0, 0, 0, 0
-                        all_devices_names = []
-                        device_type = []
-                        total_devices = ""
-                        for i in self.qos_obj_dict[ce][obj_name]["obj"].real_client_list:
-                            split_device_name = i.split(" ")
-                            if 'android' in split_device_name:
-                                all_devices_names.append(split_device_name[2] + ("(Android)"))
-                                device_type.append("Android")
-                                android_devices += 1
-                            elif 'Win' in split_device_name:
-                                all_devices_names.append(split_device_name[2] + ("(Windows)"))
-                                device_type.append("Windows")
-                                windows_devices += 1
-                            elif 'Lin' in split_device_name:
-                                all_devices_names.append(split_device_name[2] + ("(Linux)"))
-                                device_type.append("Linux")
-                                linux_devices += 1
-                            elif 'Mac' in split_device_name:
-                                all_devices_names.append(split_device_name[2] + ("(Mac)"))
-                                device_type.append("Mac")
-                                ios_devices += 1
-                            elif 'iOS' in split_device_name:
-                                all_devices_names.append(split_device_name[2] + ("(iOS)"))
-                                device_type.append("iOS")
-                                ios_mob_devices += 1
 
-                        # Build total_devices string based on counts
-                        if android_devices > 0:
-                            total_devices += f" Android({android_devices})"
-                        if windows_devices > 0:
-                            total_devices += f" Windows({windows_devices})"
-                        if linux_devices > 0:
-                            total_devices += f" Linux({linux_devices})"
-                        if ios_devices > 0:
-                            total_devices += f" Mac({ios_devices})"
-                        if ios_mob_devices > 0:
-                            total_devices += f" iOS({ios_mob_devices})"
+                        test_setup_info = {}
+                        if self.qos_obj_dict[ce][obj_name]["obj"].client_type == "Virtual":
+                            test_setup_info = {
+                                "Number of Virtual Stations": len(self.qos_obj_dict[ce][obj_name]["obj"].sta_list),
+                                "Virtual Stations List": ", ".join(self.qos_obj_dict[ce][obj_name]["obj"].sta_list),
+                                "AP Model":           self.qos_obj_dict[ce][obj_name]["obj"].ap_name,
+                                "SSID_2.4GHz":        self.qos_obj_dict[ce][obj_name]["obj"].ssid_2g,
+                                "SSID_5GHz":          self.qos_obj_dict[ce][obj_name]["obj"].ssid_5g,
+                                "SSID_6GHz":          self.qos_obj_dict[ce][obj_name]["obj"].ssid_6g,
+                                "Traffic Duration in hours": round(int(self.qos_obj_dict[ce][obj_name]["obj"].test_duration) / 3600, 2),
+                                "Security_2.4GHz":    self.qos_obj_dict[ce][obj_name]["obj"].security_2g,
+                                "Security_5GHz":      self.qos_obj_dict[ce][obj_name]["obj"].security_5g,
+                                "Security_6GHz":      self.qos_obj_dict[ce][obj_name]["obj"].security_6g,
+                                "Protocol":           (self.qos_obj_dict[ce][obj_name]["obj"].traffic_type.strip("lf_")).upper(),
+                                "Traffic Direction":  self.qos_obj_dict[ce][obj_name]["obj"].direction,
+                                "TOS":                self.qos_obj_dict[ce][obj_name]["obj"].tos,
+                                "Per TOS Load in Mbps": load,
+                            }
+                        elif self.qos_obj_dict[ce][obj_name]["obj"].client_type == "Real":
+                            # Initialize counts and lists for device types
+                            android_devices, windows_devices, linux_devices, ios_devices, ios_mob_devices = 0, 0, 0, 0, 0
+                            all_devices_names = []
+                            device_type = []
+                            total_devices = ""
+                            for i in self.qos_obj_dict[ce][obj_name]["obj"].real_client_list:
+                                split_device_name = i.split(" ")
+                                if 'android' in split_device_name:
+                                    all_devices_names.append(split_device_name[2] + ("(Android)"))
+                                    device_type.append("Android")
+                                    android_devices += 1
+                                elif 'Win' in split_device_name:
+                                    all_devices_names.append(split_device_name[2] + ("(Windows)"))
+                                    device_type.append("Windows")
+                                    windows_devices += 1
+                                elif 'Lin' in split_device_name:
+                                    all_devices_names.append(split_device_name[2] + ("(Linux)"))
+                                    device_type.append("Linux")
+                                    linux_devices += 1
+                                elif 'Mac' in split_device_name:
+                                    all_devices_names.append(split_device_name[2] + ("(Mac)"))
+                                    device_type.append("Mac")
+                                    ios_devices += 1
+                                elif 'iOS' in split_device_name:
+                                    all_devices_names.append(split_device_name[2] + ("(iOS)"))
+                                    device_type.append("iOS")
+                                    ios_mob_devices += 1
 
-                        # Test setup information table for devices in device list
-                        if config_devices == "":
-                            test_setup_info = {
-                                "Device List": ", ".join(all_devices_names),
-                                "Number of Stations": "Total" + f"({self.qos_obj_dict[ce][obj_name]['obj'].num_stations})" + total_devices,
-                                "AP Model": self.qos_obj_dict[ce][obj_name]["obj"].ap_name,
-                                "SSID": self.qos_obj_dict[ce][obj_name]["obj"].ssid,
-                                "Traffic Duration in hours": round(int(self.qos_obj_dict[ce][obj_name]["obj"].test_duration) / 3600, 2),
-                                "Security": self.qos_obj_dict[ce][obj_name]["obj"].security,
-                                "Protocol": (self.qos_obj_dict[ce][obj_name]["obj"].traffic_type.strip("lf_")).upper(),
-                                "Traffic Direction": self.qos_obj_dict[ce][obj_name]["obj"].direction,
-                                "TOS": self.qos_obj_dict[ce][obj_name]["obj"].tos,
-                                "Per TOS Load in Mbps": load
-                            }
-                        # Test setup information table for devices in groups
-                        else:
-                            group_names = ', '.join(config_devices.keys())
-                            profile_names = ', '.join(config_devices.values())
-                            configmap = "Groups:" + group_names + " -> Profiles:" + profile_names
-                            test_setup_info = {
-                                "AP Model": self.qos_obj_dict[ce][obj_name]["obj"].ap_name,
-                                'Configuration': configmap,
-                                "Traffic Duration in hours": round(int(self.qos_obj_dict[ce][obj_name]["obj"].test_duration) / 3600, 2),
-                                "Security": self.qos_obj_dict[ce][obj_name]["obj"].security,
-                                "Protocol": (self.qos_obj_dict[ce][obj_name]["obj"].traffic_type.strip("lf_")).upper(),
-                                "Traffic Direction": self.qos_obj_dict[ce][obj_name]["obj"].direction,
-                                "TOS": self.qos_obj_dict[ce][obj_name]["obj"].tos,
-                                "Per TOS Load in Mbps": load
-                            }
+                            # Build total_devices string based on counts
+                            if android_devices > 0:
+                                total_devices += f" Android({android_devices})"
+                            if windows_devices > 0:
+                                total_devices += f" Windows({windows_devices})"
+                            if linux_devices > 0:
+                                total_devices += f" Linux({linux_devices})"
+                            if ios_devices > 0:
+                                total_devices += f" Mac({ios_devices})"
+                            if ios_mob_devices > 0:
+                                total_devices += f" iOS({ios_mob_devices})"
+
+                            # Test setup information table for devices in device list
+                            if config_devices == "":
+                                test_setup_info = {
+                                    "Device List": ", ".join(all_devices_names),
+                                    "Number of Devices": "Total" + f"({self.qos_obj_dict[ce][obj_name]['obj'].num_stations})" + total_devices,
+                                    "AP Model": self.qos_obj_dict[ce][obj_name]["obj"].ap_name,
+                                    "SSID": self.qos_obj_dict[ce][obj_name]["obj"].ssid,
+                                    "Traffic Duration in hours": round(int(self.qos_obj_dict[ce][obj_name]["obj"].test_duration) / 3600, 2),
+                                    "Security": self.qos_obj_dict[ce][obj_name]["obj"].security,
+                                    "Protocol": (self.qos_obj_dict[ce][obj_name]["obj"].traffic_type.strip("lf_")).upper(),
+                                    "Traffic Direction": self.qos_obj_dict[ce][obj_name]["obj"].direction,
+                                    "TOS": self.qos_obj_dict[ce][obj_name]["obj"].tos,
+                                    "Per TOS Load in Mbps": load
+                                }
+                            # Test setup information table for devices in groups
+                            else:
+                                group_names = ', '.join(config_devices.keys())
+                                profile_names = ', '.join(config_devices.values())
+                                configmap = "Groups:" + group_names + " -> Profiles:" + profile_names
+                                test_setup_info = {
+                                    "AP Model": self.qos_obj_dict[ce][obj_name]["obj"].ap_name,
+                                    'Configuration': configmap,
+                                    "Traffic Duration in hours": round(int(self.qos_obj_dict[ce][obj_name]["obj"].test_duration) / 3600, 2),
+                                    "Security": self.qos_obj_dict[ce][obj_name]["obj"].security,
+                                    "Protocol": (self.qos_obj_dict[ce][obj_name]["obj"].traffic_type.strip("lf_")).upper(),
+                                    "Traffic Direction": self.qos_obj_dict[ce][obj_name]["obj"].direction,
+                                    "TOS": self.qos_obj_dict[ce][obj_name]["obj"].tos,
+                                    "Per TOS Load in Mbps": load
+                                }
+                        elif self.qos_obj_dict[ce][obj_name]["obj"].client_type == "Both":
+                            android_devices, windows_devices, linux_devices, ios_devices, ios_mob_devices = 0, 0, 0, 0, 0
+                            all_devices_names = []
+                            device_type = []
+                            total_devices = ""
+                            for i in self.qos_obj_dict[ce][obj_name]["obj"].real_client_list:
+                                split_device_name = i.split(" ")
+                                if 'android' in split_device_name:
+                                    all_devices_names.append(split_device_name[2] + ("(Android)"))
+                                    device_type.append("Android")
+                                    android_devices += 1
+                                elif 'Win' in split_device_name:
+                                    all_devices_names.append(split_device_name[2] + ("(Windows)"))
+                                    device_type.append("Windows")
+                                    windows_devices += 1
+                                elif 'Lin' in split_device_name:
+                                    all_devices_names.append(split_device_name[2] + ("(Linux)"))
+                                    device_type.append("Linux")
+                                    linux_devices += 1
+                                elif 'Mac' in split_device_name:
+                                    all_devices_names.append(split_device_name[2] + ("(Mac)"))
+                                    device_type.append("Mac")
+                                    ios_devices += 1
+                                elif 'iOS' in split_device_name:
+                                    all_devices_names.append(split_device_name[2] + ("(iOS)"))
+                                    device_type.append("iOS")
+                                    ios_mob_devices += 1
+
+                            # Build total_devices string based on counts
+                            if android_devices > 0:
+                                total_devices += f" Android({android_devices})"
+                            if windows_devices > 0:
+                                total_devices += f" Windows({windows_devices})"
+                            if linux_devices > 0:
+                                total_devices += f" Linux({linux_devices})"
+                            if ios_devices > 0:
+                                total_devices += f" Mac({ios_devices})"
+                            if ios_mob_devices > 0:
+                                total_devices += f" iOS({ios_mob_devices})"
+                            
+                            if config_devices == "":
+                                test_setup_info = {
+                                    "Number of Real Devices": "Total " + f"({self.qos_obj_dict[ce][obj_name]["obj"].num_stations})" + total_devices,
+                                    "Number of Virtual Stations": "Total " + f"{len(self.qos_obj_dict[ce][obj_name]["obj"].sta_list)}",
+                                    "Real Device List":        ", ".join(all_devices_names),
+                                    "Virtual Stations List": ", ".join(self.qos_obj_dict[ce][obj_name]["obj"].sta_list),
+                                    "AP Model":           self.qos_obj_dict[ce][obj_name]["obj"].ap_name,
+                                    "SSID":               self.qos_obj_dict[ce][obj_name]["obj"].ssid,
+                                    "SSID_2.4GHz":        self.qos_obj_dict[ce][obj_name]["obj"].ssid_2g,
+                                    "SSID_5GHz":          self.qos_obj_dict[ce][obj_name]["obj"].ssid_5g,
+                                    "SSID_6GHz":          self.qos_obj_dict[ce][obj_name]["obj"].ssid_6g,
+                                    "Traffic Duration in hours": round(int(self.qos_obj_dict[ce][obj_name]["obj"].test_duration) / 3600, 2),
+                                    "Security_2.4GHz":    self.qos_obj_dict[ce][obj_name]["obj"].security_2g,
+                                    "Security_5GHz":      self.qos_obj_dict[ce][obj_name]["obj"].security_5g,
+                                    "Security_6GHz":      self.qos_obj_dict[ce][obj_name]["obj"].security_6g,
+                                    "Security":           self.qos_obj_dict[ce][obj_name]["obj"].security,
+                                    "Protocol":           (self.qos_obj_dict[ce][obj_name]["obj"].traffic_type.strip("lf_")).upper(),
+                                    "Traffic Direction":  self.qos_obj_dict[ce][obj_name]["obj"].direction,
+                                    "TOS":                self.qos_obj_dict[ce][obj_name]["obj"].tos,
+                                    "Per TOS Load in Mbps": load,
+                                }
+                            else:
+                                # Real group / profile
+                                group_names   = ', '.join(config_devices.keys())
+                                profile_names = ', '.join(config_devices.values())
+                                configmap     = "Groups:" + group_names + " -> Profiles:" + profile_names
+                                test_setup_info = {
+                                        "AP Model":           self.qos_obj_dict[ce][obj_name]["obj"].ap_name,
+                                        'Configuration':      configmap,
+                                        "Security":           self.qos_obj_dict[ce][obj_name]["obj"].security,
+                                        "Number of Virtual Stations": len(self.qos_obj_dict[ce][obj_name]["obj"].sta_list),
+                                        "Virtual Stations List": ", ".join(self.qos_obj_dict[ce][obj_name]["obj"].sta_list),
+                                        "AP Model":           self.qos_obj_dict[ce][obj_name]["obj"].ap_name,
+                                        "SSID_2.4GHz":        self.qos_obj_dict[ce][obj_name]["obj"].ssid_2g,
+                                        "SSID_5GHz":          self.qos_obj_dict[ce][obj_name]["obj"].ssid_5g,
+                                        "SSID_6GHz":          self.qos_obj_dict[ce][obj_name]["obj"].ssid_6g,
+                                        "Traffic Duration in hours": round(int(self.qos_obj_dict[ce][obj_name]["obj"].test_duration) / 3600, 2),
+                                        "Security_2.4GHz":    self.qos_obj_dict[ce][obj_name]["obj"].security_2g,
+                                        "Security_5GHz":      self.qos_obj_dict[ce][obj_name]["obj"].security_5g,
+                                        "Security_6GHz":      self.qos_obj_dict[ce][obj_name]["obj"].security_6g,
+                                        "Protocol":           (self.qos_obj_dict[ce][obj_name]["obj"].traffic_type.strip("lf_")).upper(),
+                                        "Traffic Direction":  self.qos_obj_dict[ce][obj_name]["obj"].direction,
+                                        "TOS":                self.qos_obj_dict[ce][obj_name]["obj"].tos,
+                                        "Per TOS Load in Mbps": load,
+                                }
                         print(res["throughput_table_df"])
+
                         self.overall_report.set_obj_html(_obj_title=f'QOS Test {obj_no}', _obj="")
                         self.overall_report.build_objective()
                         self.overall_report.test_setup_table(test_setup_data=test_setup_info, value="Test Configuration")
@@ -8263,8 +8606,17 @@ class Candela(Realm):
                         self.overall_report.set_csv_filename(graph_png)
                         self.overall_report.move_csv_file()
                         self.overall_report.build_graph()
-                        self.qos_obj_dict[ce][obj_name]["obj"].generate_individual_graph(res, self.overall_report, connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b,obj_no)
+
+                        if self.qos_obj_dict[ce][obj_name]["obj"].client_type == "Virtual":
+                            self.qos_obj_dict[ce][obj_name]["obj"].generate_individual_graph_virtual(res, self.overall_report)
+                        else:
+                            self.qos_obj_dict[ce][obj_name]["obj"].generate_individual_graph(res, self.overall_report, connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b,obj_no)
+                            
                         self.overall_report.test_setup_table(test_setup_data=input_setup_info, value="Information")
+
+                        if self.qos_obj_dict[ce][obj_name]["obj"].client_type == "Virtual":
+                            self.overall_report.build_custom()
+                        
                         if ce == "series":
                             obj_no += 1
                             obj_name = f"qos_test_{obj_no}"
@@ -11241,6 +11593,7 @@ def parse_the_args():
     parser.add_argument('--qos_test',
                           action="store_true",
                           help='qos_test consists')
+    parser.add_argument('--qos_test_name',help='Specify the test name to store the runtime csv results',default='Qos Test')
     parser.add_argument('--qos_duration', help='--qos_duration sets the duration of the test', default="2m")
     parser.add_argument('--qos_upload', help='--upload traffic load per connection (upload rate)')
     parser.add_argument('--qos_download', help='--download traffic load per connection (download rate)')
@@ -11259,8 +11612,9 @@ def parse_the_args():
     #qos configuration with --config
     parser.add_argument("--qos_config", action="store_true", help="Specify for configuring the devices")
     parser.add_argument('--qos_ssid', help='WiFi SSID for script objects to associate to')
-    parser.add_argument('--qos_passwd', '--qos_password', '--qos_key', default="[BLANK]", help='WiFi passphrase/password/key')
-    parser.add_argument('--qos_security', help='WiFi Security protocol: < open | wep | wpa | wpa2 | wpa3 >', default="open")
+    parser.add_argument('--qos_password', '--qos_passwd', '--qos_key', default="[BLANK]", help='WiFi passphrase/password/key')
+    parser.add_argument('--qos_security', help='WiFi Security protocol: < open | wep | wpa | wpa2 | wpa3 >', default="Open")
+    parser.add_argument('--qos_ap_name',help="AP Model Name", default="Test-AP")
     #Optional qos config args
     parser.add_argument("--qos_eap_method", type=str, default='DEFAULT', help="Specify the EAP method for authentication.")
     parser.add_argument("--qos_eap_identity", type=str, default='', help="Specify the EAP identity for authentication.")
@@ -11283,13 +11637,13 @@ def parse_the_args():
     #qos virtual station args
     parser.add_argument("--qos_mode",help='Force specific station mode.',default="0")
     parser.add_argument('--qos_ssid_2g',help='WiFi SSID for script objects to associate with Virtual Clients',default=None)
-    parser.add_argument('--qos_passwd_2g', '--passwd_2g', default="[BLANK]", help='WiFi passphrase/password/key for 2.4GHz', dest='password_2g')
+    parser.add_argument('--qos_password_2g', default="[BLANK]", help='WiFi passphrase/password/key for 2.4GHz')
     parser.add_argument('--qos_security_2g',default='Open',help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
     parser.add_argument('--qos_ssid_5g',help='WiFi SSID for script objects to associate with Virtual Clients',default=None)
-    parser.add_argument('--qos_passwd_5g', '--passwd_5g', default="[BLANK]", help='WiFi passphrase/password/key for 5GHz', dest='password_5g')
+    parser.add_argument('--qos_password_5g', '--qos_passwd_5g', default="[BLANK]", help='WiFi passphrase/password/key for 5GHz')
     parser.add_argument('--qos_security_5g',default='Open',help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
     parser.add_argument('--qos_ssid_6g',help='WiFi SSID for script objects to associate with Virtual Clients',default=None)
-    parser.add_argument('--qos_passwd_6g', '--passwd_6g', default="[BLANK]", help='WiFi passphrase/password/key for 6GHz', dest='password_6g')
+    parser.add_argument('--qos_password_6g', '--qos_passwd_6g', default="[BLANK]", help='WiFi passphrase/password/key for 6GHz')
     parser.add_argument('--qos_security_6g',default='Open',help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
     parser.add_argument('--qos_bands',default='2.4G',help='Comma-seperated list of bands for test.')
     parser.add_argument('--qos_create_sta', help='Create virtual stations for use in test', action='store_true', default=False)
@@ -11307,6 +11661,8 @@ def parse_the_args():
     # parser.add_argument('--qos_file_name', type=str, help='Specify the file name containing group details. Example:file1')
     # parser.add_argument('--qos_group_name', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2')
     # parser.add_argument('--qos_profile_name', type=str, help='Specify the profile name to apply configurations to the devices.')
+    parser.add_argument('--qos_help_summary', help='Show summary of what this script does', default=None,
+                        action="store_true")   
     parser.add_argument("--qos_wait_time", type=int, help='Specify the maximum time to wait for Configuration', default=60)
     
 
@@ -12242,24 +12598,47 @@ def run_ftp_test(args, candela_apis):
     )
 
 def run_qos_test(args, candela_apis):
-    print("QOS_LIST",args.qos_device_list)
+    print("QOS_LIST", args.qos_device_list)
     return candela_apis.run_qos_test(
+        host=args.mgr,
+        port=args.mgr_port,
+        create_sta=args.qos_create_sta,
         upstream_port=args.upstream_port,
-        test_duration=args.qos_duration,
-        download=args.qos_download,
         upload=args.qos_upload,
+        download=args.qos_download,
         traffic_type=args.qos_traffic_type,
         tos=args.qos_tos,
+        test_duration=args.qos_duration,
         device_list=args.qos_device_list,
-        expected_passfail_value=args.qos_expected_passfail_value,
-        device_csv_name=args.qos_device_csv_name,
+        client_type=args.qos_client_type,
+        sta_names=args.qos_sta_names,
+        ssid=args.qos_ssid,
+        security=args.qos_security,
+        password=args.qos_password,
+        ssid_2g=args.qos_ssid_2g,
+        password_2g=args.qos_password_2g,
+        security_2g=args.qos_security_2g,
+        ssid_5g=args.qos_ssid_5g,
+        password_5g=args.qos_password_5g,
+        security_5g=args.qos_security_5g,
+        ssid_6g=args.qos_ssid_6g,
+        password_6g=args.qos_password_6g,
+        security_6g=args.qos_security_6g,
+        num_stations_2g=args.qos_num_stations_2g,
+        num_stations_5g=args.qos_num_stations_5g,
+        num_stations_6g=args.qos_num_stations_6g,
+        radio_2g=args.qos_radio_2g,
+        radio_5g=args.qos_radio_5g,
+        radio_6g=args.qos_radio_6g,
+        mode=args.qos_mode,
+        bands=args.qos_bands,
+        initial_band_pref=args.qos_initial_band_pref,
         file_name=args.qos_file_name,
         group_name=args.qos_group_name,
         profile_name=args.qos_profile_name,
         config=args.qos_config,
-        ssid=args.qos_ssid,
-        passwd=args.qos_passwd,
-        security=args.qos_security,
+        expected_passfail_value=args.qos_expected_passfail_value,
+        csv_name=args.qos_device_csv_name,
         eap_method=args.qos_eap_method,
         eap_identity=args.qos_eap_identity,
         ieee8021x=args.qos_ieee8021x,
@@ -12279,8 +12658,10 @@ def run_qos_test(args, candela_apis):
         pac_file=args.qos_pac_file,
         wait_time=args.qos_wait_time,
         dowebgui="True" if args.dowebgui else False,
-        test_name=args.test_name,
-        result_dir=args.result_dir
+        test_name=args.qos_test_name,
+        result_dir=args.result_dir,
+        ap_name=args.qos_ap_name,
+        timebreak=args.qos_timebreak
     )
 
 def run_vs_test(args, candela_apis):

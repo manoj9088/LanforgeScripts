@@ -1530,7 +1530,7 @@ class ThroughputQOS(Realm):
         self.connections_download, self.connections_upload, self.drop_a_per, self.drop_b_per = connections_download, connections_upload, drop_a_per, drop_b_per
         return connections_download, connections_upload, drop_a_per, drop_b_per, connections_download_avg, connections_upload_avg, dropa_connections, dropb_connections
 
-    def monitor2(self, runtime_dir="per_client_csv"):
+    def monitor_for_runtime_csv(self, runtime_dir="per_client_csv"):
         client_type = getattr(self, "client_type", "Real") # Removed leading underscore.
 
         if not hasattr(self, "overall"):
@@ -2453,7 +2453,7 @@ class ThroughputQOS(Realm):
                 # Real device list
                 test_setup_info = {
                     "Device List":        ", ".join(all_devices_names),
-                    "Number of Stations": "Total" + f"({self.num_stations})" + total_devices,
+                    "Number of Devices": "Total" + f"({self.num_stations})" + total_devices,
                     "AP Model":           self.ap_name,
                     "SSID":               self.ssid,
                     "Traffic Duration in hours": round(int(self.test_duration) / 3600, 2),
@@ -2515,8 +2515,8 @@ class ThroughputQOS(Realm):
 
             if config_devices == "":
                 test_setup_info = {
-                    "Number of Real Devices": "Total" + f"({self.num_stations})" + total_devices,
-                    "Number of Virtual Stations": "Total" + f"{len(self.sta_list)}",
+                    "Number of Real Devices": "Total " + f"({self.num_stations})" + total_devices,
+                    "Number of Virtual Stations": "Total " + f"{len(self.sta_list)}",
                     "Real Device List":        ", ".join(all_devices_names),
                     "Virtual Stations List": ", ".join(self.sta_list),
                     "AP Model":           self.ap_name,
@@ -2575,24 +2575,24 @@ class ThroughputQOS(Realm):
         report.build_table()
 
         # Objective for overall graph — client count varies by type
-        _n_total = 0
+        n_total = 0
         if self.client_type == "Virtual":
-            _n_total = len(self.sta_list)
+            n_total = len(self.sta_list)
         elif self.client_type == "Real":
-            _n_total = len(self.input_devices_list)
+            n_total = len(self.input_devices_list)
         else:
-            _n_total = len(self.sta_list) + len(self.input_devices_list)
+            n_total = len(self.sta_list) + len(self.input_devices_list)
 
         for _key in res["graph_df"]:
             if client_type == 'Virtual':
                 report.set_obj_html(
-                    _obj_title=f"Overall {self.direction} throughput for {_n_total} clients for {_key} with different TOS.",
+                    _obj_title=f"Overall {self.direction} throughput for {n_total} clients for {_key} with different TOS.",
                     _obj=f"The below graph represents overall {self.direction} throughput for all "
                     "connected stations running BK, BE, VO, VI traffic with different "
                     f"intended loads per station : {_key}")
             elif client_type in ('Real', 'Both'):
                 report.set_obj_html(
-                    _obj_title=f"Overall {self.direction} throughput for {_n_total} clients with different TOS.",
+                    _obj_title=f"Overall {self.direction} throughput for {n_total} clients with different TOS.",
                     _obj=f"The below graph represents overall {self.direction} throughput for all "
                     "connected stations running BK, BE, VO, VI traffic with different "
                     f"intended loads : {load} per tos")
@@ -2633,7 +2633,7 @@ class ThroughputQOS(Realm):
         # Individual per-TOS graphs and tables — dispatch by client type
         if client_type == 'Virtual':
             # Virtual: uses sta_list, mac_list, channel_list, test_case band loop
-            self._generate_individual_graph_virtual(res, report)
+            self.generate_individual_graph_virtual(res, report)
         else:
             # Real/Both: uses real_client_list, mac_id_list, connections_avg dicts
             self.generate_individual_graph(
@@ -2800,7 +2800,7 @@ class ThroughputQOS(Realm):
         return image_paths_by_tos, rssi_image_paths_by_floor
 
     def generate_individual_graph(self, res, report, connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b, totalfloors=None, multicast_exists=False, graph_no=''):
-        logger.info(f"We are Printing RES : {res}")
+        #logger.info(f"We are Printing RES : {res}")
         
         client_type = getattr(self, 'client_type', 'Real')
 
@@ -2983,7 +2983,6 @@ class ThroughputQOS(Realm):
                     report.build_objective()
 
                     # print(upload_list, download_list, individual_download_list, individual_upload_list)
-                    print("---------",client_list_1,labels)
                     graph = lf_bar_graph_horizontal(_data_set=individual_set, _xaxis_name="Throughput in Mbps",
                                                     _yaxis_name="Client names",
                                                     _yaxis_categories=[i for i in client_list_1],
@@ -3510,7 +3509,7 @@ class ThroughputQOS(Realm):
                         logger.info(f'failed cx {cx} tos {tos}')
                         logger.info(f"Overall Data : {self.real_time_data}")
 
-    def _generate_individual_graph_virtual(self, res, report):
+    def generate_individual_graph_virtual(self, res, report):
         """
         Individual per-TOS graphs and tables for Virtual stations.
         Exact port of throughput_qos.py generate_individual_graph().
@@ -5094,7 +5093,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
 
         connections_download, connections_upload, drop_a_per, drop_b_per, \
             connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b = \
-            throughput_qos.monitor2(runtime_dir="per_client_csv")
+            throughput_qos.monitor_for_runtime_csv(runtime_dir="per_client_csv")
 
         logger.info("connections download {}".format(connections_download))
         logger.info("connections upload {}".format(connections_upload))
@@ -5107,7 +5106,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
         rssi_list = []
 
         if args.client_type == "Both":
-            total_devices_list = throughput_qos.sta_list + throughput_qos.input_devices_list
+            total_devices_list =  throughput_qos.input_devices_list + throughput_qos.sta_list
             ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list = throughput_qos.get_portmgr_data(total_devices_list)
             throughput_qos.ssid_list, throughput_qos.macid_list, throughput_qos.mode_list, throughput_qos.bssid_list, throughput_qos.channels_list, throughput_qos.rssi_list = ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list
             print("We are printing Total Test Devices : ",total_devices_list)
@@ -5133,7 +5132,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
             throughput_qos.test_case = bands_list
         else:
             # Real and Both: flat structure for set_report_data (Real/Both path)
-            # test_case is still set so _generate_individual_graph_virtual
+            # test_case is still set so generate_individual_graph_virtual
             # can iterate bands in the Both Section-2 virtual graph section.
             data.update(test_results)
             throughput_qos.test_case = bands_list
