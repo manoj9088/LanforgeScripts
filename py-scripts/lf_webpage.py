@@ -795,15 +795,16 @@ class HttpDownload(Realm):
                 all_port_list.extend(self.station_profile.station_names)
                 if self.count == 2:
                     self.station_profile.mode = 6
+
         if self.client_type in ["Real", "Both"]:
             logger.info(f"Port List for Real devices : {self.port_list}")
             all_port_list.extend(self.port_list)
+
         logger.info(f"Final Combined Port List : {all_port_list}")
         self.http_profile.direction = "dl"
         self.http_profile.dest = "/dev/null"
 
         data = self.local_realm.json_get("ports/list?fields=IP")
-
         eid = self.local_realm.name_to_eid(self.upstream)
         for i in data["interfaces"]:
             for j in i:
@@ -815,8 +816,8 @@ class HttpDownload(Realm):
                         shelf=eid[0],
                         resource=eid[1],
                         port=eid[2])]['ip']
-
                     print("Upstream port :", ip_upstream)
+
         if self.get_url_from_file:
             self.http_profile.create(
                 ports=all_port_list,
@@ -847,7 +848,7 @@ class HttpDownload(Realm):
                 windows_list=self.windows_ports
             )
 
-        logger.info("CX Names : {self.http_profile.created_cx.keys()}")
+        logger.info(f"CX Names : {self.http_profile.created_cx.keys()}")
         print("Test Build done")
 
     def normalize_list(self, lst, target_len, fill="NA"):
@@ -1072,6 +1073,7 @@ class HttpDownload(Realm):
             self.data["BSSID"] = bssid_list
             self.data["MAC"] = macid_list
             self.data["SSID"] = ssid_list
+            self.data["RSSI"] = rssi_list
 
             individual_rx_data = []
             individual_rx_data.extend([current_time])
@@ -1673,6 +1675,7 @@ class HttpDownload(Realm):
         report.move_csv_file()
         report.move_graph_image()
         report.build_graph()
+        
         report.set_obj_html("Average time taken to download file ", "The below graph represents average time taken to download for each client  "
                             ".  X- axis shows “Average time taken to download a file ” and Y-axis shows "
                             "Client names.")
@@ -1897,14 +1900,14 @@ class HttpDownload(Realm):
             else:
                 dataframe = {
                     " Clients": self.devices,
-                    " Client Type":self.client_type_list,
-                    " Device Type":self.device_type_list,
+                    " Device Type (OS)":self.client_type_list,
+                    " Client Type":self.device_type_list,
                     " MAC ": self.data.get("MAC", self.macid_list),
                     " Channel": self.data.get("Channel", self.channel_list),
                     " SSID ": self.data.get("SSID", self.ssid_list),
                     " Mode": self.data.get("Mode", self.mode_list),
-                    " RSSI": self.data.get("BSSID", self.signal_list),  
-                    " BSSI": self.data.get("BSSID", self.bssid_list),
+                    " RSSI": self.data.get("RSSI", self.signal_list),  
+                    " BSSID": self.data.get("BSSID", self.bssid_list),
                     " No of times File downloaded ": dataset2,
                     " Average time taken to Download file (ms)": dataset,
                     " Bytes-rd (Mega Bytes) ": dataset1,
@@ -1920,12 +1923,12 @@ class HttpDownload(Realm):
         elif self.client_type == "Virtual":
             dataframe = {
                 " Clients": self.devices,
-                " Device Type":self.device_type_list,
+                " Client Type":self.device_type_list,
                 " MAC ": self.data.get("MAC", self.macid_list),
                 " Channel": self.data.get("Channel", self.channel_list),
                 " SSID ": self.data.get("SSID", self.ssid_list),
                 " Mode": self.data.get("Mode", self.mode_list),
-                " RSSI": self.data.get("BSSID", self.signal_list),  
+                " RSSI": self.data.get("RSSI", self.signal_list),  
                 " BSSI": self.data.get("BSSID", self.bssid_list),
                 " No of times File downloaded ": dataset2,
                 " Average time taken to Download file (ms)": dataset,
@@ -1992,14 +1995,14 @@ class HttpDownload(Realm):
                 print("We are printing devices : ",self.devices)
                 print("We are printing device list : ",self.device_list)
                 dataframe = {
-                    " Clients": self.report_station_names,
-                    " Client Type": self.client_type_list,
-                    " Device Type": self.device_type_list,
+                    " Clients": self.report_station_names, 
+                    " Device Type (OS)": self.client_type_list,
+                    " Client Type": self.device_type_list,
                     " MAC ": self.data.get("MAC", self.macid_list),
                     " Channel": self.data.get("Channel", self.channel_list),
                     " SSID ": self.data.get("SSID", self.ssid_list),
                     " Mode": self.data.get("Mode", self.mode_list),
-                    " RSSI": self.data.get("BSSID", self.signal_list),  
+                    " RSSI": self.data.get("RSSI", self.signal_list),  
                     " BSSI": self.data.get("BSSID", self.bssid_list),
                     " No of times File downloaded ": dataset2,
                     " Average time taken to Download file (ms)": dataset,
@@ -2116,14 +2119,14 @@ class HttpDownload(Realm):
         if len(clients) != 0:
             dataframe = {
                 " Clients": clients,
-                " Client Type" : client_type_lis,
-                " Device Type":device_type_lis,
+                " Device Type (OS)" : client_type_lis,
+                " Client Type":device_type_lis,
                 " MAC ": macids,
                 " Channel": channels,
                 " SSID ": ssids,
                 " Mode": modes,
-                "BSSI": bssid_lis,
-                "RSSI" : signal_list,
+                " BSSI ": bssid_lis,
+                " RSSI " : signal_list,
                 "No of times File downloaded ": downloadtimes,
                 "Average time taken to Download file (ms)": avgtimes,
                 "Bytes-rd (Mega Bytes) ": readbytes,
@@ -2230,6 +2233,7 @@ class HttpDownload(Realm):
             devices_names = self.port_list + self.station_profile.station_names
         station_names = devices_names
         print("Station Names : ",station_names)
+        print("CX Names : ",self.http_profile.created_cx.keys())
         self.report_station_names = station_names
 
         signal_list = []
@@ -2844,9 +2848,9 @@ def main():
     optional.add_argument('--fiveg_security', help='WiFi Security protocol: {open|wep|wpa2|wpa3} for 5G clients')
     optional.add_argument('--fiveg_ssid', help='WiFi SSID for script object to associate for 5G clients')
     optional.add_argument('--fiveg_passwd', help='WiFi passphrase/password/key for 5G clients')
-    optional.add_argument('--sixg_security', help='WiFi Security protocol: {open|wep|wpa2|wpa3} for 2.4G clients')
-    optional.add_argument('--sixg_ssid', help='WiFi SSID for script object to associate for 2.4G clients')
-    optional.add_argument('--sixg_passwd', help='WiFi passphrase/password/key for 2.4G clients')
+    optional.add_argument('--sixg_security', help='WiFi Security protocol: {open|wep|wpa2|wpa3} for 6G clients')
+    optional.add_argument('--sixg_ssid', help='WiFi SSID for script object to associate for 6 clients')
+    optional.add_argument('--sixg_passwd', help='WiFi passphrase/password/key for 6G clients')
     optional.add_argument('--target_per_ten', help='number of request per 10 minutes', default=100)
     required.add_argument('--file_size', type=str, help='specify the size of file you want to download', default='5MB')
     required.add_argument('--bands', nargs="+", help='specify which band testing you want to run eg 5G, 2.4G, 6G',
@@ -3007,6 +3011,7 @@ times the file is downloaded.
         args.duration = int(args.duration)
     else:
         raise ValueError("Invalid duration format! Please specify duration with 's', 'm', or 'h' suffix (e.g., 30s, 5m, 1h).")
+    
     if args.time_break.endswith('s') or args.time_break.endswith('S'):
         args.time_break = int(args.time_break[0:-1])
     elif args.time_break.endswith('m') or args.time_break.endswith('M'):
@@ -3074,7 +3079,7 @@ times the file is downloaded.
                 security = [args.twog_security, args.fiveg_security]
                 ssid = [args.twog_ssid, args.fiveg_ssid]
                 passwd = [args.twog_passwd, args.fiveg_passwd]
-        if args.client_type == "Both":
+        elif args.client_type == "Both":
             real_ssid = args.ssid
             real_password  = args.passwd
             real_security = args.security
@@ -3147,6 +3152,7 @@ times the file is downloaded.
             http.real_password = real_password
             http.real_security = real_security
 
+        client_type_list, device_type_list = [], []
         if args.client_type == "Real" or args.client_type == "Both":
             if not isinstance(args.device_list, list):
                 http.device_list = http.filter_iOS_devices(args.device_list)
@@ -3155,7 +3161,6 @@ times the file is downloaded.
                     exit(1)
             port_list, device_list, macid_list, eid_list, configuration = http.get_real_client_list()
 
-            client_type_list, device_type_list = [], []
             # Using these lists for report columns - 
             client_type_list, device_type_list = http.get_client_type_list(eid_list=eid_list) # Here we will only get for Real Devices.
             http.client_type_list = client_type_list
@@ -3176,7 +3181,8 @@ times the file is downloaded.
                         "configuration_status": "configured"
                     }
                     http.updating_webui_runningjson(obj)
-            args.num_stations = len(port_list)
+            if args.client_type == "Real":
+                args.num_stations = len(port_list)
         if not args.get_url_from_file:
             http.file_create(ssh_port=args.ssh_port)
         else:
@@ -3186,18 +3192,26 @@ times the file is downloaded.
 
         http.set_values() 
         station_list = http.station_list
-        all_client_list = port_list + station_list[0]
+
+        all_client_list = []
+        if args.client_type == "Real":
+            all_client_list = port_list
+        elif args.client_type == "Virtual":
+            all_client_list = station_list[0]
+        elif args.client_type == "Both":
+            all_client_list = port_list + station_list[0]
 
         if args.client_type == "Both":
+            args.num_stations = len(port_list)+len(station_list[0])
             for sta in station_list[0]:
-                client_type_list.append("-")
+                client_type_list.append("virtual station")
                 device_type_list.append("Virtual")
             http.client_type_list = client_type_list
             http.device_type_list = device_type_list
         elif args.client_type == "Virtual":          # ADD this block
             client_type_list, device_type_list = [], []
             for sta in station_list[0]:
-                client_type_list.append("-")
+                client_type_list.append("virtual station")
                 device_type_list.append("Virtual")
             http.client_type_list = client_type_list
             http.device_type_list = device_type_list
@@ -3506,12 +3520,12 @@ times the file is downloaded.
                 "Traffic Duration ": duration
             }
     elif args.client_type == "Virtual":
-        print("We have entered into this else block for virtual report generation.")
         test_setup_info = {
             "AP Name": args.ap_name,
             "SSID": ssid,
             "Security": security,
-            "No of Devices": args.num_stations,
+            "No of Virtual Stations": args.num_stations,
+            "Virtual Station List" : ",".join(station_list[0]),
             "Traffic Direction": "Download",
             "Traffic Duration ": duration
         }
@@ -3551,7 +3565,6 @@ times the file is downloaded.
             total_devices += f" Mac({mac_devices})"
 
         real_device_names = total_devices
-        virtual_device_names = f"Stations({len(station_list[0])})"
         test_setup_info = {
             "AP_Name" : args.ap_name,
             "SSID" : http.real_ssid,
@@ -3560,9 +3573,9 @@ times the file is downloaded.
             "SSID 5G" : args.fiveg_ssid,
             "SSID 6G" : args.sixg_ssid,
             "Security (Virtual)": security,
-            "No of Devices": len(device_list)+len(station_list[0]),
-            "Real Devices" : f"Total: {len(device_list)}"+real_device_names,
-            "Virtual Stations" : virtual_device_names,
+            "No of Test Devices": f"Real : {len(device_list)} "+f" Virtual : {len(station_list[0])} ",
+            "Real Devices" : f"Total: {len(device_list)} "+" "+", ".join(all_devices_names),
+            "Virtual Stations" : f"Total: {len(station_list[0])} "+" "+", ".join(station_list[0]),
             "Traffic Direction": "Download",
             "Traffic Duration ": duration
         }
@@ -3603,7 +3616,6 @@ times the file is downloaded.
         devices = []
         if args.client_type == "Real":
             devices = port_list
-
         elif args.client_type == "Virtual":
             devices = station_list
         elif args.client_type == "Both":
