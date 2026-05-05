@@ -274,6 +274,8 @@ class HttpDownload(Realm):
         self.client_type_list = []
         self.device_type_list = []
 
+        self.existing_station_list = []
+
 # The 'phantom_check' will be handled within the 'get_real_client_list' function
     def get_real_client_list(self):
         user_list = []
@@ -612,34 +614,116 @@ class HttpDownload(Realm):
         self.device_list = filtered_list
         return filtered_list
 
+    def validate_existing_stations(self, raw_existing_list):
+        """
+        Validate each EID in raw_existing_list against LANforge port manager.
+
+        Accepts the argparse value which may be:
+          - a list of lists  (nargs=1, action='append' produces [[eid1], [eid2]])
+          - a plain list of strings
+          - a comma-separated string
+
+        Returns a deduplicated list of short port names (e.g. ['1.1.sta00000', ...])
+        that are confirmed present in LANforge.  Ports that are absent are logged
+        as warnings and silently dropped.
+        """
+        # Normalise whatever argparse hands us into a flat list of strings
+        if not raw_existing_list:
+            return []
+
+        flat = []
+        if isinstance(raw_existing_list, str):
+            flat = [s.strip() for s in raw_existing_list.split(',') if s.strip()]
+        elif isinstance(raw_existing_list, list):
+            for item in raw_existing_list:
+                if isinstance(item, list):
+                    for sub in item:
+                        flat.extend([s.strip() for s in sub.split(',') if s.strip()])
+                else:
+                    flat.extend([s.strip() for s in item.split(',') if s.strip()])
+
+        if not flat:
+            logger.warning("validate_existing_stations: no EIDs found after parsing.")
+            return []
+
+        validated = []
+        seen = set()
+        
+        # Fetch port/all to check IPs
+        port_data = {}
+        try:
+            port_resp = self.local_realm.json_get("/port/all")
+            if port_resp and "interfaces" in port_resp:
+                for iface in port_resp["interfaces"]:
+                    for port_name, pdata in iface.items():
+                        port_data[port_name] = pdata
+        except Exception as e:
+            logger.warning(f"Failed to fetch /port/all for IP validation: {e}")
+
+        for eid in flat:
+            if eid in seen:
+                continue
+            seen.add(eid)
+            # port_exists() from Realm accepts shelf.resource.port or short name 
+            if self.local_realm.port_exists(eid):
+                # Check if it has an IP address
+                has_ip = False
+                for p_name, p_info in port_data.items():
+                    if eid in p_name:
+                        ip = p_info.get("ip", "0.0.0.0")
+                        if ip and ip != "0.0.0.0":
+                            has_ip = True
+                        break
+                
+                if has_ip:
+                    validated.append(eid)
+                    logger.info(f"validate_existing_stations: confirmed port '{eid}' with IP")
+                else:
+                    logger.warning(f"validate_existing_stations: port '{eid}' found but has no IP — skipping.")
+            else:
+                logger.warning(
+                    f"validate_existing_stations: port '{eid}' NOT found in LANforge — skipping.")
+
+        if not validated:
+            logger.error(
+                "validate_existing_stations: none of the supplied existing stations "
+                "exist in LANforge.  Aborting.")
+            exit(1)
+
+        logger.info(f"validate_existing_stations: {len(validated)} valid port(s): {validated}")
+        return validated
+
     def set_values(self):
         # This method will set values according user input
         if self.bands == "5G":
             self.radio = [self.fiveg_radio]
-            self.station_list = [LFUtils.portNameSeries(prefix_="http_sta", start_id_=self.sta_start_id,
-                                                        end_id_=self.num_sta - 1, padding_number_=10000,
-                                                        radio=self.fiveg_radio)]
+            self.station_list = LFUtils.portNameSeries(prefix_="http_sta", start_id_=self.sta_start_id,
+                                                        end_id_=self.sta_start_id + self.num_sta - 1, padding_number_=10000,
+                                                        radio=self.fiveg_radio)
+            self.station_lists_per_radio = [self.station_list]
         elif self.bands == "6G":
             self.radio = [self.sixg_radio]
-            self.station_list = [LFUtils.portNameSeries(prefix_="http_sta", start_id_=self.sta_start_id,
-                                                        end_id_=self.num_sta - 1, padding_number_=10000,
-                                                        radio=self.sixg_radio)]
+            self.station_list = LFUtils.portNameSeries(prefix_="http_sta", start_id_=self.sta_start_id,
+                                                        end_id_=self.sta_start_id + self.num_sta - 1, padding_number_=10000,
+                                                        radio=self.sixg_radio)
+            self.station_lists_per_radio = [self.station_list]
         elif self.bands == "2.4G":
             self.radio = [self.twog_radio]
-            self.station_list = [LFUtils.portNameSeries(prefix_="http_sta", start_id_=self.sta_start_id,
-                                                        end_id_=self.num_sta - 1, padding_number_=10000,
-                                                        radio=self.twog_radio)]
+            self.station_list = LFUtils.portNameSeries(prefix_="http_sta", start_id_=self.sta_start_id,
+                                                        end_id_=self.sta_start_id + self.num_sta - 1, padding_number_=10000,
+                                                        radio=self.twog_radio)
+            self.station_lists_per_radio = [self.station_list]
         elif self.bands == "Both":
             self.radio = [self.twog_radio, self.fiveg_radio]
-            # self.num_sta = self.num_sta // 2
-            self.station_list = [
-                LFUtils.portNameSeries(prefix_="http_sta", start_id_=self.sta_start_id,
-                                       end_id_=self.num_sta - 1, padding_number_=10000,
-                                       radio=self.twog_radio),
-                LFUtils.portNameSeries(prefix_="http_sta", start_id_=self.sta_start_id,
-                                       end_id_=self.num_sta - 1, padding_number_=10000,
-                                       radio=self.fiveg_radio)
-            ]
+            split = self.num_sta // 2
+            list_2g = LFUtils.portNameSeries(prefix_="http_sta", start_id_=self.sta_start_id,
+                                             end_id_=self.sta_start_id + split - 1, padding_number_=10000,
+                                             radio=self.twog_radio)
+            list_5g = LFUtils.portNameSeries(prefix_="http_sta", start_id_=self.sta_start_id + split,
+                                             end_id_=self.sta_start_id + self.num_sta - 1, padding_number_=10000,
+                                             radio=self.fiveg_radio)
+            self.station_lists_per_radio = [list_2g, list_5g]
+            self.station_list = list_2g + list_5g
         return self.station_list
 
     def precleanup(self):
@@ -663,19 +747,20 @@ class HttpDownload(Realm):
                 self.num_sta = 2 * (self.num_sta)
                 self.station_profile.mode = 10
                 self.http_profile.cleanup()
-                # cleanup station list which started sta_id 20
-                self.station_profile.cleanup(self.station_list[rad], debug_=self.local_realm.debug)
+                # cleanup station list which started sta_id
+                self.station_profile.cleanup(self.station_lists_per_radio[rad], debug_=self.local_realm.debug)
                 LFUtils.wait_until_ports_disappear(base_url=self.local_realm.lfclient_url,
-                                                   port_list=self.station_list[rad],
+                                                   port_list=self.station_lists_per_radio[rad],
                                                    debug=self.local_realm.debug)
                 return
+            
             # clean dlayer4 ftp traffic
             self.http_profile.cleanup()
 
             # cleans stations
-            self.station_profile.cleanup(self.station_list[rad], delay=1, debug_=self.local_realm.debug)
+            self.station_profile.cleanup(self.station_lists_per_radio[rad], delay=1, debug_=self.local_realm.debug)
             LFUtils.wait_until_ports_disappear(base_url=self.local_realm.lfclient_url,
-                                               port_list=self.station_list[rad],
+                                               port_list=self.station_lists_per_radio[rad],
                                                debug=self.local_realm.debug)
             time.sleep(1)
         print("precleanup done")
@@ -696,10 +781,10 @@ class HttpDownload(Realm):
                 self.station_profile.set_command_flag("add_sta", "create_admin_down", 1)
                 self.station_profile.set_command_param("set_port", "report_timer", 1500)
                 self.station_profile.set_command_flag("set_port", "rpt_timer", 1)
-                self.station_profile.create(radio=self.radio[rad], sta_names_=self.station_list[rad], debug=self.local_realm.debug)
-                self.local_realm.wait_until_ports_appear(sta_list=self.station_list[rad])
+                self.station_profile.create(radio=self.radio[rad], sta_names_=self.station_lists_per_radio[rad], debug=self.local_realm.debug)
+                self.local_realm.wait_until_ports_appear(sta_list=self.station_lists_per_radio[rad])
                 self.station_profile.admin_up()
-                if self.local_realm.wait_for_ip(self.station_list[rad], timeout_sec=60):
+                if self.local_realm.wait_for_ip(self.station_lists_per_radio[rad], timeout_sec=60):
                     self.local_realm._pass("All stations got IPs")
                 else:
                     self.local_realm._fail("Stations failed to get IPs")
@@ -718,12 +803,12 @@ class HttpDownload(Realm):
 
                 # create http profile
                 if self.get_url_from_file:  # enabling the GET-URL-FROM-FILE flag if its true
-                    self.http_profile.create(ports=self.station_profile.station_names, sleep_time=.5,
+                    self.http_profile.create(ports=self.station_list, sleep_time=.5,
                                              suppress_related_commands_=None, http=True, user=self.lf_username,
                                              passwd=self.lf_password, http_ip=self.file_path, proxy_auth_type=0x200,
                                              timeout=1000, get_url_from_file=True)
                 else:
-                    self.http_profile.create(ports=self.station_profile.station_names, sleep_time=.5,
+                    self.http_profile.create(ports=self.station_list, sleep_time=.5,
                                              suppress_related_commands_=None, http=True, user=self.lf_username,
                                              passwd=self.lf_password, http_ip=ip_upstream + "/webpage.html",
                                              proxy_auth_type=0x200, timeout=1000)
@@ -762,39 +847,45 @@ class HttpDownload(Realm):
         )
         all_port_list = []
         if self.client_type in ["Virtual", "Both"]:
-            if self.bands == "2.4G":
-                self.station_profile.mode = 13
-            elif self.bands == "5G":
-                self.station_profile.mode = 14
-            elif self.bands == "6G":
-                self.station_profile.mode = 15
+            if not self.existing_station_list:
+                if self.bands == "2.4G":
+                    self.station_profile.mode = 13
+                elif self.bands == "5G":
+                    self.station_profile.mode = 14
+                elif self.bands == "6G":
+                    self.station_profile.mode = 15
 
-            for rad in range(len(self.radio)):
-                self.station_profile.use_security(
-                    self.security[rad],
-                    self.ssid[rad],
-                    self.password[rad]
-                )
-                self.station_profile.set_command_flag("add_sta", "create_admin_down", 1)
-                self.station_profile.set_command_param("set_port", "report_timer", 1500)
-                self.station_profile.set_command_flag("set_port", "rpt_timer", 1)
-                self.station_profile.create(
-                    radio=self.radio[rad],
-                    sta_names_=self.station_list[rad],
-                    debug=self.local_realm.debug
-                )
-                self.local_realm.wait_until_ports_appear(sta_list=self.station_list[rad])
-                self.station_profile.admin_up()
-                logger.info(f"Station_list[rad] : {self.station_list[rad]}")
-                if self.local_realm.wait_for_ip(self.station_list[rad], timeout_sec=60):
-                    self.local_realm._pass("All stations got IPs")
-                else:
-                    self.local_realm._fail("Stations failed to get IPs")
-                print("Printing Station Names from Station Profile Creation :",
-                    self.station_profile.station_names)
-                all_port_list.extend(self.station_profile.station_names)
-                if self.count == 2:
-                    self.station_profile.mode = 6
+                print(f"Printing aall test radios : {self.radio}")
+                for rad in range(len(self.radio)):
+                    self.station_profile.use_security(
+                        self.security[rad],
+                        self.ssid[rad],
+                        self.password[rad]
+                    )
+                    self.station_profile.set_command_flag("add_sta", "create_admin_down", 1)
+                    self.station_profile.set_command_param("set_port", "report_timer", 1500)
+                    self.station_profile.set_command_flag("set_port", "rpt_timer", 1)
+                    self.station_profile.create(
+                        radio=self.radio[rad],
+                        sta_names_=self.station_lists_per_radio[rad],
+                        debug=self.local_realm.debug
+                    )
+                    self.local_realm.wait_until_ports_appear(sta_list=self.station_lists_per_radio[rad])
+                    self.station_profile.admin_up()
+                    logger.info(f"Station_list[rad] : {self.station_lists_per_radio[rad]}")
+                    if self.local_realm.wait_for_ip(self.station_lists_per_radio[rad], timeout_sec=60):
+                        self.local_realm._pass("All stations got IPs")
+                    else:
+                        self.local_realm._fail("Stations failed to get IPs")
+                    print("Printing Station Names from Station Profile Creation only when count specified : ", self.station_list)
+                    all_port_list.extend(self.station_list)
+                    if self.count == 2:
+                        self.station_profile.mode = 6
+            elif self.existing_station_list:
+                self.station_profile.station_names = self.existing_station_list    # this else block is for existing stations list
+                print("Printing Station Names from Station Profile Creation only when existing specified : ", self.existing_station_list)
+                print("Self . Station List : ", self.station_list)
+                all_port_list.extend(self.station_list)
 
         if self.client_type in ["Real", "Both"]:
             logger.info(f"Port List for Real devices : {self.port_list}")
@@ -850,6 +941,7 @@ class HttpDownload(Realm):
 
         logger.info(f"CX Names : {self.http_profile.created_cx.keys()}")
         print("Test Build done")
+
 
     def normalize_list(self, lst, target_len, fill="NA"):
         # Added this method inorder to resolve the self.data conflicting list lengths. # A general fallback.
@@ -966,9 +1058,9 @@ class HttpDownload(Realm):
         if self.client_type == "Real":
             devices_names= self.port_list
         if self.client_type == "Virtual":
-            devices_names = self.station_profile.station_names
+            devices_names = self.station_list
         if self.client_type == "Both":
-            devices_names = self.port_list + self.station_profile.station_names
+            devices_names = self.port_list + self.station_list
             print("Printing Combined Device Names : ",devices_names)
         self.data = {}
         self.data["client"] = devices_names
@@ -982,7 +1074,7 @@ class HttpDownload(Realm):
         # Creating individual Dataframe for each device
         logger.info(f"Port list in monitor : {self.port_list}")
         logger.info(f"cx list : {list(self.http_profile.created_cx.keys())}")
-        logger.info(f" stations list : {self.station_profile.station_names}")
+        logger.info(f" stations list : {self.station_list}")
         individual_device_csv_names=[]
         print("start time", starttime)
         print("end time", endtime)
@@ -1256,7 +1348,7 @@ class HttpDownload(Realm):
     def postcleanup(self):
         self.http_profile.cleanup()
         self.station_profile.cleanup()
-        LFUtils.wait_until_ports_disappear(base_url=self.local_realm.lfclient_url, port_list=self.station_profile.station_names,
+        LFUtils.wait_until_ports_disappear(base_url=self.local_realm.lfclient_url, port_list=self.station_list,
                                            debug=self.debug)
 
     def file_create(self, ssh_port):
@@ -1446,9 +1538,9 @@ class HttpDownload(Realm):
         if self.client_type == "Real":
             lis = self.devices_list
         elif self.client_type == "Virtual":
-            lis = self.station_list[0]
+            lis = self.station_list
         elif self.client_type == "Both":
-            lis = self.devices_list + self.station_list[0]
+            lis = self.devices_list + self.station_list
         logger.info("%s %s", dataset, lis)
         x_fig_size = 18
         y_fig_size = len(lis) * .5 + 4
@@ -1489,11 +1581,11 @@ class HttpDownload(Realm):
         if self.client_type == "Real":
             lis = self.devices_list
         elif self.client_type == "Virtual":
-            lis = self.station_list[0]
+            lis = self.station_list
         elif self.client_type == "Both":
-            lis = self.devices_list + self.station_list[0]
-        print(dataset2)
-        print(lis)
+            lis = self.devices_list + self.station_list
+        print("Dataset 2 : ",dataset2)
+        print("Lis : ",lis)
         x_fig_size = 18
         y_fig_size = len(lis) * .5 + 4
         graph_2 = lf_bar_graph_horizontal(_data_set=[dataset2], _xaxis_name="No of times file Download",
@@ -1532,7 +1624,7 @@ class HttpDownload(Realm):
                         self.ssid_list.append(str(port_data['ssid']))
                         self.macid_list.append(str(port_data['mac']))
         elif self.client_type == "Virtual":
-            self.devices =self.station_profile.station_names
+            self.devices =self.station_list
             for interface in self.response_port['interfaces']:
                 for port,port_data in interface.items():
                     if port in self.devices:
@@ -1541,7 +1633,7 @@ class HttpDownload(Realm):
                         self.ssid_list.append(str(port_data['ssid']))
                         self.macid_list.append(str(port_data['mac']))
         elif self.client_type == "Both":
-            self.devices = self.device_list + self.station_profile.station_names
+            self.devices = self.device_list + self.station_list
             for interface in self.response_port['interfaces']:
                 for port,port_data in interface.items():
                     if port in self.devices:
@@ -1644,6 +1736,7 @@ class HttpDownload(Realm):
         report.test_setup_table(value="Test Setup Information", test_setup_data=test_setup_info)
 
         report.build_objective()
+        
         if self.robot_test:
             if self.dowebgui and self.get_live_view:
                 # Add live view images to the report
@@ -1724,10 +1817,10 @@ class HttpDownload(Realm):
                         self.signal_list.append(str(port_data['signal']))
                         self.bssid_list.append(str(port_data['ap']))
         elif self.client_type == "Virtual":
-            self.devices = self.station_list[0]
+            self.devices = self.station_list
             for interface in self.response_port['interfaces']:
                 for port, port_data in interface.items():
-                    if port in self.station_list[0]:
+                    if port in self.station_list:
                         self.channel_list.append(str(port_data['channel']))
                         self.mode_list.append(str(port_data['mode']))
                         self.macid_list.append(str(port_data['mac']))
@@ -1735,11 +1828,11 @@ class HttpDownload(Realm):
                         self.signal_list.append(str(port_data['signal']))
                         self.bssid_list.append(str(port_data['ap']))
         elif self.client_type == "Both":
-            self.devices = self.device_list + self.station_list[0]
+            self.devices = self.device_list + self.station_list
             print("Devices for Both : ",self.devices)
             for interface in self.response_port['interfaces']:
                 for port, port_data in interface.items():
-                    if port in self.station_list[0] or port in self.port_list:
+                    if port in self.station_list or port in self.port_list:
                         self.channel_list.append(str(port_data['channel']))
                         self.mode_list.append(str(port_data['mode']))
                         self.macid_list.append(str(port_data['mac']))
@@ -2228,9 +2321,9 @@ class HttpDownload(Realm):
         if self.client_type == "Real":
             devices_names= self.port_list
         elif self.client_type == "Virtual":
-            devices_names = self.station_profile.station_names
+            devices_names = self.station_list
         elif self.client_type == "Both":
-            devices_names = self.port_list + self.station_profile.station_names
+            devices_names = self.port_list + self.station_list
         station_names = devices_names
         print("Station Names : ",station_names)
         print("CX Names : ",self.http_profile.created_cx.keys())
@@ -2842,6 +2935,10 @@ def main():
     optional.add_argument('--twog_radio', help='specify radio for 2.4G clients')
     optional.add_argument('--fiveg_radio', help='specify radio for 5 GHz client')
     optional.add_argument('--sixg_radio', help='Specify radio for 6GHz client')
+    optional.add_argument('--use_existing_station_list', help='--use_station_list ,full eid must be given,'
+                                                              'for multiple station list use commas(1.1.sta00000,1.1.sta00001)', action='store_true')
+    optional.add_argument('--existing_station_list', action='append', nargs=1,
+                          help='Specify the existing station list. E.g., --existing_station_list 1.1.sta00000')
     optional.add_argument('--twog_security', help='WiFi Security protocol: {open|wep|wpa2|wpa3} for 2.4G clients')
     optional.add_argument('--twog_ssid', help='WiFi SSID for script object to associate for 2.4G clients')
     optional.add_argument('--twog_passwd', help='WiFi passphrase/password/key for 2.4G clients')
@@ -3000,6 +3097,12 @@ times the file is downloaded.
         iot_testname = args.iot_testname
         iot_increment = args.iot_increment
 
+    # Validate --existing_station_list requires --use_existing_station_list flag
+    has_existing_stations = bool(getattr(args, 'use_existing_station_list', False))
+    if getattr(args, 'existing_station_list', None) and not has_existing_stations:
+        logger.error("Error: --existing_station_list provided but --use_existing_station_list flag is missing.")
+        exit(1)
+
     validate_args(args)
     if args.duration.endswith('s') or args.duration.endswith('S'):
         args.duration = int(args.duration[0:-1])
@@ -3095,6 +3198,10 @@ times the file is downloaded.
                 security = [args.sixg_security]
                 ssid = [args.sixg_ssid]
                 passwd = [args.sixg_passwd]
+            elif bands == "Both":
+                security = [args.twog_security, args.fiveg_security]
+                ssid = [args.twog_ssid, args.fiveg_ssid]
+                passwd = [args.twog_passwd, args.fiveg_passwd]
         http = HttpDownload(lfclient_host=args.mgr, lfclient_port=args.mgr_port,
                             upstream=args.upstream_port, num_sta=args.num_stations,
                             security=security, ap_name=args.ap_name,
@@ -3189,28 +3296,56 @@ times the file is downloaded.
             if args.file_path is None:
                 print("WARNING: Please Specify the path of the file, if you select the --get_url_from_file")
                 exit(0)
+        
+        if args.num_stations:
+            http.set_values()
 
-        http.set_values() 
-        station_list = http.station_list
+        # Existing-station validation (--use_existing_station_list)
+        existing_sta_list = []
+        if args.client_type in ("Virtual", "Both") and getattr(args, 'use_existing_station_list', False):
+            raw = getattr(args, 'existing_station_list', None)
+            if raw:
+                existing_sta_list = http.validate_existing_stations(raw)
+                logger.info(f"Existing stations after validation: {existing_sta_list}")
+            else:
+                logger.warning("--use_existing_station_list set but --existing_station_list is empty — ignoring.")
+        
+        # Merge existing stations into the global station list
+        for eid in existing_sta_list:
+            if eid not in http.station_list:
+                http.station_list.append(eid)
+                http.existing_station_list.append(eid)  # Store Existing Station List.
+
+        if has_existing_stations:
+            station_list = http.existing_station_list
+        else:
+            station_list = http.station_list
+        logger.info(f"We are Printing Station List : {station_list}")
+        
+        if args.client_type == "Virtual":
+            if has_existing_stations:
+                args.num_stations = len(http.existing_station_list)
+            else:
+                args.num_stations = len(http.station_list)
 
         all_client_list = []
         if args.client_type == "Real":
             all_client_list = port_list
         elif args.client_type == "Virtual":
-            all_client_list = station_list[0]
+            all_client_list = station_list
         elif args.client_type == "Both":
-            all_client_list = port_list + station_list[0]
+            all_client_list = port_list + station_list
 
         if args.client_type == "Both":
-            args.num_stations = len(port_list)+len(station_list[0])
-            for sta in station_list[0]:
+            args.num_stations = len(port_list)+len(station_list)
+            for sta in station_list:
                 client_type_list.append("virtual station")
                 device_type_list.append("Virtual")
             http.client_type_list = client_type_list
             http.device_type_list = device_type_list
         elif args.client_type == "Virtual":          # ADD this block
             client_type_list, device_type_list = [], []
-            for sta in station_list[0]:
+            for sta in station_list:
                 client_type_list.append("virtual station")
                 device_type_list.append("Virtual")
             http.client_type_list = client_type_list
@@ -3218,7 +3353,10 @@ times the file is downloaded.
         
     
         print("We are printing all client list : ",all_client_list)
-        http.precleanup()
+
+        if args.num_stations and not has_existing_stations:   # Ensuring No Cleanup if existing station list is provided.
+            http.precleanup()
+
         if args.iot_test:
             if args.iot_iterations > 1:
                 thread = threading.Thread(target=trigger_iot, args=(iot_ip, iot_port, iot_iterations, iot_delay, iot_device_list, iot_testname, iot_increment))
@@ -3240,6 +3378,7 @@ times the file is downloaded.
                     daemon=True
                 )
                 iot_thread.start()
+        
         http.build_cx()
         if args.client_type == 'Real' or args.client_type == "Both":
             http.monitor_cx()
@@ -3525,7 +3664,7 @@ times the file is downloaded.
             "SSID": ssid,
             "Security": security,
             "No of Virtual Stations": args.num_stations,
-            "Virtual Station List" : ",".join(station_list[0]),
+            "Virtual Station List" : ",".join(station_list),
             "Traffic Direction": "Download",
             "Traffic Duration ": duration
         }
@@ -3573,9 +3712,9 @@ times the file is downloaded.
             "SSID 5G" : args.fiveg_ssid,
             "SSID 6G" : args.sixg_ssid,
             "Security (Virtual)": security,
-            "No of Test Devices": f"Real : {len(device_list)} "+f" Virtual : {len(station_list[0])} ",
+            "No of Test Devices": f"Real : {len(device_list)} "+f" Virtual : {len(station_list)} ",
             "Real Devices" : f"Total: {len(device_list)} "+" "+", ".join(all_devices_names),
-            "Virtual Stations" : f"Total: {len(station_list[0])} "+" "+", ".join(station_list[0]),
+            "Virtual Stations" : f"Total: {len(station_list)} "+" "+", ".join(station_list),
             "Traffic Direction": "Download",
             "Traffic Duration ": duration
         }
@@ -3619,7 +3758,7 @@ times the file is downloaded.
         elif args.client_type == "Virtual":
             devices = station_list
         elif args.client_type == "Both":
-            devices = port_list + station_list[0]
+            devices = port_list + station_list
         lis = list(range(1, len(devices) + 1))
     
 
@@ -3662,7 +3801,10 @@ times the file is downloaded.
                          dut_sw_version=args.dut_sw_version, dut_model_num=args.dut_model_num,
                          dut_serial_num=args.dut_serial_num, test_id=args.test_id,
                          test_input_infor=test_input_infor, csv_outfile=args.csv_outfile, iot_summary=iot_summary)
-    http.postcleanup()
+    if not has_existing_stations:
+        http.postcleanup()
+    
+    http.http_profile.cleanup() # To ensure l4 endpoints cleanup only (to still again maintain existing virtual stations)
     # FOR WEBGUI, filling csv at the end to get the last terminal logs
     if args.dowebgui:
         http.copy_reports_to_home_dir()

@@ -1,0 +1,3354 @@
+#!/usr/bin/env python3
+"""
+    NAME: lf_video_streaming.py
+    Purpose: To be generic script for LANforge-Interop devices(Real clients) which runs layer4-7 traffic
+    For now the test script supports for Video streaming of real devices.
+
+    Pre-requisites: Real devices should be connected to the LANforge MGR and Interop app should be open on the real clients which are connected to Lanforge
+
+    Prints the list of data from layer4-7 such as uc-avg time, total url's, url's per sec
+
+    Example-1:
+    Command Line Interface to run Video Streaming test with media source HLS and media quality 1080P :
+    python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+    --media_quality 1080P --duration 1m --device_list 1.10,1.11 --debug --test_name video_streaming_test
+
+    Example-2:
+    Command Line Interface to run Video Streaming test with media source DASH and media quality 4K :
+    python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd" --media_source dash
+    --media_quality 4K --duration 1m --device_list 1.10,1.11 --debug --test_name video_streaming_test
+
+    Example-3:
+    Command Line Interface to run the Video Streaming test with specified Resources:
+    python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+    --media_quality 1080P --duration 1m --device_list 1.10,1.11 --debug --test_name video_streaming_test
+
+
+    Example-4:
+    Command Line Interface to run the Video Streaming test with incremental Capacity by specifying the --incremental flag
+    python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+    --media_quality 1080P --duration 1m --device_list 1.10,1.11 --incremental --debug --test_name video_streaming_test
+
+    Example-5:
+    Command Line Interface to run Video Streaming test with precleanup:
+    python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+    --media_quality 1080P  --duration 1m --device_list 1.10,1.11 --precleanup --debug --test_name video_streaming_test
+
+    Example-6:
+    Command Line Interface to run Video Streaming test with postcleanup:
+    python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+    --media_quality 1080P --duration 1m --device_list 1.10,1.11 --postcleanup --debug --test_name video_streaming_test
+
+    Example-7:
+    Command Line Interface to run the Video Streaming test with incremental Capacity
+    python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+    --media_quality 1080P --duration 1m --device_list 1.10,1.11 --incremental_capacity 1,2 --debug --test_name video_streaming_test
+
+    Example-8:
+    Command Line Interface to run the Video Streaming test with wifi interface configuration to particular ssid
+    python3 lf_video_streaming.py --mgr 192.168.213.218 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+    --media_quality 1080P --duration 1m  --debug --test_name video_streaming_test --ssid VINTROP_wpa2 --passwd lanforge --encryp wpa2 --upstream_port 1.1.eth1 --config
+
+    Example-9:
+    Command Line Interface to run the Video Streaming with particular group of devices configured to particular ssid profile
+    python3 lf_video_streaming.py --mgr 192.168.213.218 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+    --media_quality 1080P --duration 1m  --debug --test_name video_streaming_test --upstream_port 1.1.eth1 --file_name laxmi_csv --group_name group1 --profile_name Openwpa2
+
+    Example-10:
+    Command Line Interface to run the Video Streaming with expected pass fail value
+    python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+    --media_quality 1080P --duration 1m --device_list 1.10,1.12 --debug --test_name video_streaming_test --expected_passfail_value 5
+
+    Example-11:
+    Command Line Interface to run the Test along with IOT without device list
+    python3 -u lf_video_streaming.py --mgr 192.168.242.2 --duration 1m --url https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd --test_name videostreaming
+    --webgui_incremental 1 --media_source dash --media_quality 4k --postcleanup --precleanup --iot_test --iot_testname "IotVideoStreaming"
+
+    Example-12:
+    Command Line Interface to run the Test along with IOT with device list
+    python3 -u lf_video_streaming.py --mgr 192.168.242.2 --duration 1m --url https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd --test_name videostreaming
+    --webgui_incremental 1 --media_source dash --media_quality 4k --postcleanup --precleanup --iot_test --iot_testname "IotVideoStreaming" --iot_device_list "switch.smart_plug_1_socket_1"
+
+    Example-13:
+    Command Line Interface to run the Video Streaming Test along with Robot at the specified coordinates without any rotation
+    python3 lf_video_streaming.py --mgr 192.168.207.78 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls    --media_quality 1080P --duration 1m  --debug
+    --test_name video_streaming_test --robot_test --robot_ip 192.168.204.101 --coordinate 3,4
+
+    Example-14:
+    Command Line Interface to run the Video Streaming Test along with Robot by enabling rotation at the specified coordinates
+    python3 lf_video_streaming.py --mgr 192.168.207.78 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls    --media_quality 1080P --duration 1m  --debug
+    --test_name video_streaming_test --robot_test --robot_ip 192.168.204.101 --coordinate 3,4 --rotation 30,70
+
+    Example-15:
+    Command Line Interface to run Video Streaming test using a DASH stream hosted on the local LANforge server
+    python3 lf_video_streaming.py --mgr 192.168.207.78 --url "http://192.168.204.63/kalki/kalki.mpd" --media_source dash    --media_quality 1080P --duration 1m  --debug
+    --test_name video_streaming_test
+
+    Example-16:
+    Command Line Interface to run Video Streaming test using a DASH stream hosted on the local LANforge server with Robot at specified coordinates without any rotation
+    python3 lf_video_streaming.py --mgr 192.168.207.78 --url "http://192.168.204.63/kalki/kalki.mpd" --media_source dash    --media_quality 1080P --duration 1m  --debug
+    --test_name video_streaming_test --robot_test --robot_ip 192.168.204.101 --coordinate 3,4
+
+    SCRIPT CLASSIFICATION: Test
+
+    SCRIPT_CATEGORIES:   Performance,  Functional, Report Generation
+
+    NOTES:
+        1. Use './lf_video_streaming.py --help' to see command line usage and options.
+        2. If --device_list are not given after passing the CLI, a list of available devices will be displayed on the terminal.
+        3. To run the test by specifying the incremental capacity, enable the --incremental flag.
+
+        STATUS: BETA RELEASE
+
+        VERIFIED_ON:
+        Working date - 29/07/2024
+        Build version - 5.4.8
+        kernel version - 6.2.16+
+
+        License: Free to distribute and modify. LANforge systems must be licensed.
+        Copyright (C) 2020-2026 Candela Technologies Inc.
+
+
+"""
+from lf_base_robo import RobotClass
+import sys
+import os
+import importlib
+import argparse
+import time
+import pandas as pd
+import logging
+import json
+import shutil
+import asyncio
+import csv
+from datetime import datetime, timedelta
+from lf_graph import lf_bar_graph_horizontal
+from lf_graph import lf_line_graph
+import threading
+from collections import OrderedDict
+
+
+if sys.version_info[0] != 3:
+    print("This script requires Python3")
+    exit()
+sys.path.append(os.path.join(os.path.abspath(__file__ + "../../../")))
+interop_modify = importlib.import_module("py-scripts.lf_interop_modify")
+base = importlib.import_module('py-scripts.lf_base_interop_profile')
+lf_csv = importlib.import_module("py-scripts.lf_csv")
+realm = importlib.import_module("py-json.realm")
+LFCliBase = realm.LFCliBase
+Realm = realm.Realm
+base_RealDevice = base.RealDevice
+lf_report = importlib.import_module("py-scripts.lf_report")
+lf_report_pdf = importlib.import_module("py-scripts.lf_report")
+lf_graph = importlib.import_module("py-scripts.lf_graph")
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(message)s'
+)
+logger = logging.getLogger(__name__)
+lf_logger_config = importlib.import_module("py-scripts.lf_logger_config")
+port_utils = importlib.import_module("py-json.port_utils")
+PortUtils = port_utils.PortUtils
+DeviceConfig = importlib.import_module("py-scripts.DeviceConfig")
+
+iot_scripts_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../local/interop-webGUI/IoT/scripts/"))
+if os.path.exists(iot_scripts_path):
+    sys.path.insert(0, iot_scripts_path)
+    from test_automation import Automation  # noqa: E402
+
+
+class VideoStreamingTest(Realm):
+    def __init__(self, host, ssid, passwd, encryp, media_source, media_quality, suporrted_release=None, max_speed=None, url=None,
+                 urls_per_tenm=None, duration=None, resource_ids=None, dowebgui=False, result_dir="", test_name=None, incremental=None, postcleanup=False, precleanup=False,
+                 pass_fail_val=None, csv_name=None, groups=None, profiles=None, config=None, file_name=None,
+                 floors=None,
+                 get_live_view=None,
+                 upstream_port=None,
+                 device_list=None,
+                 webgui_incremental=None, robot_test=False,
+                 robot_ip=None,
+                 coordinate=None,
+                 rotation=None,
+                 rotation_enabled=None,
+                 angle_list=None):
+        super().__init__(lfclient_host=host, lfclient_port=8080)
+        self.adb_device_list = None
+        self.host = host
+        self.phn_name = []
+        self.ssid = ssid
+        self.test_setup_info_ssid = ssid
+        self.passwd = passwd
+        self.encryp = encryp
+        self.media_source = media_source
+        self.media_quality = media_quality
+        self.supported_release = suporrted_release
+        self.device_name = []
+        self.android_devices = []
+        self.other_os_list = []
+        self.android_list = []
+        self.other_list = []
+        self.real_sta_data_dict = {}
+        self.ip_map = {}
+        self.max_speed = 0  # infinity
+        self.quiesce_after = 0  # infinity
+        self.health = None
+        self.phone_data = None
+        self.max_speed = max_speed
+        self.url = url
+        self.urls_per_tenm = urls_per_tenm
+        self.duration = duration
+        self.resource_ids = resource_ids
+        self.dowebgui = dowebgui
+        self.result_dir = result_dir
+        self.test_name = test_name
+        self.incremental = incremental
+        self.postCleanUp = postcleanup
+        self.preCleanUp = precleanup
+        self.devices = base_RealDevice(manager_ip=self.host, selected_bands=[])
+        self.local_realm = realm.Realm(lfclient_host=self.host, lfclient_port=8080)
+        self.port_util = PortUtils(self.local_realm)
+        self.http_profile = self.local_realm.new_http_profile()
+        self.interop = base.BaseInteropWifi(manager_ip=self.host,
+                                            port=8080,
+                                            ssid=self.ssid,
+                                            passwd=self.passwd,
+                                            encryption=self.encryp,
+                                            release=self.supported_release,
+                                            screen_size_prcnt=0.4,
+                                            _debug_on=False,
+                                            _exit_on_error=False)
+        self.utility = base.UtilityInteropWifi(host_ip=self.host)
+        self.generic_endps_profile = self.new_generic_endp_profile()
+        self.generic_endps_profile.type = 'youtube'
+        self.generic_endps_profile.name_prefix = "yt"
+        self.background_run = None
+        self.stop_test = False
+        self.expected_passfail_val = pass_fail_val
+        self.csv_name = csv_name
+        self.selected_groups = groups
+        self.selected_profiles = profiles
+        self.config = config
+        self.file_name = file_name
+        self.floors = floors
+        self.get_live_view = get_live_view
+        self.config_obj = None
+        self.upstream_port = upstream_port
+        self.device_list = device_list
+        self.webgui_incremental = webgui_incremental
+        # Initializing robot test parameters
+        self.robot_test = robot_test
+        self.vs_data = {}
+        self.test_stopped = False
+        if robot_test:
+            self.robot_ip = robot_ip
+            self.coordinate = coordinate
+            self.rotation = rotation
+            self.rotation_enabled = False
+            self.coordinate_list = coordinate.split(',')
+            self.rotation_list = rotation.split(',')
+            self.current_coordinate = None
+            self.current_angle = None
+            self.angle_list = angle_list
+            self.rotation_enabled = rotation_enabled
+            self.robot = RobotClass(robo_ip=self.robot_ip, angle_list=self.angle_list)
+            self.last_rotated_angles = []
+            self.charge_point_name = None
+
+    @property
+    def run(self):
+        # Checks various configuration things on Interop tab, Uses lf_base_interop_profile.py library
+        self.adb_device_list = self.interop.check_sdk_release()
+        for i in self.adb_device_list:
+            self.device_name.append(self.interop.get_device_details(device=i, query="user-name"))
+        logging.info(self.device_name)
+
+        self.interop.stop()
+        for i in self.adb_device_list:
+            self.interop.batch_modify_apply(i)
+            time.sleep(5)
+        self.interop.set_user_name(device=self.adb_device_list)
+
+        for i in self.adb_device_list:
+            self.utility.forget_netwrk(i)
+
+        health = dict.fromkeys(self.adb_device_list)
+        # Getting Health for each device
+        for i in self.adb_device_list:
+            # post = self.utility.post_adb_(device=i,cmd="shell ip addr show wlan0  | grep 'inet ' | cut -d ' ' -f 6 | cut -d / -f 1")
+            # print("POST IP ", post)
+            dev_state = self.utility.get_device_state(device=i)
+            logging.info("Device State : {dev_state}".format(dev_state=dev_state))
+
+            logging.info("device state" + dev_state)
+            if dev_state == "COMPLETED,":
+                logging.info("phone is in connected state")
+                logging.info("phone is in connected state")
+                ssid = self.utility.get_device_ssid(device=i)
+                if ssid == self.ssid:
+                    logging.info("device is connected to expected ssid")
+                    logging.info("device is connected to expected ssid")
+                    health[i] = self.utility.get_wifi_health_monitor(device=i, ssid=self.ssid)
+                    logging.info("health health:: ", health)
+                    logging.info("Launching Interop UI")
+                    logging.info("health :: {health}".format(health=health))
+                    logging.info("Launching Interop UI")
+
+                    self.interop.launch_interop_ui(device=i)
+        self.health = health
+        logging.info("Health:: ", health)
+
+        self.phone_data = self.get_resource_data()
+        logging.info("Phone List : ", self.phone_data)
+        logging.info("Phone List : {phone_data}".format(phone_data=self.phone_data))
+
+        time.sleep(5)
+
+    def change_port_to_ip(self, upstream_port):
+        """
+        Convert a given port name to its corresponding IP address if it's not already an IP.
+
+        This function checks whether the provided `upstream_port` is a valid IPv4 address.
+        If it's not, it attempts to extract the IP address of the port by resolving it
+        via the internal `name_to_eid()` method and then querying the IP using `json_get()`.
+
+        Args:
+            upstream_port (str): The name or IP of the upstream port. This could be a LANforge port name like '1.1.eth1' or an IP address.
+
+        Returns:
+            str: The resolved IP address if the port name was converted successfully,
+            otherwise returns the original input if it was already an IP or if resolution fails.
+
+        Logs:
+            - A warning if the port is not Ethernet or IP resolution fails.
+            - Info logs for the resolved or passed IP.
+
+        """
+        if upstream_port.count('.') != 3:
+            target_port_list = self.name_to_eid(upstream_port)
+            shelf, resource, port, _ = target_port_list
+            try:
+                target_port_ip = self.json_get(f'/port/{shelf}/{resource}/{port}?fields=ip')['interface']['ip']
+                upstream_port = target_port_ip
+            except Exception:
+                logging.warning(f'The upstream port is not an ethernet port. Proceeding with the given upstream_port {upstream_port}.')
+            logging.info(f"Upstream port IP {upstream_port}")
+        else:
+            logging.info(f"Upstream port IP {upstream_port}")
+
+        return upstream_port
+
+    def convert_to_dict(self, input_list):
+        """
+            Creating dictionary for devices for pre_cleanup
+        """
+        output_dict = {}
+
+        for item in input_list:
+            parts = item.split('.')
+            device = parts[2]
+            key = f"{device}_http{parts[1]}_l4"
+            value = f"CX_{device}_http{parts[1]}_l4"
+            output_dict[key] = value
+
+        return output_dict
+
+    def build(self):
+        """If the Pre-requisites are satisfied then this function gets the list of Real devices connected to LANforge
+        and processes them for Layer 4-7 traffic profile creation
+        """
+
+        self.data = {}
+        self.total_urls_dict = {}
+        self.data_for_webui = {}
+        self.all_cx_list = []
+
+        self.req_total_urls = []
+        self.req_urls_per_sec = []
+        self.req_uc_min_val = []
+        self.req_uc_avg_val = []
+        self.req_uc_max_val = []
+        self.req_total_err = []
+        self.device_type = []
+        self.username = []
+        self.ssid = []
+        self.mac = []
+        self.mode = []
+        self.rssi = []
+        self.channel = []
+        self.tx_rate = []
+        self.time_data = []
+        self.temp = []
+        self.total_duration = ""
+        self.formatted_endtime_str = ""
+        self.phone_data = self.get_resource_data()
+
+        self.direction = 'dl'
+        self.dest = '/dev/null'
+        self.max_speed = self.max_speed
+        self.requests_per_ten = self.urls_per_tenm
+        upload_name = self.phone_data[-1].split('.')[-1]
+        self.created_cx = self.http_profile.created_cx = self.convert_to_dict(self.phone_data)
+        if self.preCleanUp:
+            self.precleanup()
+        logging.info("Creating Layer-4 endpoints from the user inputs as test parameters")
+        time.sleep(5)
+        self.http_profile.created_cx.clear()
+
+        if 'https' in self.url:
+            self.url = self.url.replace("http://", "").replace("https://", "")
+            self.create_real(ports=self.phone_data, sleep_time=.5, upload_name=upload_name,
+                             suppress_related_commands_=None, https=True,
+                             https_ip=self.url, interop=True, proxy_auth_type=74240, media_source=self.media_source, media_quality=self.media_quality, timeout=1000)
+        elif 'http' in self.url:
+            self.url = self.url.replace("http://", "").replace("https://", "")
+            self.create_real(ports=self.phone_data, sleep_time=.5, upload_name=upload_name,
+                             suppress_related_commands_=None, http=True,
+                             http_ip=self.url, interop=True, proxy_auth_type=74240, media_source=self.media_source, media_quality=self.media_quality, timeout=1000)
+
+        else:
+            self.create_real(ports=self.phone_data, sleep_time=.5, upload_name=upload_name,
+                             suppress_related_commands_=None, http=True,
+                             http_ip=self.url, interop=True, proxy_auth_type=74240, media_source=self.media_source, media_quality=self.media_quality, timeout=1000)
+        time.sleep(5)
+
+    def start(self):
+        logging.info("Setting Cx State to Runnning")
+        self.http_profile.start_cx()
+        try:
+            for i in self.http_profile.created_cx.keys():
+                while self.local_realm.json_get("/cx/" + i).get(i).get('state') != 'Run':
+                    continue
+        except Exception as e:
+            logger.info(f"Exception Occured {e}")
+
+    def start_specific(self, cx_start_list):
+        logging.info("Setting Cx State to Runnning")
+        for cx_name in cx_start_list:
+            self.json_post("/cli-json/set_cx_state", {
+                "test_mgr": "default_tm",
+                "cx_name": self.http_profile.created_cx[cx_name],
+                "cx_state": "RUNNING"
+            }, debug_=self.debug)
+        logging.info("Setting Cx State to Runnning")
+        try:
+            for i in self.http_profile.created_cx.keys():
+                while self.local_realm.json_get("/cx/" + i).get(i).get('state') != 'Run':
+                    continue
+        except Exception as e:
+            logger.info(f"Exception occured: {e}")
+        logging.info("Test started at : {0} ".format(datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+    def map_sta_ips_real(self, sta_list=None):
+        if sta_list is None:
+            sta_list = []
+        for sta_eid in sta_list:
+            eid = self.name_to_eid(sta_eid)
+            sta_list = self.json_get("/port/%s/%s/%s?fields=alias,ip" % (eid[0], eid[1], eid[2]))
+            if sta_list['interface'] is not None:
+                eid_key = "{eid0}.{eid1}.{eid2}".format(eid0=eid[0], eid1=eid[1], eid2=eid[2])
+                self.ip_map[eid_key] = sta_list['interface']['ip']
+
+    def create_real(self, ports=None, sleep_time=.5, debug_=False, suppress_related_commands_=None, http=False, ftp=False, real=False,
+                    https=False, user=None, passwd=None, source=None, ftp_ip=None, upload_name=None, http_ip=None,
+                    https_ip=None, interop=None, media_source=None, media_quality=None, timeout=10, proxy_auth_type=0x2200, windows_list=None, get_url_from_file=False):
+        if ports is None:
+            ports = []
+        if windows_list is None:
+            windows_list = []
+        cx_post_data = []
+        self.map_sta_ips_real(ports)
+        logger.info("Create HTTP CXs..." + __name__)
+        for i in range(len(list(self.ip_map))):
+            url = None
+            if i != len(list(self.ip_map)) - 1:
+                port_name = list(self.ip_map)[i]
+                ip_addr = self.ip_map[list(self.ip_map)[i + 1]]
+            else:
+                port_name = list(self.ip_map)[i]
+                ip_addr = self.ip_map[list(self.ip_map)[0]]
+
+            if (ip_addr is None) or (ip_addr == ""):
+                raise ValueError("HTTPProfile::create encountered blank ip/hostname")
+            if interop:
+                if list(self.ip_map)[i] in windows_list:
+                    self.dest = 'NUL'
+                if list(self.ip_map)[i] not in windows_list:
+                    self.dest = '/dev/null'
+            rv = self.local_realm.name_to_eid(port_name)
+            shelf = rv[0]
+            resource = rv[1]
+            name = rv[2]
+            if upload_name is not None:
+                name = upload_name
+
+            if http:
+                if http_ip is not None:
+                    if get_url_from_file:
+                        self.port_util.set_http(port_name=name, resource=resource, on=True)
+                        url = "%s %s %s" % ("", http_ip, "")
+                        logger.info("HTTP url:{}".format(url))
+                    else:
+                        self.port_util.set_http(port_name=name, resource=resource, on=True)
+                        url = "%s http://%s %s" % (self.direction, http_ip, self.dest)
+                        logger.info("HTTP url:{}".format(url))
+                else:
+                    self.port_util.set_http(port_name=name, resource=resource, on=True)
+                    url = "%s http://%s/ %s" % (self.direction, ip_addr, self.dest)
+                    logger.info("HTTP url:{}".format(url))
+            if https:
+                if https_ip is not None:
+                    self.port_util.set_http(port_name=name, resource=resource, on=True)
+                    url = "%s https://%s %s" % (self.direction, https_ip, self.dest)
+                else:
+                    self.port_util.set_http(port_name=name, resource=resource, on=True)
+                    url = "%s https://%s/ %s" % (self.direction, ip_addr, self.dest)
+
+            if real:
+                if http_ip is not None:
+                    if get_url_from_file:
+                        self.port_util.set_http(port_name=name, resource=resource, on=True)
+                        url = "%s %s %s" % ("", http_ip, "")
+                        logger.info("HTTP url:{}".format(url))
+                    else:
+                        self.port_util.set_http(port_name=name, resource=resource, on=True)
+                        url = "%s %s %s" % (self.direction, http_ip, self.dest)
+                        logger.info("HTTP url:{}".format(url))
+                else:
+                    self.port_util.set_http(port_name=name, resource=resource, on=True)
+                    url = "%s %s/ %s" % (self.direction, ip_addr, self.dest)
+                    logger.info("HTTP url:{}".format(url))
+
+            if ftp:
+                # print("create() - eid_port:{eid_port}".format(eid_port=eid_port))
+                self.port_util.set_ftp(port_name=name, resource=resource, on=True)
+                if user is not None and passwd is not None and source is not None:
+                    if ftp_ip is not None:
+                        ip_addr = ftp_ip
+                    url = "%s ftp://%s:%s@%s%s %s" % (self.direction, user, passwd, ip_addr, source, self.dest)
+                    logger.info("###### url:{}".format(url))
+                else:
+                    raise ValueError("user: %s, passwd: %s, and source: %s must all be set" % (user, passwd, source))
+            if not http and not ftp and not https and not real:
+                raise ValueError("Please specify ftp and/or http")
+
+            if (url is None) or (url == ""):
+                raise ValueError("HTTPProfile::create: url unset")
+            if ftp:
+                cx_name = 'vs_' + name + "_ftp"
+            else:
+
+                cx_name = 'vs_' + name + "_http"
+
+            if interop is None:
+                if upload_name is None:
+                    endp_data = {
+                        "alias": cx_name + "_l4",
+                        "shelf": shelf,
+                        "resource": resource,
+                        "port": name,
+                        "type": "l4_generic",
+                        "timeout": timeout,
+                        "url_rate": self.requests_per_ten,
+                        "url": url,
+                        # proxy auth flag 0x200 for BIND DNS check
+                        "proxy_auth_type": 0x200,
+                        "quiesce_after": self.quiesce_after,
+                        "max_speed": self.max_speed
+                    }
+                else:
+                    endp_data = {
+                        "alias": cx_name + "_l4",
+                        "shelf": shelf,
+                        "resource": resource,
+                        # "port": ports[0],
+                        "port": rv[2],
+                        "type": "l4_generic",
+                        "timeout": timeout,
+                        "url_rate": self.requests_per_ten,
+                        "url": url,
+                        "ssl_cert_fname": "ca-bundle.crt",
+                        "proxy_port": 0,
+                        "max_speed": self.max_speed,
+                        # proxy auth flag 0x200 for BIND DNS check
+                        "proxy_auth_type": 0x200,
+                        "quiesce_after": self.quiesce_after
+                    }
+                set_endp_data = {
+                    "alias": cx_name + str(resource) + "_l4",
+                    "media_source": media_source,
+                    "media_quality": media_quality,
+                    # "media_playbacks":'0'
+                }
+                url = "cli-json/add_l4_endp"
+                self.json_post(url, endp_data, debug_=debug_,
+                               suppress_related_commands_=suppress_related_commands_)
+                time.sleep(sleep_time)
+                # If media source and media quality is given then this code will set media source and media quality for CX
+                if media_source and media_quality:
+                    url1 = "cli-json/set_l4_endp"
+                    self.json_post(url1, set_endp_data, debug_=debug_,
+                                   suppress_related_commands_=suppress_related_commands_)
+
+                endp_data = {
+                    "alias": "CX_" + cx_name + "_l4",
+                    "test_mgr": "default_tm",
+                    "tx_endp": cx_name + "_l4",
+                    "rx_endp": "NA"
+                }
+                # print("http_profile - endp_data:{endp_data}".format(endp_data=endp_data))
+                cx_post_data.append(endp_data)
+                self.created_cx[cx_name + "_l4"] = "CX_" + cx_name + "_l4"
+            else:  # If Interop is enabled then this code will work
+                if upload_name is None:
+                    endp_data = {
+                        "alias": cx_name + str(resource) + "_l4",
+                        "shelf": shelf,
+                        "resource": resource,
+                        "port": name,
+                        "type": "l4_generic",
+                        "timeout": timeout,
+                        "url_rate": self.requests_per_ten,
+                        "url": url,
+                        "proxy_auth_type": proxy_auth_type,
+                        "quiesce_after": self.quiesce_after,
+                        "max_speed": self.max_speed
+                    }
+                else:
+                    endp_data = {
+                        "alias": cx_name + str(resource) + "_l4",
+                        "shelf": shelf,
+                        "resource": resource,
+                        # "port": ports[0],
+                        "port": rv[2],
+                        "type": "l4_generic",
+                        "timeout": timeout,
+                        "url_rate": self.requests_per_ten,
+                        "url": url,
+                        "ssl_cert_fname": "ca-bundle.crt",
+                        "proxy_port": 0,
+                        "max_speed": self.max_speed,
+                        "proxy_auth_type": proxy_auth_type,
+                        "quiesce_after": self.quiesce_after
+                    }
+                set_endp_data = {
+                    "alias": cx_name + str(resource) + "_l4",
+                    "media_source": media_source,
+                    "media_quality": media_quality,
+                    # "media_playbacks":'0'
+                }
+                url = "cli-json/add_l4_endp"
+                self.json_post(url, endp_data, debug_=debug_,
+                               suppress_related_commands_=suppress_related_commands_)
+                time.sleep(sleep_time)
+                # If media source and media quality is given then this code will set media source and media quality for CX
+                if media_source and media_quality:
+                    url1 = "cli-json/set_l4_endp"
+                    self.json_post(url1, set_endp_data, debug_=debug_,
+                                   suppress_related_commands_=suppress_related_commands_)
+
+                endp_data = {  # Added resource id to alias and End point name as all real clients have same name(wlan0)
+                    "alias": "CX_" + cx_name + str(resource) + "_l4",
+                    "test_mgr": "default_tm",
+                    "tx_endp": cx_name + str(resource) + "_l4",
+                    "rx_endp": "NA"
+                }
+                # print("http_profile - endp_data:{endp_data}".format(endp_data=endp_data))
+                cx_post_data.append(endp_data)
+                self.created_cx[cx_name + str(resource) + "_l4"] = "CX_" + cx_name + str(resource) + "_l4"
+        self.http_profile.created_cx = self.created_cx
+
+        for cx_data in cx_post_data:
+            url = "/cli-json/add_cx"
+            self.json_post(url, cx_data, debug_=debug_,
+                           suppress_related_commands_=suppress_related_commands_)
+            time.sleep(sleep_time)
+
+        # enabling geturl from file for each endpoint
+        if get_url_from_file:
+            for cx in list(self.created_cx.keys()):
+                self.json_post("/cli-json/set_endp_flag", {"name": cx,
+                                                           "flag": "GetUrlsFromFile",
+                                                           "val": 1
+                                                           }, suppress_related_commands_=True)
+
+    def stop(self):
+        # Stops the layer 4-7 traffic for created CX end points
+        if self.resource_ids:
+            self.data['remaining_time_webGUI'] = ["0:00:00"]
+        logging.info("Setting Cx State to Stopped")
+        self.http_profile.stop_cx()
+
+    def precleanup(self):
+        self.http_profile.cleanup()
+
+    def postcleanup(self):
+        # Cleans the layer 4-7 traffic for created CX end points
+        self.http_profile.cleanup()
+
+    def my_monitor_runtime(self):
+        try:
+
+            """
+                Retrieves monitoring data for the created CX endpoints based on specified data metrics.
+
+                Parameters:
+                - data_mon (str): Data metrics to monitor, provided as a string.
+
+                Returns:
+                - data1 (list): List containing monitoring data for the specified metrics across all created CX endpoints.
+
+                This method performs the following actions:
+                1. Constructs a URL to retrieve monitoring data from LANforge layer 4 API for all created CX endpoints.
+                2. Retrieves JSON-formatted monitoring data using the constructed URL and specified metrics.
+                3. Iterates through the retrieved data to extract and append the specified metric values ('data_mon') to 'data1' list.
+                4. Returns 'data1', which contains monitoring data for the specified metrics across all created CX endpoints.
+            """
+            data = self.local_realm.json_get(
+                "layer4/{}/list?fields={}".format(
+                    ','.join(self.created_cx.keys()),
+                    "name,status,total-urls,urls/s,total-err,video-format-bitrate,"
+                    "bytes-rd,total-wait-time,total-buffers,total-err,rx rate,frame-rate,video-quality"
+                )
+            )
+            names = []
+            statuses = []
+            total_urls = []
+            urls_per_sec = []
+            total_err = []
+            video_format_bitrate = []
+            bytes_rd = []
+            total_wait_time = []
+            total_buffer = []
+            rx_rate = []
+            frame_rate = []
+            video_quality = []
+
+            if len(self.created_cx.keys()) > 1:
+                data = data['endpoint']
+                for endpoint in data:
+                    for _key, value in endpoint.items():
+                        names.append(value['name'])
+                        statuses.append(value['status'])
+                        total_urls.append(value['total-urls'])
+                        urls_per_sec.append(value['urls/s'])
+                        total_err.append(value['total-err'])
+                        video_format_bitrate.append(value['video-format-bitrate'])
+                        bytes_rd.append(value['bytes-rd'])
+                        total_wait_time.append(value['total-wait-time'])
+                        total_buffer.append(value['total-buffers'])
+                        rx_rate.append(value['rx rate'])
+                        frame_rate.append(value['frame-rate'])
+                        video_quality.append(value['video-quality'])
+            elif len(self.created_cx.keys()) == 1:
+                endpoint = data.get('endpoint', {})
+                names = [endpoint.get('name', '')]
+                statuses = [endpoint.get('status', '')]
+                total_urls = [endpoint.get('total-urls', 0)]
+                urls_per_sec = [endpoint.get('urls/s', 0.0)]
+                total_err = [endpoint.get('total-err', 0)]
+                video_format_bitrate = [endpoint.get('video-format-bitrate', 0)]
+                bytes_rd.append(endpoint.get('bytes-rd', 0))
+                total_wait_time.append(endpoint.get('total-wait-time', 0))
+                total_buffer.append(endpoint.get('total-buffers', 0))
+                rx_rate.append(endpoint.get('rx rate', 0))
+                frame_rate.append(endpoint.get('frame-rate', 0))
+                video_quality.append(endpoint.get('video-quality', 0))
+
+            self.data['status'] = statuses
+            self.data["total_urls"] = total_urls
+            self.data["urls_per_sec"] = urls_per_sec
+            self.data["name"] = names
+            self.data["total_err"] = total_err
+            self.data["video_format_bitrate"] = video_format_bitrate
+            self.data["bytes_rd"] = bytes_rd
+            self.data["total_wait_time"] = total_wait_time
+            self.data["total_buffer"] = total_buffer
+            self.data["rx_rate"] = rx_rate
+            self.data['frame_rate'] = frame_rate
+            self.data['video_quality'] = video_quality
+        except Exception as e:
+            logger.error(f"Error in my_monitor_runtime function: {e}", exc_info=True)
+            logger.info(f"Layer 4 cx data {data}")
+
+    def my_monitor(self, data_mon):
+        # data in json format
+        data = self.local_realm.json_get("layer4/%s/list?fields=%s" %
+                                         (','.join(self.http_profile.created_cx.keys()), data_mon.replace(' ', '+')))
+        data1 = []
+
+        if "endpoint" not in data.keys():
+            logger.error("error in my_monitor function")
+            logger.error("Error: 'endpoint' key not found in port data")
+            logger.info(f"layer4 cx data {data}")
+            exit(1)
+        data = data['endpoint']
+
+        if len(self.http_profile.created_cx.keys()) == 1:
+            for cx in self.http_profile.created_cx.keys():
+                if cx in data['name']:
+                    data1.append(data[data_mon])
+        else:
+            for cx in self.http_profile.created_cx.keys():
+                for info in data:
+                    if cx in info:
+                        data1.append(info[cx][data_mon])
+        return data1
+
+    def get_resource_data(self):
+        # Gets the list of Real devices connected to LANforge
+        resource_id_list = []
+        phone_name_list = []
+        mac_address = []
+        user_name = []
+        phone_radio = []
+        rx_rate = []
+        tx_rate = []
+        station_name = []
+        ssid = []
+
+        eid_data = self.json_get("ports?fields=alias,mac,mode,Parent Dev,rx-rate,tx-rate,ssid,signal,phantom")
+        if "interfaces" not in eid_data.keys():
+            logger.error("Error: 'interfaces' key not found in port data")
+            exit(1)
+        resource_ids = []
+        if self.resource_ids:
+            resource_ids = list(map(int, self.resource_ids.split(',')))
+        for alias in eid_data["interfaces"]:
+            for i in alias:
+                if int(i.split(".")[1]) > 1 and alias[i]["alias"] == 'wlan0' and not alias[i]["phantom"]:
+                    resource_id_list.append(i.split(".")[1])
+                    resource_hw_data = self.json_get("/resource/" + i.split(".")[0] + "/" + i.split(".")[1])
+                    hw_version = resource_hw_data['resource']['hw version']
+
+                    if not hw_version.startswith(('Win', 'Linux', 'Apple')) and int(resource_hw_data['resource']['eid'].split('.')[1]) in resource_ids:
+                        station_name.append(i)
+
+                    mac = alias[i]["mac"]
+
+                    rx = "Unknown" if (alias[i]["rx-rate"] == 0 or alias[i]["rx-rate"] == '') else alias[i]["rx-rate"]
+                    tx = "Unknown" if (alias[i]["tx-rate"] == 0 or alias[i]["rx-rate"] == '') else alias[i]["tx-rate"]
+                    ssid.append(alias[i]["ssid"])
+                    rx_rate.append(rx)
+                    tx_rate.append(tx)
+                    # Getting username
+                    user = resource_hw_data['resource']['user']
+                    user_name.append(user)
+                    # Getting user Hardware details/Name
+                    hw_name = resource_hw_data['resource']['hw version'].split(" ")
+                    name = " ".join(hw_name[0:2])
+                    phone_name_list.append(name)
+                    mac_address.append(mac)
+                if int(i.split(".")[1]) > 1 and alias[i]["alias"] == 'wlan0' and alias[i]["parent dev"] == 'wiphy0':
+
+                    # Mapping Radio Name in human readable format
+                    if 'a' not in alias[i]['mode'] or "20" in alias[i]['mode']:
+                        phone_radio.append('2G')
+                    elif 'AUTO' in alias[i]['mode']:
+                        phone_radio.append("AUTO")
+                    else:
+                        phone_radio.append('2G/5G')
+        return station_name
+
+    def get_signal_data(self):
+        resource_ids = list(map(int, self.resource_ids.split(',')))
+        rssi = []
+        tx_rate = []
+        rx_rate = []
+
+        try:
+            eid_data = self.json_get("ports?fields=alias,rx-rate,tx-rate,ssid,signal")
+        except KeyError:
+            logger.error("Error: 'interfaces' key not found in port data")
+            exit(1)
+        for alias in eid_data["interfaces"]:
+            for i in alias:
+                # alias[i]['mac'] alias[i]['ssid'] alias[i]['mode'] resource_hw_data['resource']['user']
+                if int(i.split(".")[1]) > 1 and alias[i]["alias"] == 'wlan0':
+                    resource_hw_data = self.json_get("/resource/" + i.split(".")[0] + "/" + i.split(".")[1])
+                    hw_version = resource_hw_data['resource']['hw version']
+                    if not hw_version.startswith(('Win', 'Linux', 'Apple')) and int(resource_hw_data['resource']['eid'].split('.')[1]) in resource_ids:
+
+                        if "dBm" in alias[i]['signal']:
+                            rssi.append(alias[i]['signal'].split(" ")[0])
+                        else:
+                            rssi.append(alias[i]['signal'])
+
+                        tx_rate.append(alias[i]['tx-rate'])
+                        rx_rate.append(alias[i]['rx-rate'])
+
+        rssi = [0 if i.strip() == "" else int(i) for i in rssi]
+        return rssi, tx_rate
+
+    def monitor_for_runtime_csv(self, duration, file_path, individual_df, iteration, actual_start_time, cx_list=None, curr_coordinate=None, curr_rotation=None, monitor_charge_time=None):
+        try:
+            if cx_list is None:
+                cx_list = []
+            self.all_cx_list.extend(cx_list)
+            test_stopped_by_user = False
+            resource_ids = list(map(int, self.resource_ids.split(',')))
+            self.data_for_webui['resources'] = resource_ids
+            starttime = datetime.now()
+            self.data["name"] = self.my_monitor('name')
+            current_time = datetime.now()
+            endtime = ""
+            endtime = starttime + timedelta(minutes=duration)
+            endtime = endtime.isoformat()[0:19]
+            endtime_check = datetime.strptime(endtime, "%Y-%m-%dT%H:%M:%S")
+            self.data['status'] = self.my_monitor('status')
+            device_type = []
+            username = []
+            ssid = []
+            mac = []
+            channel = []
+            mode = []
+            rssi = []
+            channel = []
+            tx_rate = []
+            rx_rate = []
+
+            resource_ids = list(map(int, self.resource_ids.split(',')))
+            eid_data = self.json_get("ports?fields=alias,mac,mode,Parent Dev,rx-rate,tx-rate,ssid,signal,channel")
+            if "interfaces" not in eid_data.keys():
+                logger.error("Error: 'interfaces' key not found in port data")
+                exit(1)
+
+            for alias in eid_data["interfaces"]:
+                for i in alias:
+                    if int(i.split(".")[1]) > 1 and alias[i]["alias"] == 'wlan0':
+                        resource_hw_data = self.json_get("/resource/" + i.split(".")[0] + "/" + i.split(".")[1])
+                        hw_version = resource_hw_data['resource']['hw version']
+                        if not hw_version.startswith(('Win', 'Linux', 'Apple')) and int(resource_hw_data['resource']['eid'].split('.')[1]) in resource_ids:
+                            device_type.append('Android')
+                            username.append(resource_hw_data['resource']['user'])
+                            ssid.append(alias[i]['ssid'])
+                            mac.append(alias[i]['mac'])
+                            mode.append(alias[i]['mode'])
+                            rssi.append(alias[i]['signal'])
+                            channel.append(alias[i]['channel'])
+                            tx_rate.append(alias[i]['tx-rate'])
+                            rx_rate.append(alias[i]['rx-rate'])
+
+            incremental_capacity_list = self.get_incremental_capacity_list()
+            video_rate_dict = {i: [] for i in range(len(device_type))}
+
+            # Loop until the current time is less than the end time
+            while current_time < endtime_check or self.background_run:
+                if self.test_stopped:
+                    break
+                if self.robot_test:
+                    if self.rotation_enabled:
+                        if (datetime.now() - monitor_charge_time).total_seconds() >= 300:
+                            pause_start = datetime.now()
+                            pause = False
+                            # Check battery level: if below 20% robot charges fully before resuming
+                            pause, test_stopped_by_user = self.robot.wait_for_battery(stop=self.stop)
+                            if test_stopped_by_user:
+                                break
+                            if pause:
+                                # Return robot to the last saved coordinate after charging
+                                reached = self.robot.move_to_coordinate(curr_coordinate)
+                                if not reached:
+                                    test_stopped_by_user = True
+                                    break
+                                if self.rotation_enabled:
+                                    # Restore robot's previous orientation before resuming the test
+                                    rotation_moni = self.robot.rotate_angle(curr_rotation)
+                                    if not rotation_moni:
+                                        test_stopped_by_user = True
+                                        break
+                                self.start(False, False)
+                                pause_end = datetime.now()
+                                charge_pause = pause_end - pause_start
+                                endtime_check = endtime_check + charge_pause
+                            monitor_charge_time = datetime.now()
+
+                # Get signal data for RSSI and link speed
+                rssi_data, link_speed_data = self.get_signal_data()
+
+                individual_df_data = []
+
+                # Update the end time for the web GUI if necessary
+                if self.data['end_time_webGUI'][0] < current_time.strftime('%Y-%m-%d %H:%M:%S'):
+                    self.data['end_time_webGUI'] = [current_time.strftime('%Y-%m-%d %H:%M:%S')]
+
+                # Get the current time and calculate the remaining time
+                curr_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                endtime_dt = datetime.strptime(self.data['end_time_webGUI'][0], "%Y-%m-%d %H:%M:%S")
+                curr_time_dt = datetime.strptime(curr_time, "%Y-%m-%d %H:%M:%S")
+                remaining_time_dt = endtime_dt - curr_time_dt
+                one_minute = timedelta(minutes=1)
+
+                # Update the remaining time for the web GUI
+                if remaining_time_dt < one_minute:
+                    self.data['remaining_time_webGUI'] = ["< 1 min"]
+                else:
+                    self.data['remaining_time_webGUI'] = [str(datetime.strptime(self.data['end_time_webGUI'][0], "%Y-%m-%d %H:%M:%S") - datetime.strptime(curr_time, "%Y-%m-%d %H:%M:%S"))]
+
+                # Get the present time
+                present_time = datetime.now().strftime("%H:%M:%S")
+                self.my_monitor_runtime()
+
+                overall_video_rate = []
+                # Iterate through the total wait time data
+                for i in range(len(self.data["total_wait_time"])):
+                    # If the status is 'Stopped', append 0 to the video rate dictionary and overall video rate
+                    if self.data['status'][i] != 'Run':
+
+                        video_rate_dict[i].append(0)
+                        overall_video_rate.append(0)
+                        min_value_video_rate = self.process_list(video_rate_dict[i])
+                        individual_df_data.extend([0, 0, self.data["total_urls"][i], rssi_data[i], link_speed_data[i], self.data["total_buffer"][i], self.data["total_err"][i],
+                                                   min_value_video_rate, max(video_rate_dict[i]), sum(video_rate_dict[i]) / len(video_rate_dict[i]), self.data["bytes_rd"][i],
+                                                   self.data["rx_rate"][i], self.data['frame_rate'][i], self.data['video_quality'][i]])
+
+                    # If the status is not 'Stopped', append the calculated video rate to the video rate dictionary and overall video rate
+                    else:
+
+                        video_rate_dict[i].append(round(self.data["video_format_bitrate"][i] / 1000000, 2))
+                        overall_video_rate.append(round(self.data["video_format_bitrate"][i] / 1000000, 2))
+                        min_value_video_rate = self.process_list(video_rate_dict[i])
+                        individual_df_data.extend([round(self.data["video_format_bitrate"][i] / 1000000,
+                                                         2),
+                                                   round(self.data["total_wait_time"][i] / 1000,
+                                                         2),
+                                                   self.data["total_urls"][i],
+                                                   int(rssi_data[i]),
+                                                   link_speed_data[i],
+                                                   self.data["total_buffer"][i],
+                                                   self.data["total_err"][i],
+                                                   min_value_video_rate,
+                                                   max(video_rate_dict[i]),
+                                                   sum(video_rate_dict[i]) / len(video_rate_dict[i]),
+                                                   self.data["bytes_rd"][i],
+                                                   self.data["rx_rate"][i],
+                                                   self.data['frame_rate'][i],
+                                                   self.data['video_quality'][i]])
+
+                individual_df_data.extend([sum(overall_video_rate), present_time, iteration + 1, actual_start_time.strftime('%Y-%m-%d %H:%M:%S'),
+                                           self.data['end_time_webGUI'][0], self.data['remaining_time_webGUI'][0], "Running"])
+                if self.robot_test and self.rotation_enabled:
+                    individual_df_data.append(self.current_angle)
+                individual_df.loc[len(individual_df)] = individual_df_data
+                new_row_df = individual_df.tail(1)
+
+                # Use a separate CSV file per coordinate for robot test
+                if self.robot_test:
+                    csv_filename = f'video_streaming_realtime_data_{self.current_coordinate}.csv'
+                else:
+                    csv_filename = 'video_streaming_realtime_data.csv'
+
+                write_header = not (os.path.exists(csv_filename) and os.path.getsize(csv_filename) > 0)
+                new_row_df.to_csv(csv_filename, index=False, mode='a', header=write_header)
+
+                if self.dowebgui:
+                    with open(self.result_dir + "/../../Running_instances/{}_{}_running.json".format(self.host,
+                                                                                                     self.test_name), 'r') as file:
+                        data = json.load(file)
+                        if data["status"] != "Running":
+                            logging.info('Test is stopped by the user')
+                            self.test_stopped = True
+                            test_stopped_by_user = True
+                            break
+
+                if self.dowebgui:
+                    # Use a separate CSV file per coordinate for robot test
+                    if self.robot_test:
+                        webgui_csv = '{}/video_streaming_realtime_data_{}.csv'.format(self.result_dir, self.current_coordinate)
+                    else:
+                        webgui_csv = '{}/video_streaming_realtime_data.csv'.format(self.result_dir)
+
+                    webgui_header = not (os.path.exists(webgui_csv) and os.path.getsize(webgui_csv) > 0)
+                    new_row_df.to_csv(webgui_csv, index=False, mode='a', header=webgui_header)
+                else:
+                    individual_df.to_csv(file_path, mode='w', index=False)
+
+                time.sleep(1)
+
+                current_time = datetime.now()
+                if self.stop_test:
+                    test_stopped_by_user = True
+                    break
+                if not self.background_run and self.background_run is not None:
+                    break
+            present_time = datetime.now().strftime("%H:%M:%S")
+            individual_df_data = []
+            overall_video_rate = []
+
+            # Collecting data when test is stopped
+            for i in range(len(self.data["total_wait_time"])):
+                if self.data['status'][i] != 'Run':
+                    video_rate_dict[i].append(0)
+                    overall_video_rate.append(0)
+                    min_value_video_rate = self.process_list(video_rate_dict[i])
+                    individual_df_data.extend([0, 0, self.data["total_urls"][i], rssi_data[i], link_speed_data[i], self.data["total_buffer"][i], self.data["total_err"][i], min_value_video_rate,
+                                               max(video_rate_dict[i]), sum(video_rate_dict[i]) / len(video_rate_dict[i]), self.data["bytes_rd"][i], self.data["rx_rate"][i],
+                                               self.data['frame_rate'][i], self.data['video_quality'][i]])
+                else:
+                    overall_video_rate.append(round(self.data["video_format_bitrate"][i] / 1000000, 2))
+                    video_rate_dict[i].append(round(self.data["video_format_bitrate"][i] / 1000000, 2))
+                    min_value_video_rate = self.process_list(video_rate_dict[i])
+                    individual_df_data.extend([round(self.data["video_format_bitrate"][i] / 1000000,
+                                                     2),
+                                               round(self.data["total_wait_time"][i] / 1000,
+                                                     2),
+                                               self.data["total_urls"][i],
+                                               int(rssi_data[i]),
+                                               link_speed_data[i],
+                                               self.data["total_buffer"][i],
+                                               self.data["total_err"][i],
+                                               min_value_video_rate,
+                                               max(video_rate_dict[i]),
+                                               sum(video_rate_dict[i]) / len(video_rate_dict[i]),
+                                               self.data["bytes_rd"][i],
+                                               self.data["rx_rate"][i],
+                                               self.data['frame_rate'][i],
+                                               self.data['video_quality'][i]])
+
+            if iteration + 1 == len(incremental_capacity_list):
+                individual_df_data.extend([sum(overall_video_rate), present_time, iteration + 1, actual_start_time.strftime('%Y-%m-%d %H:%M:%S'), self.data['end_time_webGUI'][0], 0, "Stopped"])
+            else:
+                individual_df_data.extend([sum(overall_video_rate), present_time, iteration + 1, actual_start_time.strftime('%Y-%m-%d %H:%M:%S'),
+                                           self.data['end_time_webGUI'][0], self.data['remaining_time_webGUI'][0], "Stopped"])
+
+            if self.robot_test and self.rotation_enabled:
+                individual_df_data.append(self.current_angle)
+
+            individual_df.loc[len(individual_df)] = individual_df_data
+            final_row_df = individual_df.tail(1)
+
+            if self.dowebgui:
+                if self.robot_test:
+                    # Use a separate CSV file per coordinate for robot test
+                    final_row_df.to_csv('{}/video_streaming_realtime_data_{}.csv'.format(self.result_dir, self.current_coordinate), index=False, mode='a', header=False)
+                else:
+                    individual_df.to_csv('{}/video_streaming_realtime_data.csv'.format(self.result_dir), index=False)
+            else:
+                if self.robot_test:
+                    # Use a separate CSV file per coordinate for robot test
+                    csv_filename = f'video_streaming_realtime_data_{self.current_coordinate}.csv'
+                else:
+                    csv_filename = 'video_streaming_realtime_data.csv'
+
+                final_row_df.to_csv(csv_filename, index=False, mode='a', header=False)
+
+            if self.data['end_time_webGUI'][0] < current_time.strftime('%Y-%m-%d %H:%M:%S'):
+                self.data['end_time_webGUI'] = [current_time.strftime('%Y-%m-%d %H:%M:%S')]
+
+            curr_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            curr_time_dt = datetime.strptime(curr_time, "%Y-%m-%d %H:%M:%S")
+            endtime_dt = datetime.strptime(self.data['end_time_webGUI'][0], "%Y-%m-%d %H:%M:%S")
+
+            remaining_time_dt = endtime_dt - curr_time_dt
+            one_minute = timedelta(minutes=1)
+
+            if remaining_time_dt < one_minute:
+                self.data['remaining_time_webGUI'] = ["< 1 min"]
+            else:
+                self.data['remaining_time_webGUI'] = [str(datetime.strptime(self.data['end_time_webGUI'][0], "%Y-%m-%d %H:%M:%S") - datetime.strptime(curr_time, "%Y-%m-%d %H:%M:%S"))]
+
+            return test_stopped_by_user
+        except Exception as e:
+            logger.error(f"Error in monitor_for_runtime_csv function: {e}", exc_info=True)
+            logger.info(f"eid_data {eid_data}")
+            return test_stopped_by_user
+
+    def get_incremental_capacity_list(self):
+        keys = list(self.http_profile.created_cx.keys())
+        incremental_temp = []
+        created_incremental_values = []
+        index = 0
+        if len(self.incremental) == 1 and self.incremental[0] == len(keys):
+            incremental_temp.append(len(keys[index:]))
+        elif len(self.incremental) == 1 and len(keys) > 1:
+            incremental_value = self.incremental[0]
+            div = len(keys) // incremental_value
+            mod = len(keys) % incremental_value
+
+            for _i in range(div):
+                if len(incremental_temp):
+                    incremental_temp.append(incremental_temp[-1] + incremental_value)
+                else:
+                    incremental_temp.append(incremental_value)
+
+            if mod:
+                incremental_temp.append(incremental_temp[-1] + mod)
+            created_incremental_values = incremental_temp
+
+        if not created_incremental_values:
+            created_incremental_values = self.incremental
+        return created_incremental_values
+
+    def trim_data(self, array_size, to_updated_array):
+        if array_size < 6:
+            updated_array = to_updated_array
+        else:
+            middle_elements_count = 4
+            step = (array_size - 1) / (middle_elements_count + 1)
+            middle_elements = [int(i * step) for i in range(1, middle_elements_count + 1)]
+            new_array = [0] + middle_elements + [array_size - 1]
+            updated_array = [to_updated_array[index] for index in new_array]
+        return updated_array
+
+    def process_list(self, lst):
+        # This function filters out initial zero values in the test video rate.
+        # Before the video starts running, the rate is temporarily zero,
+        # which should not be considered in the final analysis in order to get the min and max video rate
+        # This ensures only valid video rate data is processed.
+
+        if all(item == 0 for item in lst):
+            return 0
+        else:
+            non_zero_values = [item for item in lst if item != 0]
+            return min(non_zero_values)
+
+    def handle_passfail_criteria(self, data: dict):
+        iter = data["iter"]
+        ci = data["created_incremental_values"][iter]
+
+        device_type = data["device_type"]
+        username = data["username"]
+        ssid = data["ssid"]
+        mac = data["mac"]
+        channel = data["channel"]
+        mode = data["mode"]
+        total_buffer = data["total_buffer"]
+        wait_time_data = data["wait_time_data"]
+        min_video_rate = data["min_video_rate"]
+        avg_video_rate = data["avg_video_rate"]
+        max_video_rate = data["max_video_rate"]
+        total_urls = data["total_urls"]
+        total_err = data["total_err"]
+        rssi_data = data["rssi_data"]
+        tx_rate = data["tx_rate"]
+        max_bytes_rd_list = data["max_bytes_rd_list"]
+        avg_rx_rate_list = data["avg_rx_rate_list"]
+
+        test_input_list = []
+        pass_fail_list = []
+
+        if self.expected_passfail_val or self.csv_name:
+            if not self.expected_passfail_val:
+                res_list = []
+                interop_tab_data = self.json_get('/adb/')["devices"]
+                for client in range(len(device_type[:ci])):
+                    if device_type[client] != 'Android':
+                        res_list.append(username[:ci][client])
+                    else:
+                        if isinstance(interop_tab_data, dict):
+                            name = interop_tab_data.get('name')
+                            res_list.append(name.split('.')[2])
+                        else:
+                            for dev in interop_tab_data:
+                                for item in dev.values():
+                                    if item['user-name'] == username[:ci][client]:
+                                        res_list.append(item['name'].split('.')[2])
+
+                if self.csv_name is None:
+                    self.csv_name = "device.csv"
+                try:
+                    with open(self.csv_name, mode='r') as file:
+                        reader = csv.DictReader(file)
+                        rows = list(reader)
+                except Exception as e:
+                    logger.error(f"An error occurred while reading the CSV file: {e}")
+                    return
+
+                for device in res_list:
+                    found = False
+                    for row in rows:
+                        if row['DeviceList'] == device and row['Videostreaming URLcount'].strip() != '':
+                            test_input_list.append(row['Videostreaming URLcount'])
+                            found = True
+                            break
+                    if not found:
+                        logging.info(f"Pass Fail Value for Device {device} not found in CSV. Using default value 5")
+                        test_input_list.append(5)
+
+                for i in range(len(test_input_list)):
+                    if float(test_input_list[i]) <= total_urls[:ci][i]:
+                        pass_fail_list.append('PASS')
+                    else:
+                        pass_fail_list.append('FAIL')
+            else:
+                test_input_list = [self.expected_passfail_val for _ in range(len(username[:ci]))]
+                for i in range(len(test_input_list)):
+                    if int(self.expected_passfail_val) <= total_urls[:ci][i]:
+                        pass_fail_list.append("PASS")
+                    else:
+                        pass_fail_list.append("FAIL")
+
+            return {
+                " DEVICE TYPE ": device_type[:ci],
+                " Username ": username[:ci],
+                " SSID ": ssid[:ci],
+                " MAC ": mac[:ci],
+                " Channel ": channel[:ci],
+                " Mode ": mode[:ci],
+                " Buffers": total_buffer[:ci],
+                " Wait-Time(Sec)": wait_time_data,
+                " Min Video Rate(Mbps) ": min_video_rate[:ci],
+                " Avg Video Rate(Mbps) ": avg_video_rate[:ci],
+                " Max Video Rate(Mbps) ": max_video_rate[:ci],
+                " Total URLs ": total_urls[:ci],
+                " Expected URLs ": test_input_list,
+                " Total Errors ": total_err[:ci],
+                " RSSI (dbm)": ['' if n == 0 else '-' + str(n) + " dbm" for n in rssi_data[:ci]],
+                " Link Speed ": tx_rate[:ci],
+                " Status ": pass_fail_list,
+                "Bytes Read (bytes)": max_bytes_rd_list,
+                'Average Rx Rate (Mbps)': avg_rx_rate_list
+            }
+
+        return {
+            " DEVICE TYPE ": device_type[:ci],
+            " Username ": username[:ci],
+            " SSID ": ssid[:ci],
+            " MAC ": mac[:ci],
+            " Channel ": channel[:ci],
+            " Mode ": mode[:ci],
+            " Buffers": total_buffer[:ci],
+            " Wait-Time(Sec)": wait_time_data,
+            " Min Video Rate(Mbps) ": min_video_rate[:ci],
+            " Avg Video Rate(Mbps) ": avg_video_rate[:ci],
+            " Max Video Rate(Mbps) ": max_video_rate[:ci],
+            " Total URLs ": total_urls[:ci],
+            " Total Errors ": total_err[:ci],
+            " RSSI (dbm)": ['' if n == 0 else '-' + str(n) + " dbm" for n in rssi_data[:ci]],
+            " Link Speed ": tx_rate[:ci],
+            "Bytes Read (bytes)": max_bytes_rd_list,
+            'Average Rx Rate (Mbps)': avg_rx_rate_list
+        }
+
+    def generate_report(self, date, iterations_before_test_stopped_by_user, test_setup_info, realtime_dataset, report_path='', iot_summary=None):
+        logging.info("Creating Reports")
+        # Initialize the report object
+        if self.dowebgui and report_path == '':
+
+            report = lf_report.lf_report(_results_dir_name="VideoStreaming_test", _output_html="VideoStreaming_test.html",
+                                         _output_pdf="VideoStreaming_test.pdf", _path=self.result_dir)
+        else:
+            report = lf_report.lf_report(_results_dir_name="VideoStreaming_test", _output_html="VideoStreaming_test.html",
+                                         _output_pdf="VideoStreaming_test.pdf", _path=report_path)
+
+        # To store throughput_data.csv in report folder
+        report_path_date_time = report.get_path_date_time()
+        shutil.move('video_streaming_realtime_data.csv', report_path_date_time)
+
+        # Getting incremental capacity in lists
+        created_incremental_values = self.get_incremental_capacity_list()
+        keys = list(self.http_profile.created_cx.keys())
+
+        # Set report title, date, and build banner
+        report.set_title("Video Streaming Test Including IoT Devices" if iot_summary else "Video Streaming Test")
+        report.set_date(date)
+        report.build_banner()
+        if iot_summary:
+            report.set_obj_html(
+                "Objective",
+                "The Candela Video Streaming Test Including IoT Devices is designed to evaluate an Access Point’s "
+                "performance and stability when handling both Real clients (Android, Windows, Linux, iOS) and IoT devices "
+                "(controlled via Home Assistant) simultaneously. "
+                "For Real clients, the test measures video streaming performance by playing user-defined media "
+                "(from a local browser or the Internet) with configurable options such as video link, media source type, "
+                "quality, and number of playbacks. Metrics such as buffering events, wait-time, per-client video bitrate, "
+                "and video quality are captured to validate the AP’s ability to sustain smooth playback across multiple clients. "
+                "For IoT clients, the test concurrently executes device-specific actions (e.g., camera streaming, switch toggling, "
+                "lock/unlock) and tracks success rate, latency, and failure rate. The goal is to ensure the AP can reliably support "
+                "video streaming for multiple real clients while maintaining responsive and consistent performance for IoT devices."
+            )
+        else:
+            report.set_obj_html("Objective", " The Candela Video streaming test is designed to measure the access point performance and stability by streaming the videos from the local browser"
+                                "or from over the Internet in real clients like android which are connected to the access point,"
+                                "this test allows the user to choose the options like video link, type of media source, media quality, number of playbacks."
+                                "Along with the performance other measurements like No of Buffers, Wait-Time, per client Video Bitrate, Video Quality, and more. "
+                                "The expected behavior is for the DUT to be able to handle several stations (within the limitations of the AP specs)"
+                                "and make sure all capable clients can browse the video. ")
+        report.build_objective()
+        report.set_table_title("Input Parameters")
+        report.build_table_title()
+        if self.config:
+            test_setup_info["SSID"] = self.test_setup_info_ssid
+            test_setup_info["Password"] = self.passwd
+            test_setup_info["ENCRYPTION"] = self.encryp
+        elif len(self.selected_groups) > 0 and len(self.selected_profiles) > 0:
+            # Map each group with a profile
+            gp_pairs = zip(self.selected_groups, self.selected_profiles)
+            # Create a string by joining the mapped pairs
+            gp_map = ", ".join(f"{group} -> {profile}" for group, profile in gp_pairs)
+            test_setup_info["Configuration"] = gp_map
+        if iot_summary:
+            test_setup_info = with_iot_params_in_table(test_setup_info, iot_summary)
+        report.test_setup_table(value="Test Setup Information", test_setup_data=test_setup_info)
+
+        device_type = []
+        username = []
+        ssid = []
+        mac = []
+        channel = []
+        mode = []
+        rssi = []
+        channel = []
+        tx_rate = []
+        resource_ids = list(map(int, self.resource_ids.split(',')))
+        try:
+            eid_data = self.json_get("ports?fields=alias,mac,mode,Parent Dev,rx-rate,tx-rate,ssid,signal,channel")
+        except KeyError:
+            logger.error("Error: 'interfaces' key not found in port data")
+            exit(1)
+
+        # Loop through interfaces
+        for alias in eid_data["interfaces"]:
+            for i in alias:
+                # Check interface index and alias
+                if int(i.split(".")[1]) > 1 and alias[i]["alias"] == 'wlan0':
+
+                    # Get resource data for specific interface
+                    resource_hw_data = self.json_get("/resource/" + i.split(".")[0] + "/" + i.split(".")[1])
+                    hw_version = resource_hw_data['resource']['hw version']
+
+                    # Filter based on OS and resource ID
+                    if not hw_version.startswith(('Win', 'Linux', 'Apple')) and int(resource_hw_data['resource']['eid'].split('.')[1]) in resource_ids:
+                        device_type.append('Android')
+                        username.append(resource_hw_data['resource']['user'])
+                        ssid.append(alias[i]['ssid'])
+                        mac.append(alias[i]['mac'])
+                        mode.append(alias[i]['mode'])
+                        rssi.append(alias[i]['signal'])
+                        channel.append(alias[i]['channel'])
+                        tx_rate.append(alias[i]['tx-rate'])
+        total_urls = self.data["total_urls"]
+        total_err = self.data["total_err"]
+        total_buffer = self.data["total_buffer"]
+        max_bytes_rd_list = []
+        avg_rx_rate_list = []
+        # Iterate through the length of cx_order_list
+        for iter in range(len(iterations_before_test_stopped_by_user)):
+            data_set_in_graph, wait_time_data, devices_on_running_state, device_names_on_running = [], [], [], []
+            devices_data_to_create_wait_time_bar_graph = []
+            max_video_rate, min_video_rate, avg_video_rate = [], [], []
+            total_url_data, rssi_data = [], []
+            trimmed_data_set_in_graph = []
+            max_bytes_rd_list = []
+            avg_rx_rate_list = []
+            # Retrieve data for the previous iteration, if it's not the first iteration
+            if iter != 0:
+                before_data_iter = realtime_dataset[realtime_dataset['iteration'] == iter]
+            # Retrieve data for the current iteration
+            data_iter = realtime_dataset[realtime_dataset['iteration'] == iter + 1]
+
+            # Populate the list of devices on running state and their corresponding usernames
+            for j in range(created_incremental_values[iter]):
+                devices_on_running_state.append(keys[j])
+                device_names_on_running.append(username[j])
+
+            # Iterate through each device currently running
+            for k in devices_on_running_state:
+                # Filter columns related to the current device
+                columns_with_substring = [col for col in data_iter.columns if k in col]
+                filtered_df = data_iter[columns_with_substring]
+                min_val = self.process_list(filtered_df[[col for col in filtered_df.columns if "video_format_bitrate" in col][0]].values.tolist())
+                if iter != 0:
+                    # Filter columns related to the current device from the previous iteration
+                    before_iter_columns_with_substring = [col for col in before_data_iter.columns if k in col]
+                    before_filtered_df = before_data_iter[before_iter_columns_with_substring]
+
+                # Extract and compute max, min, and average video rates
+                max_video_rate.append(max(filtered_df[[col for col in filtered_df.columns if "video_format_bitrate" in col][0]].values.tolist()))
+                min_video_rate.append(min_val)
+                avg_video_rate.append(round(sum(filtered_df[[col for col in filtered_df.columns if "video_format_bitrate" in col][0]].values.tolist()) /
+                                      len(filtered_df[[col for col in filtered_df.columns if "video_format_bitrate" in col][0]].values.tolist()), 2))
+                wait_time_data.append(filtered_df[[col for col in filtered_df.columns if "total_wait_time" in col][0]].values.tolist()[-1])
+                rssi_data.append(int(round(sum(filtered_df[[col for col in filtered_df.columns if "RSSI" in col][0]].values.tolist()) /
+                                 len(filtered_df[[col for col in filtered_df.columns if "RSSI" in col][0]].values.tolist()), 2)) * -1)
+                # Extract maximum bytes read for the device
+                max_bytes_rd = max(filtered_df[[col for col in filtered_df.columns if "bytes_rd" in col][0]].values.tolist())
+                max_bytes_rd_list.append(max_bytes_rd)
+
+                # Calculate and append the average RX rate in Mbps
+                rx_rate_values = filtered_df[[col for col in filtered_df.columns if "rx rate" in col][0]].values.tolist()
+                avg_rx_rate_list.append(round((sum(rx_rate_values) / len(rx_rate_values)) / 1_000_000, 2))  # Convert bps to Mbps
+
+                if iter != 0:
+                    # Calculate the difference in total URLs between the current and previous iterations
+                    total_url_data.append(abs(filtered_df[[col for col in filtered_df.columns if "total_urls" in col][0]].values.tolist()[-1] -
+                                          before_filtered_df[[col for col in before_filtered_df.columns if "total_urls" in col][0]].values.tolist()[-1]))
+                else:
+                    # Append the total URLs for the first iteration
+                    total_url_data.append(filtered_df[[col for col in filtered_df.columns if "total_urls" in col][0]].values.tolist()[-1])
+
+            # Append the wait time data to the list for creating the wait time bar graph
+            devices_data_to_create_wait_time_bar_graph.append(wait_time_data)
+
+            # Extract overall video format bitrate values for the current iteration and append to data_set_in_graph
+            video_streaming_values_list = realtime_dataset['overall_video_format_bitrate'][realtime_dataset['iteration'] == iter + 1].values.tolist()
+            data_set_in_graph.append(video_streaming_values_list)
+
+            # Trim the data in data_set_in_graph and append to trimmed_data_set_in_graph
+            for _ in range(len(data_set_in_graph)):
+                trimmed_data_set_in_graph.append(self.trim_data(len(data_set_in_graph[_]), data_set_in_graph[_]))
+
+            # If there are multiple incremental values, add custom HTML content to the report for the current iteration
+            if len(created_incremental_values) > 1:
+                report.set_custom_html(f"<h2><u>Iteration-{iter + 1}</u></h2>")
+                report.build_custom()
+
+            report.set_obj_html(
+                _obj_title=f"Realtime Video Rate: Number of devices running: {len(device_names_on_running)}",
+                _obj="")
+            report.build_objective()
+
+            # Create a line graph for video rate over time
+            graph = lf_line_graph(_data_set=trimmed_data_set_in_graph,
+                                  _xaxis_name="Time",
+                                  _yaxis_name="Video Rate (Mbps)",
+                                  _xaxis_categories=self.trim_data(len(realtime_dataset['timestamp'][realtime_dataset['iteration'] == iter + 1].values.tolist()),
+                                                                   realtime_dataset['timestamp'][realtime_dataset['iteration'] == iter + 1].values.tolist()),
+                                  _label=['Rate'],
+                                  _graph_image_name=f"vs_line_graph{iter}"
+                                  )
+            graph_png = graph.build_line_graph()
+            logger.info("graph name {}".format(graph_png))
+            report.set_graph_image(graph_png)
+            report.move_graph_image()
+
+            report.build_graph()
+
+            # Define figure size for horizontal bar graphs
+            x_fig_size = 15
+            y_fig_size = len(devices_on_running_state) * .5 + 4
+
+            report.set_obj_html(
+                _obj_title="Total Urls Per Device",
+                _obj="")
+            report.build_objective()
+            # Create a horizontal bar graph for total URLs per device
+            graph = lf_bar_graph_horizontal(_data_set=[total_urls[:created_incremental_values[iter]]],
+                                            _xaxis_name="Total Urls",
+                                            _yaxis_name="Devices",
+                                            _graph_image_name=f"total_urls_image_name{iter}",
+                                            _label=["Total Urls"],
+                                            _yaxis_categories=device_names_on_running,
+                                            _legend_loc="best",
+                                            _legend_box=(1.0, 1.0),
+                                            _show_bar_value=True,
+                                            _figsize=(x_fig_size, y_fig_size)
+                                            #    _color=['lightcoral']
+                                            )
+            graph_png = graph.build_bar_graph_horizontal()
+            logger.info("wait time graph name {}".format(graph_png))
+            graph.build_bar_graph_horizontal()
+            report.set_graph_image(graph_png)
+            report.move_graph_image()
+            report.build_graph()
+
+            report.set_obj_html(
+                _obj_title="Max/Min Video Rate Per Device",
+                _obj="")
+            report.build_objective()
+
+            # Create a horizontal bar graph for max and min video rates per device
+            graph = lf_bar_graph_horizontal(_data_set=[max_video_rate, min_video_rate],
+                                            _xaxis_name="Max/Min Video Rate(Mbps)",
+                                            _yaxis_name="Devices",
+                                            _graph_image_name=f"max-min-video-rate_image_name{iter}",
+                                            _label=['Max Video Rate', 'Min Video Rate'],
+                                            _yaxis_categories=device_names_on_running,
+                                            _legend_loc="best",
+                                            _legend_box=(1.0, 1.0),
+                                            _show_bar_value=True,
+                                            _figsize=(x_fig_size, y_fig_size)
+                                            #    _color=['lightcoral']
+                                            )
+            graph_png = graph.build_bar_graph_horizontal()
+            logger.info("max/min graph name {}".format(graph_png))
+            graph.build_bar_graph_horizontal()
+            report.set_graph_image(graph_png)
+            report.move_graph_image()
+            report.build_graph()
+
+            report.set_obj_html(
+                _obj_title="Wait Time Per Device",
+                _obj="")
+            report.build_objective()
+
+            # Create a horizontal bar graph for wait time per device
+            graph = lf_bar_graph_horizontal(_data_set=devices_data_to_create_wait_time_bar_graph,
+                                            _xaxis_name="Wait Time(seconds)",
+                                            _yaxis_name="Devices",
+                                            _graph_image_name=f"wait_time_image_name{iter}",
+                                            _label=['Wait Time'],
+                                            _yaxis_categories=device_names_on_running,
+                                            _legend_loc="best",
+                                            _legend_box=(1.0, 1.0),
+                                            _show_bar_value=True,
+                                            _figsize=(x_fig_size, y_fig_size)
+                                            #    _color=['lightcoral']
+                                            )
+            graph_png = graph.build_bar_graph_horizontal()
+            logger.info("wait time graph name {}".format(graph_png))
+            graph.build_bar_graph_horizontal()
+            report.set_graph_image(graph_png)
+            report.move_graph_image()
+            report.build_graph()
+            self.add_buffer_and_wait_time_images(report=report)
+
+            # Table 1
+            report.set_obj_html("Overall - Detailed Result Table", "The below tables provides detailed information for the Video Streaming test.")
+            report.build_objective()
+            test_data = {
+                "iter": iter,
+                "created_incremental_values": created_incremental_values,
+                "device_type": device_type,
+                "username": username,
+                "ssid": ssid,
+                "mac": mac,
+                "channel": channel,
+                "mode": mode,
+                "total_buffer": total_buffer,
+                "wait_time_data": wait_time_data,
+                "min_video_rate": min_video_rate,
+                "avg_video_rate": avg_video_rate,
+                "max_video_rate": max_video_rate,
+                "total_urls": total_urls,
+                "total_err": total_err,
+                "rssi_data": rssi_data,
+                "tx_rate": tx_rate,
+                "max_bytes_rd_list": max_bytes_rd_list,
+                "avg_rx_rate_list": avg_rx_rate_list
+            }
+
+            dataframe = self.handle_passfail_criteria(test_data)
+
+            dataframe1 = pd.DataFrame(dataframe)
+            report.set_table_dataframe(dataframe1)
+            report.build_table()
+
+            # Set and build title for the overall results table
+            report.set_obj_html("Detailed Total Errors Table", "The below tables provides detailed information of total errors for the web browsing test.")
+            report.build_objective()
+            dataframe2 = {
+                " DEVICE": username[:created_incremental_values[iter]],
+                " TOTAL ERRORS ": total_err[:created_incremental_values[iter]],
+            }
+            dataframe3 = pd.DataFrame(dataframe2)
+            report.set_table_dataframe(dataframe3)
+            report.build_table()
+        if iot_summary:
+            self.build_iot_report_section(report, iot_summary)
+        report.build_footer()
+        report.write_html()
+        report.write_pdf()
+
+    def copy_reports_to_home_dir(self):
+        curr_path = self.result_dir
+        home_dir = os.path.expanduser("~")  # it returns the home directory [ base : home/username]
+        out_folder_name = "WebGui_Reports"
+        new_path = os.path.join(home_dir, out_folder_name)
+        # webgui directory creation
+        if not os.path.exists(new_path):
+            os.makedirs(new_path)
+        test_name = self.test_name
+        test_name_dir = os.path.join(new_path, test_name)
+        # in webgui-reports DIR creating a directory with test name
+        if not os.path.exists(test_name_dir):
+            os.makedirs(test_name_dir)
+        shutil.copytree(curr_path, test_name_dir, dirs_exist_ok=True)
+
+    def filter_ios_devices(self, device_list):
+        """
+        Filters out iOS devices from the given device list based on hardware and software identifiers.
+
+        This method accepts a list or comma-separated string of device identifiers and removes
+        devices identified as iOS (Apple) based on their hardware version, app ID, and kernel info
+        fetched via the `/resource/{shelf}/{resource}` API endpoint.
+
+        Supported input formats for each device:
+            - "shelf.resource"
+            - "shelf.resource.port"
+            - "resource" (assumes shelf = 1)
+
+        iOS devices are identified if:
+            - 'Apple' is found in the hardware version, and
+            - `app-id` is not empty and is either non-zero or the kernel is empty
+
+        Args:
+            device_list (Union[list[str], str]): A list or comma-separated string of devices to be filtered.
+
+        Returns:
+            Union[list[int], str]: A list of valid (non-iOS) device IDs as integers, or a comma-separated string if the input was a string.
+
+        Logs:
+            - Warnings for invalid formats or missing device data.
+            - Info when an iOS device is skipped.
+            - Exceptions if errors occur during processing.
+
+        """
+        modified_device_list = device_list
+        if isinstance(device_list, str):
+            modified_device_list = device_list.split(',')
+
+        filtered_list = []
+
+        for device in modified_device_list:
+            device = str(device).strip()
+            try:
+                if device.count('.') == 1:
+                    shelf, resource = device.split('.')
+                elif device.count('.') == 2:
+                    shelf, resource, port = device.split('.')
+                elif device.count('.') == 0:
+                    shelf, resource = 1, device
+                else:
+                    logger.warning("Invalid device format: %s", device)
+                    continue
+
+                device_data_resp = self.json_get(f'/resource/{shelf}/{resource}')
+                if not device_data_resp or 'resource' not in device_data_resp:
+                    logger.warning("Device data not found for %s", device)
+                    continue
+
+                device_data = device_data_resp['resource']
+                hw_version = device_data.get('hw version', '')
+                app_id = device_data.get('app-id', '')
+                kernel = device_data.get('kernel', '')
+
+                if 'Apple' in hw_version and app_id != '' and (app_id != '0' or kernel == ''):
+                    logger.info("%s is an iOS device. Currently, we do not support iOS devices.", device)
+                else:
+                    device = int(device)
+                    filtered_list.append(device)
+
+            except Exception as e:
+                logger.exception(f"Error processing device {device}: {e}")
+                continue
+
+        if isinstance(device_list, str):
+            filtered_list = ','.join(filtered_list)
+
+        self.device_list = filtered_list
+        return filtered_list
+
+    def validate_args(self):
+        if self.expected_passfail_val and self.csv_name:
+            logging.error("Specify either expected_passfail_value or device_csv_name")
+            exit(1)
+
+        if self.selected_groups:
+            self.selected_groups = self.selected_groups.strip()
+            self.selected_groups = self.selected_groups.split(',')
+        else:
+            self.selected_groups = []
+
+        if self.selected_profiles:
+            self.selected_profiles = self.selected_profiles.strip()
+            self.selected_profiles = self.selected_profiles.split(',')
+        else:
+            self.selected_profiles = []
+
+        if len(self.selected_groups) != len(self.selected_profiles):
+            logging.error("Number of groups should match number of profiles")
+            exit(1)
+        # Either use group_name/profile_name or device_list, not both
+        elif self.selected_groups and self.selected_profiles and self.file_name and self.resource_ids:
+            logging.error("Either group name or device list should be entered not both")
+            exit(1)
+        # Ensure that either `ssid` or `profile_name` is specified, but not both
+        elif self.ssid and self.selected_profiles:
+            logging.error("Either ssid or profile name should be given")
+            exit(1)
+        # Validate that when a file is specified, both group and profile names must also be provided
+        elif self.file_name and (self.selected_groups is None or self.selected_profiles is None):
+            logging.error("Please enter the correct set of arguments")
+            exit(1)
+        # For configuration mode, check that SSID, password, and security type are appropriately provided
+        elif self.config and ((self.ssid is None or (self.passwd is None and self.encryp.lower() != 'open') or (self.passwd is None and self.encryp is None))):
+            logging.error("Please provide ssid password and security for configuration of devices")
+            exit(1)
+
+    def add_buffer_and_wait_time_images(self, report):
+        """
+        Adds VS buffer and wait time heatmap images to the report for each floor.
+        Waits for image generation and inserts them into the report if available.
+        """
+        if self.dowebgui and self.get_live_view:
+            report.set_custom_html("<h2>No of Buffers and Wait Time %</h2>")
+            report.build_custom()
+
+            for floor in range(int(self.floors)):
+                vs_buffer_image = os.path.join(self.result_dir, "live_view_images", f"{self.test_name}_vs_buffer_{floor + 1}.png")
+                vs_wait_time_image = os.path.join(self.result_dir, "live_view_images", f"{self.test_name}_vs_wait_time_{floor + 1}.png")
+
+                timeout = 60  # seconds
+                start_time = time.time()
+
+                while not (os.path.exists(vs_buffer_image) and os.path.exists(vs_wait_time_image)):
+                    if time.time() - start_time > timeout:
+                        print(f"Timeout: Heatmap images for floor {floor + 1} not found within {timeout} seconds.")
+                        break
+                    time.sleep(1)
+
+                for image_path in [vs_buffer_image, vs_wait_time_image]:
+                    if os.path.exists(image_path):
+                        report.set_custom_html(f'<img src="file://{image_path}"  style="width:1200px; height:800px;"></img>')
+                        report.build_custom()
+
+    def handle_groups_profiles_config(self):
+        config_devices = {}
+        for i in range(len(self.selected_groups)):
+            config_devices[self.selected_groups[i]] = self.selected_profiles[i]
+        self.config_obj.initiate_group()
+        asyncio.run(self.config_obj.connectivity(config_devices, upstream=self.upstream_port))
+
+        adbresponse = self.config_obj.adb_obj.get_devices()
+        resource_manager = self.config_obj.laptop_obj.get_devices()
+        all_res = {}
+        df1 = self.config_obj.display_groups(self.config_obj.groups)
+        groups_list = df1.to_dict(orient='list')
+        group_devices = {}
+        for adb in adbresponse:
+            group_devices[adb['serial']] = adb['eid']
+        for res in resource_manager:
+            all_res[res['hostname']] = res['shelf'] + '.' + res['resource']
+        eid_list = []
+        for grp_name in groups_list.keys():
+            for g_name in self.selected_groups:
+                if grp_name == g_name:
+                    for j in groups_list[grp_name]:
+                        if j in group_devices.keys():
+                            eid_list.append(group_devices[j])
+                        elif j in all_res.keys():
+                            eid_list.append(all_res[j])
+        device_list = ",".join(eid_list)
+        return device_list
+
+    def handle_ssid_based_device_config(self, config_dict):
+        # When group/profile are not provided
+        if self.device_list:
+            all_devices = self.config_obj.get_all_devices()
+            dev_list = self.device_list.split(',')
+            self.device_list = asyncio.run(self.config_obj.connectivity(device_list=dev_list, wifi_config=config_dict, upstream=self.upstream_port))
+        else:
+            if self.config:
+                all_devices = self.config_obj.get_all_devices()
+                device_list = []
+                for device in all_devices:
+                    if device["type"] != 'laptop':
+                        device_list.append(device["shelf"] + '.' + device["resource"] + " " + device["serial"])
+                    elif device["type"] == 'laptop':
+                        device_list.append(device["shelf"] + '.' + device["resource"] + " " + device["hostname"])
+                print("Available devices:")
+                for device in device_list:
+                    print(device)
+                self.device_list = input("Enter the desired resources to run the test:")
+                dev1_list = self.device_list.split(',')
+                self.device_list = asyncio.run(self.config_obj.connectivity(device_list=dev1_list, wifi_config=config_dict, upstream=self.upstream_port))
+        return ",".join(self.device_list)
+
+    def process_incremental_capacity(self, incremental_capacity_list_values, available_resources, gave_incremental):
+        if incremental_capacity_list_values[-1] != len(available_resources):
+            logger.error("Incremental capacity doesnt match available devices")
+            if self.postcleanup:
+                self.postcleanup()
+            exit(1)
+        # Process resource IDs and incremental values if specified
+        if self.resource_ids:
+            if self.incremental:
+                self.test_setup_info_incremental_values = ','.join([str(n) for n in incremental_capacity_list_values])
+                if len(self.incremental) == len(available_resources):
+                    test_setup_info_total_duration = self.duration
+                elif len(self.incremental) == 1 and len(available_resources) > 1:
+                    if self.incremental[0] == len(available_resources):
+                        test_setup_info_total_duration = self.duration
+                    else:
+                        div = len(available_resources) // self.incremental[0]
+                        mod = len(available_resources) % self.incremental[0]
+                        if mod == 0:
+                            test_setup_info_total_duration = self.duration * (div)
+                        else:
+                            test_setup_info_total_duration = self.duration * (div + 1)
+                else:
+                    test_setup_info_total_duration = self.duration * len(incremental_capacity_list_values)
+            else:
+                test_setup_info_total_duration = self.duration
+
+            if self.webgui_incremental:
+                self.test_setup_info_incremental_values = ','.join([str(n) for n in incremental_capacity_list_values])
+            elif gave_incremental:
+                self.test_setup_info_incremental_values = "No Incremental Value provided"
+            self.total_duration = test_setup_info_total_duration
+
+    def create_test_setup_info(self, media_source, media_quality):
+        if self.resource_ids:
+            username = []
+
+            try:
+                eid_data = self.json_get("ports?fields=alias,mac,mode,Parent Dev,rx-rate,tx-rate,ssid,signal")
+            except KeyError:
+                logger.error("Error: 'interfaces' key not found in port data")
+                exit(1)
+
+            resource_ids = list(map(int, self.resource_ids.split(',')))
+            for alias in eid_data["interfaces"]:
+                for i in alias:
+                    if int(i.split(".")[1]) > 1 and alias[i]["alias"] == 'wlan0':
+                        resource_hw_data = self.json_get("/resource/" + i.split(".")[0] + "/" + i.split(".")[1])
+                        hw_version = resource_hw_data['resource']['hw version']
+                        if not hw_version.startswith(('Win', 'Linux', 'Apple')) and int(resource_hw_data['resource']['eid'].split('.')[1]) in resource_ids:
+                            username.append(resource_hw_data['resource']['user'])
+
+            self.device_list_str = ','.join([f"{name} ( Android )" for name in username])
+
+            test_setup_info = {
+                "Testname": self.test_name,
+                "Device List": self.device_list_str,
+                "No of Devices": "Total" + "( " + str(len(username)) + " ): Android(" + str(len(username)) + ")",
+                "Incremental Values": "",
+                "URL": self.url,
+                "Media Source": media_source,
+                "Media Quality": media_quality
+            }
+            test_setup_info['Incremental Values'] = self.test_setup_info_incremental_values
+            # test_setup_info['Total Duration (min)'] = str(self.test_setup_info_total_duration)
+            return test_setup_info
+
+    def updating_webui_running_json(self):
+        data = {}
+        data_dict = {
+            'configured_devices': [self.device_list_str],
+            'configuration_status': "configured"
+        }
+        file_path = self.result_dir + "/../../Running_instances/{}_{}_running.json".format(self.host, self.test_name)
+
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+
+        for key in data_dict:
+            data[key] = data_dict[key]
+
+        with open(file_path, 'w') as file:
+            json.dump(data, file, indent=4)
+
+    def build_report_params_for_robo(self, args, cx_order_list, individual_df, iterations_before_test_stopped_by_user):
+        """
+        Prepare robo report parameters based on incremental mode.
+
+        Returns:
+            dict: Report parameters built based on incremental mode.
+        """
+        date = str(datetime.now()).split(",")[0].replace(" ", "-").split(".")[0]
+
+        test_setup_info = self.create_test_setup_info(media_source=args.media_source, media_quality=args.media_quality)
+        params = {
+            "date": None,
+            "iterations_before_test_stopped_by_user": None,
+            "test_setup_info": None,
+            "realtime_dataset": None,
+            "report_path": "",
+            "cx_order_list": []
+        }
+        if self.resource_ids and self.incremental:
+            params.update({
+                "date": date,
+                "iterations_before_test_stopped_by_user": list(set(iterations_before_test_stopped_by_user)),
+                "test_setup_info": test_setup_info,
+                "realtime_dataset": individual_df,
+                "cx_order_list": cx_order_list
+            })
+        elif self.resource_ids:
+            params.update({
+                "date": date,
+                "iterations_before_test_stopped_by_user": list(set(iterations_before_test_stopped_by_user)),
+                "test_setup_info": test_setup_info,
+                "realtime_dataset": individual_df,
+            })
+        return params
+
+    def generate_report_for_robo(self, test_setup_info, report_path='', passed_coordinates=None):
+        """
+        Generate the Video Streaming test report for robo execution, handling per-coordinate
+        and rotation data.
+
+        Returns:
+            None
+        """
+        date = str(datetime.now()).split(",")[0].replace(" ", "-").split(".")[0]
+        if self.dowebgui and report_path == '':
+            report = lf_report.lf_report(_results_dir_name="VideoStreaming_test", _output_html="VideoStreaming_test.html",
+                                         _output_pdf="VideoStreaming_test.pdf", _path=self.result_dir)
+        else:
+            report = lf_report.lf_report(_results_dir_name="VideoStreaming_test", _output_html="VideoStreaming_test.html",
+                                         _output_pdf="VideoStreaming_test.pdf", _path=report_path)
+
+        # To store throughput_data.csv in report folder
+        report_path_date_time = report.get_path_date_time()
+        # shutil.move('video_streaming_realtime_data.csv', report_path_date_time)
+
+        created_incremental_values = self.get_incremental_capacity_list()
+        keys = list(self.http_profile.created_cx.keys())
+
+        report.set_title("Video Streaming Test")
+        report.set_date(date)
+        report.build_banner()
+        report.set_obj_html("Objective", " The Candela Video streaming test is designed to measure the access point performance and stability by streaming the videos from the local browser"
+                            "or from over the Internet in real clients like android which are connected to the access point,"
+                            "this test allows the user to choose the options like video link, type of media source, media quality, number of playbacks."
+                            "Along with the performance other measurements like No of Buffers, Wait-Time, per client Video Bitrate, Video Quality, and more. "
+                            "The expected behavior is for the DUT to be able to handle several stations (within the limitations of the AP specs)"
+                            "and make sure all capable clients can browse the video. ")
+        report.build_objective()
+        report.set_table_title("Input Parameters")
+        report.build_table_title()
+        if self.config:
+            test_setup_info["SSID"] = self.test_setup_info_ssid
+            test_setup_info["Password"] = self.passwd
+            test_setup_info["ENCRYPTION"] = self.encryp
+        elif len(self.selected_groups) > 0 and len(self.selected_profiles) > 0:
+            # Map each group with a profile
+            gp_pairs = zip(self.selected_groups, self.selected_profiles)
+            # Create a string by joining the mapped pairs
+            gp_map = ", ".join(f"{group} -> {profile}" for group, profile in gp_pairs)
+            test_setup_info["Configuration"] = gp_map
+        if self.robot_test:
+            test_setup_info["Coordinates"] = self.coordinate_list
+            if self.rotation_enabled:
+                test_setup_info["Rotations"] = self.rotation_list
+
+        report.test_setup_table(value="Test Setup Information", test_setup_data=test_setup_info)
+        device_type = []
+        username = []
+        ssid = []
+        mac = []
+        channel = []
+        mode = []
+        rssi = []
+        channel = []
+        tx_rate = []
+        resource_ids = list(map(int, self.resource_ids.split(',')))
+        try:
+            eid_data = self.json_get("ports?fields=alias,mac,mode,Parent Dev,rx-rate,tx-rate,ssid,signal,channel")
+        except KeyError:
+            logger.error("Error: 'interfaces' key not found in port data")
+            exit(1)
+
+        # Loop through interfaces
+        for alias in eid_data["interfaces"]:
+            for i in alias:
+                # Check interface index and alias
+                if int(i.split(".")[1]) > 1 and alias[i]["alias"] == 'wlan0':
+
+                    # Get resource data for specific interface
+                    resource_hw_data = self.json_get("/resource/" + i.split(".")[0] + "/" + i.split(".")[1])
+                    hw_version = resource_hw_data['resource']['hw version']
+
+                    # Filter based on OS and resource ID
+                    if not hw_version.startswith(('Win', 'Linux', 'Apple')) and int(resource_hw_data['resource']['eid'].split('.')[1]) in resource_ids:
+                        device_type.append('Android')
+                        username.append(resource_hw_data['resource']['user'])
+                        ssid.append(alias[i]['ssid'])
+                        mac.append(alias[i]['mac'])
+                        mode.append(alias[i]['mode'])
+                        rssi.append(alias[i]['signal'])
+                        channel.append(alias[i]['channel'])
+                        tx_rate.append(alias[i]['tx-rate'])
+
+        self.add_buffer_and_wait_time_images(report=report)
+        for coordinate in range(len(passed_coordinates)):
+            self.current_coordinate = self.coordinate_list[coordinate]
+            csv_suffix = "_{}".format(self.current_coordinate)
+            if self.rotation_enabled:
+                for angle in range(len(self.rotation_list)):
+                    self.current_angle = self.rotation_list[angle]
+                    coord, ang = self.coordinate_list[coordinate], self.rotation_list[angle]
+                    self.data = self.vs_data[int(coord)][ang]["self_data"]
+                    self.generate_individual_coordinate(report, device_type, username, ssid, mac, channel, mode, rssi, tx_rate, created_incremental_values, keys)
+                shutil.move('video_streaming_realtime_data{}.csv'.format(csv_suffix), report_path_date_time)
+            else:
+                self.data = self.vs_data[self.coordinate_list[coordinate]]["self_data"]
+                shutil.move('video_streaming_realtime_data{}.csv'.format(csv_suffix), report_path_date_time)
+                self.generate_individual_coordinate(report, device_type, username, ssid, mac, channel, mode, rssi, tx_rate, created_incremental_values, keys)
+
+    def generate_individual_coordinate(self, report, device_type, username, ssid, mac, channel, mode, rssi, tx_rate, created_incremental_values, keys, report_path=""):
+        """
+        Generate per-coordinate and per-rotation Video Streaming graphs and tables by
+        processing incremental iteration data and adding line/bar graphs to the report.
+
+        Returns:
+            None
+        """
+        if self.rotation_enabled:
+            data_dict = self.vs_data[int(self.current_coordinate)][self.current_angle].copy()
+        else:
+            data_dict = self.vs_data[self.current_coordinate].copy()
+        if self.rotation_enabled:
+            graph_suffix = "_{}_{}".format(self.current_coordinate, self.current_angle)
+        else:
+            graph_suffix = "_{}".format(self.current_coordinate)
+
+        iterations_before_test_stopped_by_user = data_dict["iterations_before_test_stopped_by_user"]
+        realtime_dataset = data_dict["realtime_dataset"]
+        total_urls = self.data["total_urls"]
+        total_err = self.data["total_err"]
+        total_buffer = self.data["total_buffer"]
+        max_bytes_rd_list = []
+        avg_rx_rate_list = []
+        # Iterate through the length of cx_order_list
+        for iter in range(len(iterations_before_test_stopped_by_user)):
+            data_set_in_graph, wait_time_data, devices_on_running_state, device_names_on_running = [], [], [], []
+            devices_data_to_create_wait_time_bar_graph = []
+            max_video_rate, min_video_rate, avg_video_rate = [], [], []
+            total_url_data, rssi_data = [], []
+            trimmed_data_set_in_graph = []
+            max_bytes_rd_list = []
+            avg_rx_rate_list = []
+            # Retrieve data for the previous iteration, if it's not the first iteration
+            if iter != 0:
+                before_data_iter = realtime_dataset[realtime_dataset['iteration'] == iter]
+            # Retrieve data for the current iteration
+            data_iter = realtime_dataset[realtime_dataset['iteration'] == iter + 1]
+
+            # Populate the list of devices on running state and their corresponding usernames
+            for j in range(created_incremental_values[iter]):
+                devices_on_running_state.append(keys[j])
+                device_names_on_running.append(username[j])
+
+            # Iterate through each device currently running
+            for k in devices_on_running_state:
+                # Filter columns related to the current device
+                columns_with_substring = [col for col in data_iter.columns if k in col]
+                filtered_df = data_iter[columns_with_substring]
+                min_val = self.process_list(filtered_df[[col for col in filtered_df.columns if "video_format_bitrate" in col][0]].values.tolist())
+                if iter != 0:
+                    # Filter columns related to the current device from the previous iteration
+                    before_iter_columns_with_substring = [col for col in before_data_iter.columns if k in col]
+                    before_filtered_df = before_data_iter[before_iter_columns_with_substring]
+
+                # Extract and compute max, min, and average video rates
+                max_video_rate.append(max(filtered_df[[col for col in filtered_df.columns if "video_format_bitrate" in col][0]].values.tolist()))
+                min_video_rate.append(min_val)
+                avg_video_rate.append(round(sum(filtered_df[[col for col in filtered_df.columns if "video_format_bitrate" in col][0]].values.tolist()) /
+                                      len(filtered_df[[col for col in filtered_df.columns if "video_format_bitrate" in col][0]].values.tolist()), 2))
+                wait_time_data.append(filtered_df[[col for col in filtered_df.columns if "total_wait_time" in col][0]].values.tolist()[-1])
+                rssi_data.append(int(round(sum(filtered_df[[col for col in filtered_df.columns if "RSSI" in col][0]].values.tolist()) /
+                                 len(filtered_df[[col for col in filtered_df.columns if "RSSI" in col][0]].values.tolist()), 2)) * -1)
+                # Extract maximum bytes read for the device
+                max_bytes_rd = max(filtered_df[[col for col in filtered_df.columns if "bytes_rd" in col][0]].values.tolist())
+                max_bytes_rd_list.append(max_bytes_rd)
+
+                # Calculate and append the average RX rate in Mbps
+                rx_rate_values = filtered_df[[col for col in filtered_df.columns if "rx rate" in col][0]].values.tolist()
+                avg_rx_rate_list.append(round((sum(rx_rate_values) / len(rx_rate_values)) / 1_000_000, 2))  # Convert bps to Mbps
+
+                if iter != 0:
+                    # Calculate the difference in total URLs between the current and previous iterations
+                    total_url_data.append(abs(filtered_df[[col for col in filtered_df.columns if "total_urls" in col][0]].values.tolist()[-1] -
+                                          before_filtered_df[[col for col in before_filtered_df.columns if "total_urls" in col][0]].values.tolist()[-1]))
+                else:
+                    # Append the total URLs for the first iteration
+                    total_url_data.append(filtered_df[[col for col in filtered_df.columns if "total_urls" in col][0]].values.tolist()[-1])
+
+            # Append the wait time data to the list for creating the wait time bar graph
+            devices_data_to_create_wait_time_bar_graph.append(wait_time_data)
+
+            # Extract overall video format bitrate values for the current iteration and append to data_set_in_graph
+            video_streaming_values_list = realtime_dataset['overall_video_format_bitrate'][realtime_dataset['iteration'] == iter + 1].values.tolist()
+            data_set_in_graph.append(video_streaming_values_list)
+
+            # Trim the data in data_set_in_graph and append to trimmed_data_set_in_graph
+            for _ in range(len(data_set_in_graph)):
+                trimmed_data_set_in_graph.append(self.trim_data(len(data_set_in_graph[_]), data_set_in_graph[_]))
+
+            # If there are multiple incremental values, add custom HTML content to the report for the current iteration
+            if len(created_incremental_values) > 1:
+                report.set_custom_html(f"<h2><u>Iteration-{iter + 1}</u></h2>")
+                report.build_custom()
+            if self.rotation_enabled:
+                obj_title = f"Realtime Video Rate on Coordinate: {self.current_coordinate} | Rotation Angle: {self.current_angle}°: Number of devices running: {len(device_names_on_running)}"
+            else:
+                obj_title = f"Realtime Video Rate on Coordinate: {self.current_coordinate} : Number of devices running: {len(device_names_on_running)}"
+
+            report.set_obj_html(
+                _obj_title=obj_title,
+                _obj="")
+            report.build_objective()
+
+            # Create a line graph for video rate over time
+            graph = lf_line_graph(_data_set=trimmed_data_set_in_graph,
+                                  _xaxis_name="Time",
+                                  _yaxis_name="Video Rate (Mbps)",
+                                  _xaxis_categories=self.trim_data(len(realtime_dataset['timestamp'][realtime_dataset['iteration'] == iter + 1].values.tolist()),
+                                                                   realtime_dataset['timestamp'][realtime_dataset['iteration'] == iter + 1].values.tolist()),
+                                  _label=['Rate'],
+                                  _graph_image_name=f"vs_line_graph{iter}{graph_suffix}"
+                                  )
+            graph_png = graph.build_line_graph()
+            logger.info("graph name {}".format(graph_png))
+            report.set_graph_image(graph_png)
+            report.move_graph_image()
+
+            report.build_graph()
+
+            # Define figure size for horizontal bar graphs
+            x_fig_size = 15
+            y_fig_size = len(devices_on_running_state) * .5 + 4
+
+            report.set_obj_html(
+                _obj_title="Total Urls Per Device",
+                _obj="")
+            report.build_objective()
+            # Create a horizontal bar graph for total URLs per device
+            graph = lf_bar_graph_horizontal(_data_set=[total_urls[:created_incremental_values[iter]]],
+                                            _xaxis_name="Total Urls",
+                                            _yaxis_name="Devices",
+                                            _graph_image_name=f"total_urls_image_name{iter}{graph_suffix}",
+                                            _label=["Total Urls"],
+                                            _yaxis_categories=device_names_on_running,
+                                            _legend_loc="best",
+                                            _legend_box=(1.0, 1.0),
+                                            _show_bar_value=True,
+                                            _figsize=(x_fig_size, y_fig_size)
+                                            #    _color=['lightcoral']
+                                            )
+            graph_png = graph.build_bar_graph_horizontal()
+            logger.info("wait time graph name {}".format(graph_png))
+            graph.build_bar_graph_horizontal()
+            report.set_graph_image(graph_png)
+            report.move_graph_image()
+            report.build_graph()
+
+            report.set_obj_html(
+                _obj_title="Max/Min Video Rate Per Device",
+                _obj="")
+            report.build_objective()
+
+            # Create a horizontal bar graph for max and min video rates per device
+            graph = lf_bar_graph_horizontal(_data_set=[max_video_rate, min_video_rate],
+                                            _xaxis_name="Max/Min Video Rate(Mbps)",
+                                            _yaxis_name="Devices",
+                                            _graph_image_name=f"max-min-video-rate_image_name{iter}{graph_suffix}",
+                                            _label=['Max Video Rate', 'Min Video Rate'],
+                                            _yaxis_categories=device_names_on_running,
+                                            _legend_loc="best",
+                                            _legend_box=(1.0, 1.0),
+                                            _show_bar_value=True,
+                                            _figsize=(x_fig_size, y_fig_size)
+                                            #    _color=['lightcoral']
+                                            )
+            graph_png = graph.build_bar_graph_horizontal()
+            logger.info("max/min graph name {}".format(graph_png))
+            graph.build_bar_graph_horizontal()
+            report.set_graph_image(graph_png)
+            report.move_graph_image()
+            report.build_graph()
+
+            report.set_obj_html(
+                _obj_title="Wait Time Per Device",
+                _obj="")
+            report.build_objective()
+
+            # Create a horizontal bar graph for wait time per device
+            graph = lf_bar_graph_horizontal(_data_set=devices_data_to_create_wait_time_bar_graph,
+                                            _xaxis_name="Wait Time(seconds)",
+                                            _yaxis_name="Devices",
+                                            _graph_image_name=f"wait_time_image_name{iter}{graph_suffix}",
+                                            _label=['Wait Time'],
+                                            _yaxis_categories=device_names_on_running,
+                                            _legend_loc="best",
+                                            _legend_box=(1.0, 1.0),
+                                            _show_bar_value=True,
+                                            _figsize=(x_fig_size, y_fig_size)
+                                            #    _color=['lightcoral']
+                                            )
+            graph_png = graph.build_bar_graph_horizontal()
+            logger.info("wait time graph name {}".format(graph_png))
+            graph.build_bar_graph_horizontal()
+            report.set_graph_image(graph_png)
+            report.move_graph_image()
+            report.build_graph()
+            if not self.robot_test:
+                self.add_buffer_and_wait_time_images(report=report)
+
+            # Table 1
+            report.set_obj_html("Overall - Detailed Result Table", "The below tables provides detailed information for the Video Streaming test.")
+            report.build_objective()
+            test_data = {
+                "iter": iter,
+                "created_incremental_values": created_incremental_values,
+                "device_type": device_type,
+                "username": username,
+                "ssid": ssid,
+                "mac": mac,
+                "channel": channel,
+                "mode": mode,
+                "total_buffer": total_buffer,
+                "wait_time_data": wait_time_data,
+                "min_video_rate": min_video_rate,
+                "avg_video_rate": avg_video_rate,
+                "max_video_rate": max_video_rate,
+                "total_urls": total_urls,
+                "total_err": total_err,
+                "rssi_data": rssi_data,
+                "tx_rate": tx_rate,
+                "max_bytes_rd_list": max_bytes_rd_list,
+                "avg_rx_rate_list": avg_rx_rate_list
+            }
+
+            dataframe = self.handle_passfail_criteria(test_data)
+
+            dataframe1 = pd.DataFrame(dataframe)
+            report.set_table_dataframe(dataframe1)
+            report.build_table()
+
+            # Set and build title for the overall results table
+            report.set_obj_html("Detailed Total Errors Table", "The below tables provides detailed information of total errors for the web browsing test.")
+            report.build_objective()
+            dataframe2 = {
+                " DEVICE": username[:created_incremental_values[iter]],
+                " TOTAL ERRORS ": total_err[:created_incremental_values[iter]],
+            }
+            dataframe3 = pd.DataFrame(dataframe2)
+            report.set_table_dataframe(dataframe3)
+            report.build_table()
+        report.build_footer()
+        report.write_html()
+        report.write_pdf()
+
+    def perform_robo(self, args, individual_dataframe_columns, cx_order_list, i, actual_start_time, iterations_before_test_stopped_by_user):
+        """
+        Executes Video Streaming tests using robo across coordinates and rotations, collects per-iteration data,
+        and stores results for report generation.
+
+        Returns:
+            None
+        """
+        # coordinate list to track coordinates where the test needs to be triggered
+        coord_list = []
+        if self.coordinate:
+            coord_list = self.coordinate_list
+            if self.dowebgui:
+                base_dir = os.path.dirname(os.path.dirname(self.result_dir))
+                nav_data = os.path.join(base_dir, 'nav_data.json')  # To generate nav_data.json in webgui folder
+                with open(nav_data, "w") as file:
+                    json.dump({}, file)
+                self.robot.nav_data_path = nav_data
+                self.robot.runtime_dir = self.result_dir
+                self.robot.ip = self.host
+                self.robot.testname = self.test_name
+            passed_coord_list = []
+            abort = False
+        for coordinate in coord_list:
+            if self.test_stopped:
+                break
+            if self.robot_ip:
+                # Check battery level: if below 20% robot charges fully before resuming
+                pause_coord, test_stopped_by_user = self.robot.wait_for_battery()
+                if test_stopped_by_user:
+                    break
+                # Move the robot to the selected coordinate
+                matched, abort = self.robot.move_to_coordinate(coordinate)
+
+                if matched:
+                    logger.info("Reached the coordinate {}".format(coordinate))
+                if abort:
+                    break
+                passed_coord_list.append(coordinate)
+                coordinate_df = pd.DataFrame(columns=individual_dataframe_columns)
+                if matched:
+                    self.current_coordinate = coordinate
+                    # if no rotation mode
+                    if not self.rotation_enabled:
+                        self.data = {}
+                        self.data["start_time_webGUI"] = [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+                        end_time_webGUI = (datetime.now() + timedelta(minutes=int(args.duration))).strftime('%Y-%m-%d %H:%M:%S')
+                        self.data['end_time_webGUI'] = [end_time_webGUI]
+                        self.start_specific(cx_order_list[i])
+                        if cx_order_list[i]:
+                            logging.info("Test started on Devices with resource Ids : {selected}".format(selected=cx_order_list[i]))
+                        else:
+                            logging.info("Test started on Devices with resource Ids : {selected}".format(selected=cx_order_list[i]))
+                        file_path = "video_streaming_realtime_data.csv"
+                        if end_time_webGUI < datetime.now().strftime('%Y-%m-%d %H:%M:%S'):
+                            self.data['remaining_time_webGUI'] = ['0:00']
+                        else:
+                            date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            self.data['remaining_time_webGUI'] = [datetime.strptime(end_time_webGUI, "%Y-%m-%d %H:%M:%S") - datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")]
+
+                        if args.dowebgui:
+                            file_path = os.path.join(self.result_dir, "../../Running_instances/{}_{}_running.json".format(self.host, self.test_name))
+                            if os.path.exists(file_path):
+                                with open(file_path, 'r') as file:
+                                    data = json.load(file)
+                                    if data["status"] != "Running":
+                                        self.test_stopped = True
+                                        break
+                            test_stopped_by_user = self.monitor_for_runtime_csv(args.duration, file_path, coordinate_df, i, actual_start_time, cx_order_list[i])
+                        else:
+                            test_stopped_by_user = self.monitor_for_runtime_csv(args.duration, file_path, coordinate_df, i, actual_start_time, cx_order_list[i])
+                        if not test_stopped_by_user:
+                            # Append current iteration index to iterations_before_test_stopped_by_user
+                            iterations_before_test_stopped_by_user.append(i)
+                        else:
+                            # Append current iteration index to iterations_before_test_stopped_by_user
+                            iterations_before_test_stopped_by_user.append(i)
+                            params = self.build_report_params_for_robo(args, cx_order_list, coordinate_df, iterations_before_test_stopped_by_user)
+                            params["self_data"] = self.data.copy()
+                            self.vs_data[self.current_coordinate] = params
+                            break
+                        self.stop()
+                        params = self.build_report_params_for_robo(args, cx_order_list, coordinate_df, iterations_before_test_stopped_by_user)
+                        params["self_data"] = self.data.copy()
+                        self.vs_data[self.current_coordinate] = params
+
+                    # if rotation mode
+                    else:
+                        exit_from_monitor = False
+                        for angle in range(len(self.rotation_list)):
+                            final_angle = 0
+                            # Check battery level: if below 20% robot charges fully before resuming
+                            pause_angle, test_stopped_by_user = self.robot.wait_for_battery(stop=self.stop)
+                            if test_stopped_by_user:
+                                break
+                            if pause_angle:
+                                # Return robot to the last saved coordinate after charging
+                                reached = self.robot.move_to_coordinate(coordinate)
+                                if not reached:
+                                    test_stopped_by_user = True
+                                    break
+                            final_angle = angle
+                            # Rotate the robot to the given rotation
+                            rotation = self.robot.rotate_angle(self.rotation_list[angle])
+                            if not rotation:
+                                exit_from_monitor = True
+                            if exit_from_monitor:
+                                break
+                            if final_angle not in self.last_rotated_angles:
+                                self.last_rotated_angles.append(final_angle)
+                            self.start_specific(cx_order_list[i])
+                            monitor_charge_time = datetime.now()
+                            if cx_order_list[i]:
+                                logging.info("Test started on Devices with resource Ids : {selected}".format(selected=cx_order_list[i]))
+                            else:
+                                logging.info("Test started on Devices with resource Ids : {selected}".format(selected=cx_order_list[i]))
+                            file_path = "video_streaming_realtime_data.csv"
+                            self.data = {}
+                            self.data["start_time_webGUI"] = [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+                            end_time_webGUI = (datetime.now() + timedelta(minutes=int(args.duration))).strftime('%Y-%m-%d %H:%M:%S')
+                            self.data['end_time_webGUI'] = [end_time_webGUI]
+                            self.current_coordinate = coordinate
+                            self.current_angle = self.rotation_list[angle]
+                            if end_time_webGUI < datetime.now().strftime('%Y-%m-%d %H:%M:%S'):
+                                self.data['remaining_time_webGUI'] = ['0:00']
+                            else:
+                                date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                                self.data['remaining_time_webGUI'] = [datetime.strptime(end_time_webGUI, "%Y-%m-%d %H:%M:%S") - datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")]
+                            individual_df = pd.DataFrame(columns=individual_dataframe_columns)
+
+                            if args.dowebgui:
+                                file_path = os.path.join(self.result_dir, "../../Running_instances/{}_{}_running.json".format(self.host, self.test_name))
+                                if os.path.exists(file_path):
+                                    with open(file_path, 'r') as file:
+                                        data = json.load(file)
+                                        if data["status"] != "Running":
+                                            self.test_stopped = True
+                                            break
+                                test_stopped_by_user = self.monitor_for_runtime_csv(
+                                    args.duration,
+                                    file_path,
+                                    individual_df,
+                                    i,
+                                    actual_start_time,
+                                    cx_order_list[i],
+                                    curr_coordinate=coordinate,
+                                    curr_rotation=self.rotation_list[angle],
+                                    monitor_charge_time=monitor_charge_time)
+                            else:
+                                test_stopped_by_user = self.monitor_for_runtime_csv(
+                                    args.duration,
+                                    file_path,
+                                    individual_df,
+                                    i,
+                                    actual_start_time,
+                                    cx_order_list[i],
+                                    curr_coordinate=coordinate,
+                                    curr_rotation=self.rotation_list[angle],
+                                    monitor_charge_time=monitor_charge_time)
+                            if not test_stopped_by_user:
+                                # Append current iteration index to iterations_before_test_stopped_by_user
+                                iterations_before_test_stopped_by_user.append(i)
+                            else:
+                                # Append current iteration index to iterations_before_test_stopped_by_user
+                                iterations_before_test_stopped_by_user.append(i)
+                                params = self.build_report_params_for_robo(args, cx_order_list, individual_df, iterations_before_test_stopped_by_user)
+                                params["self_data"] = self.data.copy()
+                                break
+                            self.stop()
+                            params = self.build_report_params_for_robo(args, cx_order_list, individual_df, iterations_before_test_stopped_by_user)
+                            params["self_data"] = self.data.copy()
+                            if int(coordinate) not in self.vs_data:
+                                self.vs_data[int(coordinate)] = {}
+                            self.vs_data[int(coordinate)][self.rotation_list[angle]] = params
+        test_setup_info = self.create_test_setup_info(media_source=args.media_source, media_quality=args.media_quality)
+        self.generate_report_for_robo(test_setup_info, passed_coordinates=passed_coord_list)
+
+    def build_iot_report_section(self, report, iot_summary):
+        """
+        Handles all IoT-related charts, tables, and increment-wise reports.
+        """
+        outdir = report.path_date_time
+        os.makedirs(outdir, exist_ok=True)
+
+        def copy_into_report(raw_path, new_name):
+            """Resolve and copy image into report dir."""
+            if not raw_path:
+                return None
+
+            abs_src = os.path.abspath(raw_path)
+            if not os.path.exists(abs_src):
+                # Search recursively under 'results' if absolute path missing
+                for root, _, files in os.walk(os.path.join(os.getcwd(), "results")):
+                    if os.path.basename(raw_path) in files:
+                        abs_src = os.path.join(root, os.path.basename(raw_path))
+                        break
+                else:
+                    return None
+
+            dst = os.path.join(outdir, new_name)
+            if os.path.abspath(abs_src) != os.path.abspath(dst):
+                shutil.copy2(abs_src, dst)
+            return new_name
+
+        # section header
+        report.set_custom_html('<div style="page-break-before: always;"></div>')
+        report.build_custom()
+        report.set_custom_html('<h2><u>IoT Results</u></h2>')
+        report.build_custom()
+
+        # Statistics
+        stats_png = copy_into_report(iot_summary.get("statistics_img"), "iot_statistics.png")
+        if stats_png:
+            report.build_chart_title("Test Statistics")
+            report.set_custom_html(f'<img src="{stats_png}" style="width:100%; height:auto;">')
+            report.build_custom()
+
+        # Request vs Latency
+        rvl_png = copy_into_report(iot_summary.get("req_vs_latency_img"), "iot_request_vs_latency.png")
+        if rvl_png:
+            report.build_chart_title("Request vs Average Latency")
+            report.set_custom_html(f'<img src="{rvl_png}" style="width:100%;">')
+            report.build_custom()
+
+        # Overall results table
+        ort = iot_summary.get("overall_result_table") or {}
+        if ort:
+            rows = [{
+                "Device": dev,
+                "Min Latency (ms)": stats.get("min_latency"),
+                "Avg Latency (ms)": stats.get("avg_latency"),
+                "Max Latency (ms)": stats.get("max_latency"),
+                "Total Iterations": stats.get("total_iterations"),
+                "Success Iters": stats.get("success_iterations"),
+                "Failed Iters": stats.get("failed_iterations"),
+                "No-Response Iters": stats.get("no_response_iterations"),
+            } for dev, stats in ort.items()]
+
+            df_overall = pd.DataFrame(rows).round(2)
+
+            report.set_custom_html('<div style="page-break-inside: avoid;">')
+            report.build_custom()
+            report.set_obj_html(_obj_title="Overall IoT Result Table", _obj=" ")
+            report.build_objective()
+            report.set_table_dataframe(df_overall)
+            report.build_table()
+            report.set_custom_html('</div>')
+            report.build_custom()
+
+        # Increment reports
+        inc = iot_summary.get("increment_reports") or {}
+        if inc:
+            report.set_custom_html('<h3>Reports by Increment Steps</h3>')
+            report.build_custom()
+
+            for step_name, rep in inc.items():
+
+                report.set_custom_html(f'<h4><u>{step_name.replace("_", " ")}</u></h4>')
+                report.build_custom()
+
+                # Latency graph
+                lat_png = copy_into_report(rep.get("latency_graph"), f"iot_{step_name}_latency.png")
+                if lat_png:
+                    report.build_chart_title("Average Latency")
+                    report.set_custom_html(f'<img src="{lat_png}" style="width:100%; height:auto;">')
+                    report.build_custom()
+
+                # Success count graph
+                res_png = copy_into_report(rep.get("result_graph"), f"iot_{step_name}_results.png")
+                if res_png:
+                    report.build_chart_title("Success Count")
+                    report.set_custom_html(f'<img src="{res_png}" style="width:100%; height:auto;">')
+                    report.build_custom()
+
+                # Tabular data for detailed iteration-level results
+                data_rows = rep.get("data") or []
+                if data_rows:
+                    df = pd.DataFrame(data_rows).rename(
+                        columns={"latency__ms": "Latency_ms", "latency_ms": "Latency_ms"}
+                    )
+                    if "Latency_ms" in df.columns:
+                        df["Latency_ms"] = pd.to_numeric(df["Latency_ms"], errors="coerce").round(3)
+                    if "Result" in df.columns:
+                        df["Result"] = df["Result"].map(lambda x: "Success" if bool(x) else "Failure")
+
+                    desired_cols = ["Iteration", "Device", "Current State", "Latency_ms", "Result"]
+                    df = df[[c for c in desired_cols if c in df.columns]]
+
+                    report.set_table_dataframe(df)
+                    report.build_table()
+
+                report.set_custom_html('<hr>')
+                report.build_custom()
+
+
+def with_iot_params_in_table(base: dict, iot_summary) -> dict:
+    """
+    Append IoT params into the existing Throughput Input Parameters table.
+    Adds: IoT Test name, IoT Iterations, IoT Delay (s), IoT Increment.
+    Accepts dict or JSON string.
+    """
+    try:
+        if not iot_summary:
+            return base
+        if isinstance(iot_summary, str):
+            try:
+                iot_summary = json.loads(iot_summary)
+            except Exception:
+                start = iot_summary.find("{")
+                end = iot_summary.rfind("}")
+                if start == -1 or end == -1 or end <= start:
+                    return base
+                try:
+                    iot_summary = json.loads(iot_summary[start:end + 1])
+                except Exception:
+                    return base
+
+        ti = (iot_summary.get("test_input_table") or {})
+        out = OrderedDict(base)
+        out["Iot Device List"] = ti.get("Device List", "")
+        out["IoT Iterations"] = ti.get("Iterations", "")
+        out["IoT Delay (s)"] = ti.get("Delay (seconds)", "")
+        out["IoT Increment"] = ti.get("Increment Pattern", "")
+        return out
+    except Exception:
+        return base
+
+
+def trigger_iot(ip, port, iterations, delay, device_list, testname, increment):
+    """
+    Entry point to start the IoT test in a separate thread.
+    This function is called from the throughput test script when IoT testing
+    is enabled. It wraps the asynchronous `run_iot()`.
+    """
+    asyncio.run(run_iot(ip, port, iterations, delay, device_list, testname, increment))
+
+
+async def run_iot(ip: str = '127.0.0.1',
+                  port: str = '8000',
+                  iterations: int = 1,
+                  delay: int = 5,
+                  device_list: str = '',
+                  testname: str = '',
+                  increment: str = ''):
+    try:
+
+        if delay < 5:
+            logger.error('The minimum delay should be 5 seconds.')
+            exit(1)
+
+        if device_list != '':
+            device_list = device_list.split(',')
+        else:
+            device_list = None
+        # Parse and validate increment pattern if provided
+        if increment:
+            print("the increment is : ", increment)
+            try:
+                increment = list(map(int, increment.split(',')))
+                if any(i < 1 for i in increment):
+                    logger.error('Increment values must be positive integers')
+                    exit(1)
+            except ValueError:
+                logger.error('Invalid increment format. Please provide comma-separated integers (e.g., "1,3,5")')
+                exit(1)
+
+        testname = testname
+
+        # Ensure test name is unique (avoid overwriting previous results)
+        if testname in os.listdir('../../local/interop-webGUI/IoT/scripts/results/'):
+            logger.error('Test with same name already existing. Please give a different testname.')
+            exit(1)
+        automation = Automation(ip=ip,
+                                port=port,
+                                iterations=iterations,
+                                delay=delay,
+                                device_list=device_list,
+                                testname=testname,
+                                increment=increment)
+
+        # fetch the available iot devices
+        automation.devices = await automation.fetch_iot_devices()
+
+        # select the iot devices for testing
+        automation.select_iot_devices()
+
+        # run the iot test on selected devices
+        automation.run_test()
+
+        # generate the iot report
+        automation.generate_report()
+
+    except Exception as e:
+        logger.error(f"Iot Test failed: {str(e)}")
+        raise
+
+    await automation.session.close()
+
+    logger.info('Iot Test Completed.')
+
+
+def main():
+    help_summary = '''\
+    The Candela Video streaming test is designed to measure the access point performance and stability by streaming the videos from the local browser"
+    "or from over the Internet in real clients like android which are connected to the access point,
+    this test allows the user to choose the options like video link, type of media source, media quality, number of playbacks.
+    Along with the performance other measurements like No of Buffers, Wait-Time, per client Video Bitrate, Video Quality, and more.
+    The expected behavior is for the DUT to be able to handle several stations (within the limitations of the AP specs)"
+    "and make sure all capable clients can browse the video.
+    '''
+
+    parser = argparse.ArgumentParser(
+        prog=__file__,
+        formatter_class=argparse.RawTextHelpFormatter,
+        description="""\
+
+        NAME: lf_video_streaming.py
+
+        Purpose: To be generic script for LANforge-Interop devices(Real clients) which runs layer4-7 traffic
+        For now the test script supports for Video streaming of real devices.
+
+        Pre-requisites: Real devices should be connected to the LANforge MGR and Interop app should be open on the real clients which are connected to Lanforge
+
+
+        Prints the list of data from layer4-7 such as uc-avg time, total url's, url's per sec
+
+        Example-1:
+        Command Line Interface to run Video Streaming test with media source HLS and media quality 1080P :
+        python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+        --media_quality 1080P --duration 1m --device_list 1.10,1.12 --debug --test_name video_streaming_test
+
+        Example-2:
+        Command Line Interface to run Video Streaming test with media source DASH and media quality 4K :
+        python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd" --media_source dash
+        --media_quality 4K --duration 1m --device_list 1.10,1.12 --debug --test_name video_streaming_test
+
+        Example-3:
+        Command Line Interface to run the Video Streaming test with specified Resources:
+        python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+        --media_quality 1080P --duration 1m --device_list 1.10,1.12 --debug --test_name video_streaming_test
+
+
+        Example-4:
+        Command Line Interface to run the Video Streaming test with incremental Capacity by specifying the --incremental flag
+        python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+        --media_quality 1080P --duration 1m --device_list 1.10,1.12 --incremental --debug --test_name video_streaming_test
+
+        Example-5:
+        Command Line Interface to run Video Streaming test with precleanup:
+        python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+        --media_quality 1080P  --duration 1m --device_list 1.10,1.12 --precleanup --debug --test_name video_streaming_test
+
+        Example-6:
+        Command Line Interface to run Video Streaming test with postcleanup:
+        python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+        --media_quality 1080P --duration 1m --device_list 1.10,1.12 --postcleanup --debug --test_name video_streaming_test
+
+        Example-7:
+        Command Line Interface to run the Video Streaming test with incremental Capacity
+        python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+        --media_quality 1080P --duration 1m --device_list 1.10,1.11 --incremental_capacity 1,2 --debug --test_name video_streaming_test
+
+        Example-8:
+        Command Line Interface to run the Video Streaming test with wifi interface configuration to particular ssid
+        python3 lf_video_streaming.py --mgr 192.168.213.218 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+        --media_quality 1080P --duration 1m  --debug --test_name video_streaming_test --ssid VINTROP_wpa2 --passwd lanforge --encryp wpa2 --upstream_port 1.1.eth1 --config
+
+        Example-9:
+        Command Line Interface to run the Video Streaming with particular group of devices configured to particular ssid profile
+        python3 lf_video_streaming.py --mgr 192.168.213.218 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+        --media_quality 1080P --duration 1m  --debug --test_name video_streaming_test --upstream_port 1.1.eth1 --file_name laxmi_csv --group_name group1 --profile_name Openwpa2
+
+        Example-10:
+        Command Line Interface to run the Video Streaming with expected pass fail value
+        python3 lf_video_streaming.py --mgr 192.168.214.219 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls
+        --media_quality 1080P --duration 1m --device_list 1.10,1.12 --debug --test_name video_streaming_test --expected_passfail_value 5
+
+        Example-11:
+        Command Line Interface to run the Video Streaming Test along with Robot at the specified coordinates without any rotation
+        python3 lf_video_streaming.py --mgr 192.168.207.78 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls    --media_quality 1080P --duration 1m  --debug
+        --test_name video_streaming_test --robot_test --robot_ip 192.168.204.101 --coordinate 3,4
+
+        Example-12:
+        Command Line Interface to run the Video Streaming Test along with Robot by enabling rotation at the specified coordinates
+        python3 lf_video_streaming.py --mgr 192.168.207.78 --url "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8" --media_source hls    --media_quality 1080P --duration 1m  --debug
+        --test_name video_streaming_test --robot_test --robot_ip 192.168.204.101 --coordinate 3,4 --rotation 30,70
+
+        Example-13:
+        Command Line Interface to run Video Streaming test using a DASH stream hosted on the local LANforge server
+        python3 lf_video_streaming.py --mgr 192.168.207.78 --url "http://192.168.204.63/kalki/kalki.mpd" --media_source dash    --media_quality 1080P --duration 1m  --debug
+        --test_name video_streaming_test
+
+        Example-14:
+        Command Line Interface to run Video Streaming test using a DASH stream hosted on the local LANforge server with Robot at specified coordinates without any rotation
+        python3 lf_video_streaming.py --mgr 192.168.207.78 --url "http://192.168.204.63/kalki/kalki.mpd" --media_source dash    --media_quality 1080P --duration 1m  --debug
+        --test_name video_streaming_test --robot_test --robot_ip 192.168.204.101 --coordinate 3,4
+
+        SCRIPT CLASSIFICATION: Test
+
+        SCRIPT_CATEGORIES:   Performance,  Functional, Report Generation
+
+        NOTES:
+            1. Use './lf_video_streaming.py --help' to see command line usage and options.
+            2. If --device_list are not given after passing the CLI, a list of available devices will be displayed on the terminal.
+            3. To run the test by specifying the incremental capacity, enable the --incremental flag.
+
+        STATUS: BETA RELEASE
+
+        VERIFIED_ON:
+        Working date - 29/07/2024
+        Build version - 5.4.8
+        kernel version - 6.2.16+
+
+        License: Free to distribute and modify. LANforge systems must be licensed.
+        Copyright (C) 2020-2026 Candela Technologies Inc.
+
+
+    """)
+    optional = parser.add_argument_group('Optional arguments to run lf_video_streaming.py')
+    parser.add_argument("--host", "--mgr", help='specify the GUI to connect to, assumes port '
+                        '8080')
+    parser.add_argument("--ssid", help='specify ssid on which the test will be running')
+    parser.add_argument("--passwd", default="something", help='specify encryption password  on which the test will '
+                        'be running')
+    parser.add_argument("--encryp", default="psk", help='specify the encryption type  on which the test will be '
+                                                        'running eg :open|psk|psk2|sae|psk2jsae')
+    parser.add_argument("--url", default="www.google.com", help='specify the url you want to test on')
+    parser.add_argument("--max_speed", type=int, default=0, help='specify the max speed you want in bytes')
+    parser.add_argument("--urls_per_tenm", type=int, default=100, help='specify the number of url you want to test on '
+                        'per minute')
+    parser.add_argument('--duration', type=str, help='time to run traffic')
+    parser.add_argument('--test_name', help='Name of the Test')
+    parser.add_argument('--dowebgui', help="If true will execute script for webgui", default=False, type=bool)
+    parser.add_argument('--result_dir', help="Specify the result dir to store the runtime logs <Do not use in CLI, --used by webui>", default='')
+    parser.add_argument("--lf_logger_config_json", help="[log configuration] --lf_logger_config_json <json file> , json configuration of logger")
+    parser.add_argument("--log_level", help="[log configuration] --log_level  debug info warning error critical")
+    parser.add_argument("--debug", help="[log configuration] --debug store_true , used by lanforge client ", action='store_true')
+    parser.add_argument("--media_source", type=str, default='1')
+    parser.add_argument("--media_quality", type=str, default='0')
+
+    parser.add_argument('--device_list', type=str, help='provide resource_ids of android devices. for instance: "10,12,14"')
+    parser.add_argument('--webgui_incremental', '--incremental_capacity', help="Specify the incremental values <1,2,3..>", type=str, dest="webgui_incremental")
+    parser.add_argument('--incremental', help="--incremental to add incremental values", action='store_true')
+    parser.add_argument('--no_laptops', help="--to not use laptops", action='store_false')
+    parser.add_argument('--postcleanup', help="Cleanup the cross connections after test is stopped", action='store_true')
+    parser.add_argument('--precleanup', help="Cleanup the cross connections before test is started", action='store_true')
+    parser.add_argument('--help_summary', help='Show summary of what this script does', action='store_true')
+
+    # Arguments related to groups and profile and pass fail values configuration
+    parser.add_argument('--group_name', type=str, help='Enter group name')
+    parser.add_argument('--profile_name', type=str, help='Enter profile name')
+    parser.add_argument('--file_name', type=str, help='Enter file name')
+    parser.add_argument("--eap_method", type=str, default='DEFAULT', help="Specify the EAP method for authentication.")
+    parser.add_argument("--eap_identity", type=str, default='DEFAULT', help="Specify the EAP identity for authentication.")
+    parser.add_argument("--ieee8021x", action="store_true", help='Enables 802.1X enterprise authentication')
+    parser.add_argument("--ieee80211u", action="store_true", help='Enables IEEE 802.11u (Hotspot 2.0) support.')
+    parser.add_argument("--ieee80211w", type=int, default=1, help='Enables IEEE 802.11w (Management Frame Protection) support.')
+    parser.add_argument("--enable_pkc", action="store_true", help='Enables pkc support.')
+    parser.add_argument("--bss_transition", action="store_true", help='Enables BSS transition support.')
+    parser.add_argument("--power_save", action="store_true", help='Enables power-saving features.')
+    parser.add_argument("--disable_ofdma", action="store_true", help='Disables OFDMA support.')
+    parser.add_argument("--roam_ft_ds", action="store_true", help='Enables fast BSS transition (FT) support')
+    parser.add_argument("--key_management", type=str, default='DEFAULT', help='Specify the key management method (e.g., WPA-PSK, WPA-EAP)')
+    parser.add_argument("--pairwise", type=str, default='NA', help='Specify the pairwise cipher')
+    parser.add_argument("--private_key", type=str, default='NA', help='Specify EAP private key certificate file.')
+    parser.add_argument("--ca_cert", type=str, default='NA', help='Specify the CA certificate file name')
+    parser.add_argument("--client_cert", type=str, default='NA', help='Specify the client certificate file name')
+    parser.add_argument("--pk_passwd", type=str, default='NA', help='Specify the password for the private key')
+    parser.add_argument("--pac_file", type=str, default='NA', help='Specify the pac file name')
+    parser.add_argument("--upstream_port", type=str, default='NA', help='Specify the Upstream Port')
+    parser.add_argument('--expected_passfail_value', help='Enter the expected number of urls ', default=None)
+    parser.add_argument('--csv_name', type=str, help='Enter the csv name to store expected values', default=None)
+    parser.add_argument("--wait_time", type=int, help="Specify the time for configuration", default=60)
+    parser.add_argument('--config', action='store_true', help='specify this flag whether to config devices or not')
+    parser.add_argument("--device_csv_name", type=str, help="Specify the device csv name for pass/fail", default=None)
+    # Args for robot testing
+    parser.add_argument("--robot_test", help='to trigger robot test', action='store_true')
+    parser.add_argument('--robot_ip', type=str, default='localhost', help='hostname for where Robot server is running')
+    parser.add_argument('--coordinate', type=str, default='', help="The coordinate contains list of coordinates to be ")
+    parser.add_argument('--rotation', type=str, default='', help="The set of angles to rotate at a particular point")
+    # Arguments Related to Testhouse
+    parser.add_argument('--get_live_view',
+                        action="store_true",
+                        help='specify this flag to get the liveview of the devices')
+    parser.add_argument('--floors',
+                        type=int,
+                        default=0,
+                        help='specify the Number of floors there in the house')
+    # IOT ARGS
+    parser.add_argument('--iot_test', help="If true will execute script for iot", action='store_true')
+    optional.add_argument('--iot_ip',
+                          default='127.0.0.1',
+                          help='IP of the server')
+
+    optional.add_argument('--iot_port',
+                          default='8000',
+                          help='Port of the server')
+    optional.add_argument('--iot_iterations',
+                          type=int,
+                          default=1,
+                          help='Iterations to run the test')
+
+    optional.add_argument('--iot_delay',
+                          type=int,
+                          default=5,
+                          help='Delay in seconds between iterations (min. 5 seconds)')
+
+    optional.add_argument('--iot_device_list',
+                          type=str,
+                          default='',
+                          help='Entity IDs of the devices to include in testing (comma separated)')
+
+    optional.add_argument('--iot_testname',
+                          type=str,
+                          default='',
+                          help='Testname for reporting')
+
+    optional.add_argument('--iot_increment',
+                          type=str,
+                          default='',
+                          help='Comma-separated list of device counts to incrementally test (e.g., "1,3,5")')
+
+    args = parser.parse_args()
+
+    if args.help_summary:
+        print(help_summary)
+        exit(0)
+
+    if args.host is None:
+        print("--host/--mgr required")
+        exit(1)
+
+    if args.test_name is None:
+        print("--test_name required")
+        exit(1)
+
+    media_source_dict = {
+        'dash': '1',
+        'smooth_streaming': '2',
+        'hls': '3',
+        'progressive': '4',
+        'rtsp': '5'
+    }
+    media_quality_dict = {
+        '4k': '0',
+        '8k': '1',
+        '1080p': '2',
+        '720p': '3',
+        '360p': '4'
+    }
+
+    if args.file_name:
+        args.file_name = args.file_name.removesuffix('.csv')
+
+    media_source, media_quality = args.media_source.capitalize(), args.media_quality
+    args.media_source = args.media_source.lower()
+    args.media_quality = args.media_quality.lower()
+
+    if any(char.isalpha() for char in args.media_source):
+        args.media_source = media_source_dict[args.media_source]
+
+    if any(char.isalpha() for char in args.media_quality):
+        args.media_quality = media_quality_dict[args.media_quality]
+
+    logger_config = lf_logger_config.lf_logger_config()
+
+    if args.log_level:
+        logger_config.set_level(level=args.log_level)
+
+    if args.lf_logger_config_json:
+        logger_config.lf_logger_config_json = args.lf_logger_config_json
+        logger_config.load_lf_logger_config()
+    if args.iot_test:
+        iot_ip = args.iot_ip
+        iot_port = args.iot_port
+        iot_iterations = args.iot_iterations
+        iot_delay = args.iot_delay
+        iot_device_list = args.iot_device_list
+        iot_testname = args.iot_testname
+        iot_increment = args.iot_increment
+
+    rotation_enabled = False
+    test_stopped_by_user = False
+    angle_list = []
+
+    if args.rotation:
+        angle_list = args.rotation.split(',')
+        rotation_enabled = True
+
+    logger = logging.getLogger(__name__)
+    # Parsing test_duration
+    if args.duration.endswith('s') or args.duration.endswith('S'):
+        args.duration = round(int(args.duration[0:-1]) / 60, 2)
+
+    elif args.duration.endswith('m') or args.duration.endswith('M'):
+        args.duration = int(args.duration[0:-1])
+
+    elif args.duration.endswith('h') or args.duration.endswith('H'):
+        args.duration = int(args.duration[0:-1]) * 60
+
+    elif args.duration.endswith(''):
+        args.duration = int(args.duration)
+    obj = VideoStreamingTest(host=args.host, ssid=args.ssid, passwd=args.passwd, encryp=args.encryp,
+                             suporrted_release=["7.0", "10", "11", "12"], max_speed=args.max_speed,
+                             url=args.url, urls_per_tenm=args.urls_per_tenm, duration=args.duration,
+                             resource_ids=args.device_list, dowebgui=args.dowebgui, media_quality=args.media_quality, media_source=args.media_source,
+                             result_dir=args.result_dir, test_name=args.test_name, incremental=args.incremental, postcleanup=args.postcleanup,
+                             precleanup=args.precleanup,
+                             pass_fail_val=args.expected_passfail_value,
+                             csv_name=args.device_csv_name,
+                             groups=args.group_name,
+                             profiles=args.profile_name,
+                             config=args.config,
+                             file_name=args.file_name,
+                             floors=args.floors,
+                             get_live_view=args.get_live_view,
+                             robot_test=args.robot_test,
+                             robot_ip=args.robot_ip,
+                             coordinate=args.coordinate,
+                             rotation=args.rotation,
+                             rotation_enabled=rotation_enabled,
+                             angle_list=angle_list
+                             )
+    args.upstream_port = obj.change_port_to_ip(args.upstream_port)
+    obj.upstream_port = args.upstream_port
+    obj.validate_args()
+    obj.config_obj = DeviceConfig.DeviceConfig(lanforge_ip=args.host, file_name=args.file_name, wait_time=args.wait_time)
+    if not args.expected_passfail_value and args.device_csv_name is None:
+        obj.config_obj.device_csv_file(csv_name="device.csv")
+
+    resource_ids_sm = []
+    resource_set = set()
+    resource_list = []
+    resource_ids_generated = ""
+
+    if args.group_name and args.file_name and args.profile_name:
+        args.device_list = obj.handle_groups_profiles_config()
+
+    elif args.config:
+        # When group/profile are not provided
+        config_dict = {
+            'ssid': args.ssid,
+            'passwd': args.passwd,
+            'enc': args.encryp,
+            'eap_method': args.eap_method,
+            'eap_identity': args.eap_identity,
+            'ieee80211': args.ieee8021x,
+            'ieee80211u': args.ieee80211u,
+            'ieee80211w': args.ieee80211w,
+            'enable_pkc': args.enable_pkc,
+            'bss_transition': args.bss_transition,
+            'power_save': args.power_save,
+            'disable_ofdma': args.disable_ofdma,
+            'roam_ft_ds': args.roam_ft_ds,
+            'key_management': args.key_management,
+            'pairwise': args.pairwise,
+            'private_key': args.private_key,
+            'ca_cert': args.ca_cert,
+            'client_cert': args.client_cert,
+            'pk_passwd': args.pk_passwd,
+            'pac_file': args.pac_file,
+            'server_ip': args.upstream_port
+        }
+        obj.device_list = args.device_list
+
+        args.device_list = obj.handle_ssid_based_device_config(config_dict)
+
+    # process devices when test is run through webui
+    if args.dowebgui:
+        resource_set = set(args.device_list)
+        resource_list = sorted(resource_set)
+        resource_ids_generated = ",".join(resource_list)
+        resource_list_sorted = resource_list
+        obj.android_devices = obj.devices.get_devices(only_androids=True)
+
+        selected_devices, report_labels, selected_macs = obj.devices.query_user(
+            dowebgui=args.dowebgui,
+            device_list=resource_ids_generated
+        )
+        args.device_list = args.device_list.split(',')
+
+        obj.resource_ids = ",".join(id.split(".")[1] for id in args.device_list)
+
+        available_resources = [int(num) for num in obj.resource_ids.split(",")]
+
+    else:
+        obj.android_devices = obj.devices.get_devices(only_androids=True)
+        if args.device_list:
+            device_list = args.device_list.split(',')
+            # Extract resource IDs (after the dot), remove duplicates, and sort them
+            resource_ids = sorted(set(int(item.split('.')[1]) for item in device_list if '.' in item))
+            resource_list_sorted = resource_ids
+            obj.resource_ids = ','.join(map(str, resource_ids))
+            # Create a set of Android device IDs (e.g., "resource.123")
+            android_device_ids = set(obj.android_devices)
+            android_device_short_ids = {device.split('.')[0] + '.' + device.split('.')[1] for device in android_device_ids}
+            obj.android_list = [dev for dev in android_device_short_ids if dev in device_list]
+            # Log any devices in the list that are not available
+            for dev in device_list:
+                if dev not in android_device_short_ids:
+                    logger.info(f"{dev} device is not available")
+            # Final list of available Android resource IDs
+            available_resources = sorted(set(int(dev.split('.')[1]) for dev in obj.android_list))
+        else:
+            obj.android_devices = obj.devices.get_devices(only_androids=True)
+            selected_devices, report_labels, selected_macs = obj.devices.query_user()
+            if not selected_devices:
+                logging.info("devices donot exist..!!")
+                return
+
+            obj.android_list = selected_devices
+            # Verify if all resource IDs are valid for Android devices
+            if obj.android_list:
+                resource_ids = ",".join([item.split(".")[1] for item in obj.android_list])
+
+                num_list = list(map(int, resource_ids.split(',')))
+
+                # Sort the list
+                num_list.sort()
+
+                # Join the sorted list back into a string
+                sorted_string = ','.join(map(str, num_list))
+
+                obj.resource_ids = sorted_string
+                resource_ids1 = list(map(int, sorted_string.split(',')))
+                modified_list = list(map(lambda item: int(item.split('.')[1]), obj.android_devices))
+                if not all(x in modified_list for x in resource_ids1):
+                    logging.info("Verify Resource ids, as few are invalid...!!")
+                    exit()
+                resource_ids_sm = obj.resource_ids
+                resource_list = resource_ids_sm.split(',')
+                resource_set = set(resource_list)
+                resource_list_sorted = sorted(resource_set)
+                resource_ids_generated = ','.join(resource_list_sorted)
+                available_resources = list(resource_set)
+            logger.info(f"Available devices: {available_resources}")
+    if len(available_resources) != 0:
+        available_resources = obj.filter_ios_devices(available_resources)
+    if len(available_resources) == 0:
+        logger.info("No devices which are selected are available in the lanforge")
+        exit()
+    gave_incremental = False
+    if args.incremental and not args.webgui_incremental:
+        if obj.resource_ids:
+            logging.info("The total available devices are {}".format(len(available_resources)))
+            obj.incremental = input('Specify incremental values as 1,2,3 : ')
+            obj.incremental = [int(x) for x in obj.incremental.split(',')]
+        else:
+            logging.info("incremental Values are not needed as Android devices are not selected..")
+    elif not args.incremental:
+        gave_incremental = True
+        obj.incremental = [len(available_resources)]
+
+    if args.webgui_incremental:
+        incremental = [int(x) for x in args.webgui_incremental.split(',')]
+        if (len(args.webgui_incremental) == 1 and incremental[0] != len(resource_list_sorted)) or (len(args.webgui_incremental) > 1):
+            obj.incremental = incremental
+
+    if obj.incremental and obj.resource_ids:
+        if obj.incremental[-1] > len(available_resources):
+            logging.info("Exiting the program as incremental values are greater than the resource ids provided")
+            exit()
+        elif obj.incremental[-1] < len(available_resources) and len(obj.incremental) > 1:
+            logging.info("Exiting the program as the last incremental value must be equal to selected devices")
+            exit()
+    if args.iot_test:
+        if args.iot_iterations > 1:
+            thread = threading.Thread(target=trigger_iot, args=(iot_ip, iot_port, iot_iterations, iot_delay, iot_device_list, iot_testname, iot_increment))
+            thread.start()
+        else:
+            total_secs = int(LFCliBase.parse_time(args.duration).total_seconds())
+            iot_iterations = max(1, total_secs // args.iot_delay)
+            iot_thread = threading.Thread(
+                target=trigger_iot,
+                args=(
+                    args.iot_ip,
+                    args.iot_port,
+                    iot_iterations,
+                    args.iot_delay,
+                    args.iot_device_list,
+                    args.iot_testname,
+                    args.iot_increment
+                ),
+                daemon=True
+            )
+            iot_thread.start()
+    # To create cx for selected devices
+    obj.build()
+
+    # To set media source and media quality
+    time.sleep(10)
+
+    # obj.run
+    test_time = datetime.now()
+    test_time = test_time.strftime("%b %d %H:%M:%S")
+
+    logging.info("Initiating Test...")
+
+    individual_dataframe_columns = []
+
+    keys = list(obj.http_profile.created_cx.keys())
+
+    # Extend individual_dataframe_column with dynamically generated column names
+    for i in range(len(keys)):
+        individual_dataframe_columns.extend([
+            f'video_format_bitrate_{keys[i]}',
+            f'total_wait_time_{keys[i]}',
+            f'total_urls_{keys[i]}',
+            f'RSSI_{keys[i]}',
+            f'Link Speed_{keys[i]}',
+            f'Total Buffer_{keys[i]}',
+            f'Total Errors_{keys[i]}',
+            f'Min_Video_Rate_{keys[i]}',
+            f'Max_Video_Rate_{keys[i]}',
+            f'Avg_Video_Rate_{keys[i]}',
+            f'bytes_rd_{keys[i]}',
+            f'rx rate_{keys[i]} bps',
+            f'frame_rate_{keys[i]}',
+            f'Video Quality_{keys[i]}'
+        ])
+
+    individual_dataframe_columns.extend(['overall_video_format_bitrate', 'timestamp', 'iteration', 'start_time', 'end_time', 'remaining_Time', 'status'])
+    if args.robot_test and args.rotation:
+        individual_dataframe_columns.append('angle')
+    individual_df = pd.DataFrame(columns=individual_dataframe_columns)
+
+    cx_order_list = []
+    index = 0
+    file_path = ""
+
+    incremental_capacity_list_values = obj.get_incremental_capacity_list()
+    obj.process_incremental_capacity(incremental_capacity_list_values, available_resources, gave_incremental)
+    actual_start_time = datetime.now()
+    iterations_before_test_stopped_by_user = []
+    test_setup_info = obj.create_test_setup_info(media_source=media_source, media_quality=media_quality)
+    if args.dowebgui:
+        obj.updating_webui_running_json()
+
+    # Calculate and manage cx_order_list ( list of cross connections to run ) based on incremental values
+    if obj.resource_ids:
+        # Check if incremental  is specified
+        if obj.incremental:
+
+            # Case 1: Incremental list has only one value and it equals the length of keys
+            if len(obj.incremental) == 1 and obj.incremental[0] == len(keys):
+                cx_order_list.append(keys[index:])
+
+            # Case 2: Incremental list has only one value but length of keys is greater than 1
+            elif len(obj.incremental) == 1 and len(keys) > 1:
+                incremental_value = obj.incremental[0]
+                max_index = len(keys)
+                index = 0
+
+                while index < max_index:
+                    next_index = min(index + incremental_value, max_index)
+                    cx_order_list.append(keys[index:next_index])
+                    index = next_index
+
+            # Case 3: Incremental list has multiple values and length of keys is greater than 1
+            elif len(obj.incremental) != 1 and len(keys) > 1:
+
+                index = 0
+                for num in obj.incremental:
+
+                    cx_order_list.append(keys[index: num])
+                    index = num
+
+                if index < len(keys):
+                    cx_order_list.append(keys[index:])
+
+            # Iterate over cx_order_list to start tests incrementally
+            for i in range(len(cx_order_list)):
+                if i == 0:
+                    if args.robot_test:
+                        obj.perform_robo(args, individual_dataframe_columns, cx_order_list, i, actual_start_time, iterations_before_test_stopped_by_user)
+                        exit(1)
+                    obj.data["start_time_webGUI"] = [datetime.now().strftime('%Y-%m-%d %H:%M:%S')]
+                    end_time_webGUI = (datetime.now() + timedelta(minutes=int(args.duration))).strftime('%Y-%m-%d %H:%M:%S')
+                    obj.data['end_time_webGUI'] = [end_time_webGUI]
+
+                # time.sleep(10)
+
+                # Start specific devices based on incremental capacity
+                obj.start_specific(cx_order_list[i])
+                if cx_order_list[i]:
+                    logging.info("Test started on Devices with resource Ids : {selected}".format(selected=cx_order_list[i]))
+                else:
+                    logging.info("Test started on Devices with resource Ids : {selected}".format(selected=cx_order_list[i]))
+                file_path = "video_streaming_realtime_data.csv"
+                if end_time_webGUI < datetime.now().strftime('%Y-%m-%d %H:%M:%S'):
+                    obj.data['remaining_time_webGUI'] = ['0:00']
+                else:
+                    date_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    obj.data['remaining_time_webGUI'] = [datetime.strptime(end_time_webGUI, "%Y-%m-%d %H:%M:%S") - datetime.strptime(date_time, "%Y-%m-%d %H:%M:%S")]
+
+                if args.dowebgui:
+                    file_path = os.path.join(obj.result_dir, "../../Running_instances/{}_{}_running.json".format(obj.host, obj.test_name))
+                    if os.path.exists(file_path):
+                        with open(file_path, 'r') as file:
+                            data = json.load(file)
+                            if data["status"] != "Running":
+                                break
+                    test_stopped_by_user = obj.monitor_for_runtime_csv(args.duration, file_path, individual_df, i, actual_start_time, cx_order_list[i])
+                else:
+                    test_stopped_by_user = obj.monitor_for_runtime_csv(args.duration, file_path, individual_df, i, actual_start_time, cx_order_list[i])
+                if not test_stopped_by_user:
+                    # Append current iteration index to iterations_before_test_stopped_by_user
+                    iterations_before_test_stopped_by_user.append(i)
+                else:
+                    # Append current iteration index to iterations_before_test_stopped_by_user
+                    iterations_before_test_stopped_by_user.append(i)
+                    break
+    obj.stop()
+    date = str(datetime.now()).split(",")[0].replace(" ", "-").split(".")[0]
+    iot_summary = None
+    if args.iot_test and args.iot_testname:
+        base = os.path.join("results", args.iot_testname)
+        p = os.path.join(base, "iot_summary.json")
+        if os.path.exists(p):
+            with open(p) as f:
+                iot_summary = json.load(f)
+
+    # prev_inc_value = 0
+    if obj.resource_ids and obj.incremental:
+        obj.generate_report(date, list(set(iterations_before_test_stopped_by_user)), test_setup_info=test_setup_info, realtime_dataset=individual_df, iot_summary=iot_summary)
+    elif obj.resource_ids:
+        obj.generate_report(date, list(set(iterations_before_test_stopped_by_user)), test_setup_info=test_setup_info, realtime_dataset=individual_df, iot_summary=iot_summary)
+
+    # Perform post-cleanup operations
+    if args.postcleanup:
+        obj.postcleanup()
+
+    if args.dowebgui:
+        obj.copy_reports_to_home_dir()
+
+
+if __name__ == '__main__':
+    main()

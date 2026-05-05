@@ -394,11 +394,17 @@ class ThroughputQOS(Realm):
             self.create_cx()
             print("cx build finished")
         response_port = self.json_get("/port/all")
-        for interface in response_port['interfaces']:
-            for port, port_data in interface.items():
-                if port in self.sta_list:
-                    self.mac_list.append(port_data['mac'])
-                    self.channel_list.append(port_data['channel'])
+        for sta in self.sta_list:
+            found = False
+            for interface in response_port['interfaces']:
+                for port, port_data in interface.items():
+                    if sta in port:
+                        self.mac_list.append(port_data.get('mac', ''))
+                        self.channel_list.append(port_data.get('channel', ''))
+                        found = True
+                        break
+                if found:
+                    break
 
     def create_cx(self):
         direction = ''
@@ -732,7 +738,8 @@ class ThroughputQOS(Realm):
         rx_endps_upload = {}
         tos_drop_dict = {'rx_drop_a': {'BK': [], 'BE': [], 'VI': [], 'VO': []},
                          'rx_drop_b': {'BK': [], 'BE': [], 'VI': [], 'VO': []}}
-        num_stations = int(self.num_stations_2g) + int(self.num_stations_5g) + int(self.num_stations_6g)
+
+        num_stations = len(self.sta_list)
         if int(self.cx_profile.side_b_min_bps) != 0:
             case_download = str(int(self.cx_profile.side_b_min_bps) / 1000000)
         if int(self.cx_profile.side_a_min_bps) != 0:
@@ -1072,9 +1079,13 @@ class ThroughputQOS(Realm):
         for port in port_data:
             interfaces_dict.update(port)
         for sta in station_names:
-            if sta in interfaces_dict:
-                ssid_list.append(interfaces_dict[sta]['ssid'])
-            else:
+            ssid_found = False
+            for key, val in interfaces_dict.items():
+                if sta in key:
+                    ssid_list.append(val.get('ssid', '-'))
+                    ssid_found = True
+                    break
+            if not ssid_found:
                 ssid_list.append('-')
         return ssid_list
 
@@ -1103,7 +1114,8 @@ class ThroughputQOS(Realm):
         report.build_objective()
 
         test_setup_info = {
-            "Number of Stations": self.num_stations_2g + self.num_stations_5g + self.num_stations_6g,
+            # FIX: Always use len(sta_list) to reflect the actual number of stations tested
+            "Number of Stations": len(self.sta_list),
             "AP Model": self.ap_name,
             "SSID_2.4GHz": self.ssid_2g,
             "SSID_5GHz": self.ssid_5g,
@@ -1228,7 +1240,9 @@ class ThroughputQOS(Realm):
                     list[2].append(res[case]['test_results'][0][1][key]['BK'])
                     list[3].append(res[case]['test_results'][0][1][key]['BE'])
             x_fig_size = 15
-            y_fig_size = (self.num_stations_2g + self.num_stations_5g + self.num_stations_6g) * .5 + 4
+            # FIX: Always use len(sta_list) for y_fig_size
+            total_num_stations = len(self.sta_list)
+            y_fig_size = total_num_stations * .5 + 4
             if len(res.keys()) > 0:
                 if "throughput_table_df" in res:
                     res.pop("throughput_table_df")
@@ -1669,7 +1683,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
     parser.add_argument('--upload', help='Configured upload traffic rate (station transmit)', default="0")
     parser.add_argument('--test_duration', help='Duration of test', default="2m")
     parser.add_argument('--create_sta', help='Create stations for use in test', action='store_true')
-    parser.add_argument('--sta_names', help='Set specific station names', default="sta0000")
+    parser.add_argument('--sta_names', help='Set specific station names', default="")
     parser.add_argument('--ap_name', help="AP Model Name", default="Test-AP")
     parser.add_argument('--bands', help='Comma-separated list of bands used for test', default="2.4G, 5G, 6G, DUALBAND, TRIBAND", required=False)
     parser.add_argument('--tos', help='Comma-separated list of TOS values. For example, "BK,BE,VI,VO", or "BK,VO", or "VI"')
@@ -1698,8 +1712,18 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
 
 def validate_args(args):
     """Ensure arguments specified for program are valid."""
-    if args.num_stations_2g == 0 and args.num_stations_5g == 0 and args.num_stations_6g == 0:
-        print("Must specify one or more number stations for the test (e.g. '--num_stations_2g 1')")
+    # Calculate the total number of new stations the user wants to create
+    total_new_stations = args.num_stations_2g + args.num_stations_5g + args.num_stations_6g
+    
+    # Check if the user provided existing station names
+    has_custom_stations = bool(args.sta_names)
+    
+    # The script requires AT LEAST ONE station to run. If no new stations are requested 
+    # AND no custom existing stations are provided, we must exit.
+    if total_new_stations == 0 and not has_custom_stations:
+        print("Error: No stations specified for the test.\n"
+              "You must either create new stations (e.g., '--num_stations_2g 1')\n"
+              "OR provide existing station names (e.g., '--sta_names sta000,sta001').")
         exit(1)
 
     if not args.traffic_type:
@@ -1773,67 +1797,63 @@ def main():
         if bands[i] == "2.4G" or bands[i] == "2.4g":
             args.bands = bands[i]
             args.mode = 13
-            if args.create_sta:
-                station_list = LFUtils.portNameSeries(prefix_="sta", start_id_=0, end_id_=int(args.num_stations_2g) - 1,
-                                                      padding_number_=10000, radio=args.radio_2g)
-            else:
-                station_list = args.sta_names.split(",")
+            station_list = []
+            if args.create_sta and int(args.num_stations_2g) > 0:
+                station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=0, end_id_=int(args.num_stations_2g) - 1,
+                                                      padding_number_=10000, radio=args.radio_2g))
+            if args.sta_names:
+                station_list.extend([s.strip() for s in args.sta_names.split(",") if s.strip() not in station_list])
         elif bands[i] == "5G" or bands[i] == "5g":
             args.bands = bands[i]
             args.mode = 14
-            if args.create_sta:
-                station_list = LFUtils.portNameSeries(prefix_="sta", start_id_=0, end_id_=int(args.num_stations_5g) - 1,
-                                                      padding_number_=10000,
-                                                      radio=args.radio_5g)
-            else:
-                station_list = args.sta_names.split(",")
+            station_list = []
+            if args.create_sta and int(args.num_stations_5g) > 0:
+                station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=0, end_id_=int(args.num_stations_5g) - 1,
+                                                      padding_number_=10000, radio=args.radio_5g))
+            if args.sta_names:
+                station_list.extend([s.strip() for s in args.sta_names.split(",") if s.strip() not in station_list])
         elif bands[i] == "6G" or bands[i] == "6g":
             args.bands = bands[i]
             args.mode = 14
-            if args.create_sta:
-                station_list = LFUtils.portNameSeries(prefix_="sta", start_id_=0, end_id_=int(args.num_stations_6g) - 1,
-                                                      padding_number_=10000,
-                                                      radio=args.radio_6g)
-            else:
-                station_list = args.sta_names.split(",")
+            station_list = []
+            if args.create_sta and int(args.num_stations_6g) > 0:
+                station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=0, end_id_=int(args.num_stations_6g) - 1,
+                                                      padding_number_=10000, radio=args.radio_6g))
+            if args.sta_names:
+                station_list.extend([s.strip() for s in args.sta_names.split(",") if s.strip() not in station_list])
         elif bands[i] == "dualband" or bands[i] == "DUALBAND":
             args.bands = bands[i]
             args.mode = 0
+            station_list = []
             if args.create_sta:
-                station_list = LFUtils.portNameSeries(prefix_="sta", start_id_=0, end_id_=(int(args.num_stations_2g)) - 1,
-                                                      padding_number_=10000,
-                                                      radio=args.radio_2g)
-                station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=int(args.num_stations_2g),
-                                                           end_id_=((int(args.num_stations_2g)) + (int(args.num_stations_5g))) - 1,
-                                                           padding_number_=10000,
-                                                           radio=args.radio_5g))
+                if int(args.num_stations_2g) > 0:
+                    station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=0, end_id_=(int(args.num_stations_2g)) - 1,
+                                                          padding_number_=10000, radio=args.radio_2g))
+                if int(args.num_stations_5g) > 0:
+                    station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=int(args.num_stations_2g),
+                                                               end_id_=((int(args.num_stations_2g)) + (int(args.num_stations_5g))) - 1,
+                                                               padding_number_=10000, radio=args.radio_5g))
+            if args.sta_names:
+                station_list.extend([s.strip() for s in args.sta_names.split(",") if s.strip() not in station_list])
             print("stationlist",station_list)
         elif bands[i] == "triband" or bands[i] == "TRIBAND":
             args.bands = bands[i]
             args.mode = 0
+            station_list = []
             if args.create_sta:
-                # 2.4GHz stations
-                station_list = LFUtils.portNameSeries(prefix_="sta", start_id_=0,
-                                                      end_id_=int(args.num_stations_2g) - 1,
-                                                      padding_number_=10000,
-                                                      radio=args.radio_2g)
-
-                # 5GHz stations
-                station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=int(args.num_stations_2g),
-                                                           end_id_=int(args.num_stations_2g) + int(args.num_stations_5g) - 1,
-                                                           padding_number_=10000,
-                                                           radio=args.radio_5g))
-
-                # 6GHz stations (Fixed to use `radio_6g`)
-                station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=int(args.num_stations_2g) + int(args.num_stations_5g),
-                                                           end_id_=int(args.num_stations_2g) + int(args.num_stations_5g) + int(args.num_stations_6g) - 1,
-                                                           padding_number_=10000,
-                                                           radio=args.radio_6g))
-
-                print(station_list)
-
-            else:
-                station_list = args.sta_names.split(",")
+                if int(args.num_stations_2g) > 0:
+                    station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=0, end_id_=int(args.num_stations_2g) - 1,
+                                                          padding_number_=10000, radio=args.radio_2g))
+                if int(args.num_stations_5g) > 0:
+                    station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=int(args.num_stations_2g),
+                                                               end_id_=int(args.num_stations_2g) + int(args.num_stations_5g) - 1,
+                                                               padding_number_=10000, radio=args.radio_5g))
+                if int(args.num_stations_6g) > 0:
+                    station_list.extend(LFUtils.portNameSeries(prefix_="sta", start_id_=int(args.num_stations_2g) + int(args.num_stations_5g),
+                                                               end_id_=int(args.num_stations_2g) + int(args.num_stations_5g) + int(args.num_stations_6g) - 1,
+                                                               padding_number_=10000, radio=args.radio_6g))
+            if args.sta_names:
+                station_list.extend([s.strip() for s in args.sta_names.split(",") if s.strip() not in station_list])
         else:
             print("Band " + bands[i] + " Not Exist")
             exit(1)

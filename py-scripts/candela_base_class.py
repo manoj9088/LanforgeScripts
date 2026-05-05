@@ -1816,7 +1816,9 @@ class Candela(Realm):
         wait_time=60,
         config=False,
         get_live_view=False,
-        total_floors="0"
+        total_floors="0",
+        use_existing_station_list=False,
+        existing_station_list=[]
 ):
             if self.dowebgui:
                 if not self.webgui_stop_check("http"):
@@ -1839,6 +1841,12 @@ class Candela(Realm):
             # Check for Both being used independently
             if len(bands) > 1 and "Both" in bands:
                 raise ValueError("'Both' test type must be used independently!")
+
+            has_existing_stations = True if use_existing_station_list else False
+            if existing_station_list and not has_existing_stations:
+                logger.error("Error: --existing_station_list provided but --use_existing_station_list flag is missing.")
+                exit(1)
+
 
             # validate_args(args)
 
@@ -1939,6 +1947,11 @@ class Candela(Realm):
                         security = [sixg_security]
                         ssid = [sixg_ssid]
                         passwd = [sixg_passwd]
+                    elif band == "Both":
+                        security = [twog_security, fiveg_security]
+                        ssid = [twog_ssid, fiveg_ssid]
+                        passwd = [twog_passwd, fiveg_passwd]
+
 
                 ce = self.current_exec #seires
                 if ce == "parallel":
@@ -2037,36 +2050,68 @@ class Candela(Realm):
                     if file_path is None:
                         print("WARNING: Please Specify the path of the file, if you select the --get_url_from_file")
                         return False
-                    
-                self.http_obj_dict[ce][obj_name]["obj"].set_values()
+                
+                if num_stations:
+                    self.http_obj_dict[ce][obj_name]["obj"].set_values()
+                
+                # Existing-station validation (--use_existing_station_list)
+                existing_sta_list = []
+                if client_type in ("Virtual", "Both")  and use_existing_station_list:
+                    raw = existing_station_list
+                    if raw:
+                        existing_sta_list = self.http_obj_dict[ce][obj_name]["obj"].validate_existing_stations(raw)
+                        logger.info(f"Existing stations after validation: {existing_sta_list}")
+                    else:
+                        logger.warning("--use_existing_station_list set but --existing_station_list is empty — ignoring.")
 
-                station_list = self.http_obj_dict[ce][obj_name]["obj"].station_list
+
+
+                # Merge existing stations into the global station list
+                for eid in existing_sta_list:
+                    if eid not in self.http_obj_dict[ce][obj_name]["obj"].station_list:
+                        self.http_obj_dict[ce][obj_name]["obj"].station_list.append(eid)
+                        self.http_obj_dict[ce][obj_name]["obj"].existing_station_list.append(eid)  # Store Existing Station List.
+
+                if has_existing_stations:
+                    station_list = self.http_obj_dict[ce][obj_name]["obj"].existing_station_list
+                else:
+                    station_list = self.http_obj_dict[ce][obj_name]["obj"].station_list
+                logger.info(f"We are Printing Station List : {station_list}")
+                
+                if client_type == "Virtual":
+                    if has_existing_stations:
+                        num_stations = len(self.http_obj_dict[ce][obj_name]["obj"].existing_station_list)
+                    else:
+                        num_stations = len(self.http_obj_dict[ce][obj_name]["obj"].station_list)
                 
                 all_client_list = []
                 if client_type == "Real":
                     all_client_list = port_list
                 elif client_type == "Virtual":
-                    all_client_list = station_list[0]
+                    all_client_list = station_list
                 elif client_type == "Both":
-                    all_client_list = port_list + station_list[0]
+                    all_client_list = port_list + station_list
 
                 if client_type  == "Both":
-                    num_stations = len(port_list)+len(station_list[0])
-                    for sta in station_list[0]:
+                    num_stations = len(port_list)+len(station_list)
+                    for sta in station_list:
                         client_type_list.append("virtual station")
                         device_type_list.append("Virtual")
                     self.http_obj_dict[ce][obj_name]["obj"].client_type_list = client_type_list
                     self.http_obj_dict[ce][obj_name]["obj"].device_type_list = device_type_list
                 elif client_type == "Virtual":
-                    for sta in station_list[0]:
+                    client_type_list, device_type_list = [], []
+                    for sta in station_list:
                         client_type_list.append("virtual station")
                         device_type_list.append("Virtual")
                     self.http_obj_dict[ce][obj_name]["obj"].client_type_list = client_type_list
                     self.http_obj_dict[ce][obj_name]["obj"].device_type_list = device_type_list
                 
                 logger.info(f"All Client List : {all_client_list}")
-                    
-                self.http_obj_dict[ce][obj_name]["obj"].precleanup()
+                
+                if num_stations and not has_existing_stations:                  # Ensuring No Cleanup if existing station list is provided.
+                    self.http_obj_dict[ce][obj_name]["obj"].precleanup()
+
                 self.http_obj_dict[ce][obj_name]["obj"].build_cx()
                 if client_type == 'Real' or client_type == "Both":
                     self.http_obj_dict[ce][obj_name]["obj"].monitor_cx()
@@ -2352,7 +2397,8 @@ class Candela(Realm):
                     "AP Name": ap_name,
                     "SSID": ssid,
                     "Security": security,
-                    "No of Devices": num_stations,
+                    "No of Virtual Stations": num_stations,
+                    "Virtual Station List" : ",".join(station_list),
                     "Traffic Direction": "Download",
                     "Traffic Duration ": duration
                 }
@@ -2400,9 +2446,9 @@ class Candela(Realm):
                     "SSID 5G" : fiveg_ssid,
                     "SSID 6G" : sixg_ssid,
                     "Security (Virtual)": security,
-                    "No of Devices": f"Real : {len(self.http_obj_dict[ce][obj_name]["obj"].port_list)} "+f" Virtual : {len(station_list[0])}",
+                    "No of Devices": f"Real : {len(self.http_obj_dict[ce][obj_name]["obj"].port_list)} "+f" Virtual : {len(station_list)}",
                     "Real Devices" : f"Total: {len(self.http_obj_dict[ce][obj_name]["obj"].port_list)}"+" "+", ".join(all_devices_names),
-                    "Virtual Stations" : f"Total: {len(station_list[0])} "+" "+", ".join(station_list[0]),
+                    "Virtual Stations" : f"Total: {len(station_list)} "+" "+", ".join(station_list),
                     "Traffic Direction": "Download",
                     "Traffic Duration ": duration
                 }
@@ -2447,7 +2493,7 @@ class Candela(Realm):
                 elif client_type == "Virtual":
                     devices = station_list
                 elif client_type == "Both":
-                    devices = port_list + station_list[0]
+                    devices = port_list + station_list
                 lis = list(range(1, len(devices) + 1))
 
             if dowebgui:
@@ -2503,7 +2549,11 @@ class Candela(Realm):
             if self.dowebgui:
                 self.webgui_test_done("http")
 
-            self.http_obj_dict[ce][obj_name]["obj"].postcleanup()
+            if not has_existing_stations:
+                self.http_obj_dict[ce][obj_name]["obj"].postcleanup()
+            
+            self.http_obj_dict[ce][obj_name]["obj"].http_profile.cleanup()  # To ensure l4 endpoints cleanup. (to still again maintain existing virtual stations)
+
             if dowebgui:
                 self.http_obj_dict[ce][obj_name]["obj"].copy_reports_to_home_dir()
             return True
@@ -3163,10 +3213,18 @@ class Candela(Realm):
         total_floors="0",
         client_type=None,
         timebreak=0,
+        use_existing_station_list=False,
+        existing_station_list=[]
     ):
         if self.dowebgui:
             if not self.webgui_stop_check("qos"):
                 return False
+        
+        if client_type is None:
+            client_type = "Real"
+        
+        bands = []
+        station_list = [] # for virtual stations
             
         test_results = {'test_results': []}
         loads = {}
@@ -3219,65 +3277,78 @@ class Candela(Realm):
             return 0
 
         if client_type == "Virtual" or client_type == "Both":
-            if not create_sta:
-                sta_names_arg = sta_names
-                if sta_names_arg:
-                    station_list = sta_names_arg.split(",")
-                    logger.info(f"Station List : {station_list}")
-            else:
-                for band in bands_list:
-                    band = band.strip() # This is extra validation inorder to remove leading and trailing white spaces before band word, inorder to reduce errors.
+            for band in bands_list:
+                band = band.strip() # This is extra validation inorder to remove leading and trailing white spaces before band word, inorder to reduce errors.
+                # Use append logic to combine newly created stations and existing custom stations
+                if create_sta:
                     if band in ("2.4G", "2.4g"):
                         count = num_stations_2g or any_sta_count()
                         mode = 13
-                        station_list = LFUtils.portNameSeries(
-                            prefix_="sta", start_id_=0,
-                            end_id_=count - 1,
-                            padding_number_=10000, radio=radio_2g)
+                        if count > 0:
+                            station_list.extend(LFUtils.portNameSeries(
+                                prefix_="sta", start_id_=0,
+                                end_id_=count - 1,
+                                padding_number_=10000, radio=radio_2g))
                     elif band in ("5G", "5g"):
                         count = num_stations_5g or any_sta_count()
                         mode = 14
-                        station_list = LFUtils.portNameSeries(
-                            prefix_="sta", start_id_=0,
-                            end_id_=count - 1,
-                            padding_number_=10000, radio=radio_5g)
+                        if count > 0:
+                            station_list.extend(LFUtils.portNameSeries(
+                                prefix_="sta", start_id_=0,
+                                end_id_=count - 1,
+                                padding_number_=10000, radio=radio_5g))
                     elif band in ("6G", "6g"):
                         count = num_stations_6g or any_sta_count()
                         mode = 15
-                        station_list = LFUtils.portNameSeries(
-                            prefix_="sta", start_id_=0,
-                            end_id_=count - 1,
-                            padding_number_=10000, radio=radio_6g)
+                        if count > 0:
+                            station_list.extend(LFUtils.portNameSeries(
+                                prefix_="sta", start_id_=0,
+                                end_id_=count - 1,
+                                padding_number_=10000, radio=radio_6g))
                     elif band in ("dualband", "DUALBAND"):
                         mode = 0
-                        station_list = LFUtils.portNameSeries(
-                            prefix_="sta", start_id_=0,
-                            end_id_=int(num_stations_2g) - 1,
-                            padding_number_=10000, radio=radio_2g)
-                        station_list.extend(LFUtils.portNameSeries(
-                            prefix_="sta",
-                            start_id_=int(num_stations_2g),
-                            end_id_=int(num_stations_2g) + int(num_stations_5g) - 1,
-                            padding_number_=10000, radio=radio_5g))
+                        if int(num_stations_2g) > 0:
+                            station_list.extend(LFUtils.portNameSeries(
+                                prefix_="sta", start_id_=0,
+                                end_id_=int(num_stations_2g) - 1,
+                                padding_number_=10000, radio=radio_2g))
+                        if int(num_stations_5g) > 0:
+                            station_list.extend(LFUtils.portNameSeries(
+                                prefix_="sta",
+                                start_id_=int(num_stations_2g),
+                                end_id_=int(num_stations_2g) + int(num_stations_5g) - 1,
+                                padding_number_=10000, radio=radio_5g))
                     elif band in ("triband", "TRIBAND"):
                         mode = 0
-                        station_list = LFUtils.portNameSeries(
-                            prefix_="sta", start_id_=0,
-                            end_id_=int(num_stations_2g) - 1,
-                            padding_number_=10000, radio=radio_2g)
-                        station_list.extend(LFUtils.portNameSeries(
-                            prefix_="sta",
-                            start_id_=int(num_stations_2g),
-                            end_id_=int(num_stations_2g) + int(num_stations_5g) - 1,
-                            padding_number_=10000, radio=radio_5g))
-                        station_list.extend(LFUtils.portNameSeries(
-                            prefix_="sta",
-                            start_id_=int(num_stations_2g) + int(num_stations_5g),
-                            end_id_=int(num_stations_2g) + int(num_stations_5g) + int(num_stations_6g) - 1,
-                            padding_number_=10000, radio=radio_6g))
+                        if int(num_stations_2g) > 0:
+                            station_list.extend(LFUtils.portNameSeries(
+                                prefix_="sta", start_id_=0,
+                                end_id_=int(num_stations_2g) - 1,
+                                padding_number_=10000, radio=radio_2g))
+                        if int(num_stations_5g) > 0:
+                            station_list.extend(LFUtils.portNameSeries(
+                                prefix_="sta",
+                                start_id_=int(num_stations_2g),
+                                end_id_=int(num_stations_2g) + int(num_stations_5g) - 1,
+                                padding_number_=10000, radio=radio_5g))
+                        if int(num_stations_6g) > 0:
+                            station_list.extend(LFUtils.portNameSeries(
+                                prefix_="sta",
+                                start_id_=int(num_stations_2g) + int(num_stations_5g),
+                                end_id_=int(num_stations_2g) + int(num_stations_5g) + int(num_stations_6g) - 1,
+                                padding_number_=10000, radio=radio_6g))
                     else:
                         print(f"Band '{band}' not recognised : skipping station list generation.")
             print("Virtual station_list:", station_list)
+
+        # --sta_names: append custom-named stations (new or pre-existing by name)
+        # If a sta_name already exists in LANforge it will be skipped by station_profile.create()
+        # (LANforge ignores add_sta for a port that already exists).
+            if sta_names:
+                station_list.extend([s.strip() for s in sta_names.split(",") if s.strip() not in station_list])
+            print("Virtual station_list (before existing validation):", station_list)
+
+
 
         if client_type == "Real":
             ssid = ssid
@@ -3288,7 +3359,7 @@ class Candela(Realm):
             password = password if ssid is not None else None
             security = security if ssid is not None else None
 
-        ce = self.current_exec #seires
+        ce = self.current_exec #series
         if ce == "parallel":
             obj_name = "qos_test"
         else:
@@ -3319,7 +3390,7 @@ class Candela(Realm):
                                             password_6g=password_6g,
                                             security_6g=security_6g,
                                             create_sta=create_sta,
-                                            sta_list=station_list,  # We need to fix this.
+                                            sta_list=station_list,  
                                             num_stations_2g=num_stations_2g,
                                             num_stations_5g=num_stations_5g,
                                             num_stations_6g=num_stations_6g,
@@ -3370,6 +3441,18 @@ class Candela(Realm):
                                             client_type=client_type,
                                             timebreak=timebreak
                                             )
+            # Existing-station validation (--use_existing_station_list) - here we use port_exists() method of realm class inorder to validate.         
+            existing_sta_list = []
+            if client_type in ("Virtual","Both") and use_existing_station_list:
+                raw = existing_station_list
+                if raw:
+                    existing_sta_list = self.qos_obj_dict[ce][obj_name]["obj"].validate_existing_stations(raw)
+                    logger.info(f"Existing stations after validation: {existing_sta_list}")
+                else:
+                    logger.warning("--use_existing_station_list set but --existing_station_list is empty — ignoring.")
+
+            self.qos_obj_dict[ce][obj_name]["obj"]._existing_sta_list = existing_sta_list
+
             if client_type in ("Real","Both"):
                 self.qos_obj_dict[ce][obj_name]["obj"].os_type()
                 _, configured_device, _, configuration = self.qos_obj_dict[ce][obj_name]["obj"].phantom_check()
@@ -3425,7 +3508,7 @@ class Candela(Realm):
             self.qos_obj_dict[ce][obj_name]["obj"].start(False, False)
             time.sleep(10)
 
-            connections_download, connections_upload, drop_a_per, drop_b_per, connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b = self.qos_obj_dict[ce][obj_name]["obj"].monitor_for_runtime_csv(runtime_dir="per_client_csv")
+            connections_download, connections_upload, drop_a_per, drop_b_per, connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b = self.qos_obj_dict[ce][obj_name]["obj"].monitor(runtime_dir="per_client_csv")
             
             logger.info("connections download {}".format(connections_download))
             logger.info("connections upload {}".format(connections_upload))
@@ -3438,7 +3521,7 @@ class Candela(Realm):
             rssi_list = []
 
             if client_type == "Both":
-                total_devices_list = self.qos_obj_dict[ce][obj_name]["obj"].input_devices_list + self.qos_obj_dict[ce][obj_name]["obj"].sta_list
+                total_devices_list =self.qos_obj_dict[ce][obj_name]["obj"].sta_list + self.qos_obj_dict[ce][obj_name]["obj"].input_devices_list
                 ssid_list, mac_list, mode_list, bssid_list, channels_list, rssi_list = self.qos_obj_dict[ce][obj_name]["obj"].get_portmgr_data(total_devices_list)
                 self.qos_obj_dict[ce][obj_name]["obj"].ssid_list, self.qos_obj_dict[ce][obj_name]["obj"].macid_list, self.qos_obj_dict[ce][obj_name]["obj"].mode_list = ssid_list,mac_list,mode_list
                 self.qos_obj_dict[ce][obj_name]["obj"].bssid_list, self.qos_obj_dict[ce][obj_name]["obj"].channels_list, self.qos_obj_dict[ce][obj_name]["obj"].rssi_list = bssid_list, channels_list, rssi_list
@@ -6659,18 +6742,13 @@ class Candela(Realm):
                                 obj_no += 1
                                 obj_name = f"http_test_{obj_no}"
                             break
-                        if http_data["bands"] == "Both":
-                            num_stations = num_stations * 2
+
 
                         self.overall_report.set_obj_html(_obj_title=f'HTTP Test {obj_no}', _obj="")
                         self.overall_report.build_objective()
                         self.overall_report.set_table_title("Test Setup Information")
                         self.overall_report.build_table_title()
                         self.overall_report.test_setup_table(value="Test Setup Information", test_setup_data=http_data["test_setup_info"])
-
-                        self.overall_report.set_obj_html("Objective", "The HTTP Download Test is designed to verify that N clients connected on specified band can "
-                                "download some amount of file from HTTP server and measures the "
-                                "time taken by the client to Download the file.")
                         
                         self.overall_report.set_obj_html("No of times file Downloads", "The below graph represents number of times a file downloads for each client"
                             ". X- axis shows “No of times file downloads and Y-axis shows "
@@ -6692,7 +6770,10 @@ class Candela(Realm):
                         )
                         self.overall_report.build_objective()
 
-                        graph = self.http_obj_dict[ce][obj_name]["obj"].generate_graph(dataset=http_data["dataset"], lis=http_data["lis"], bands=http_data["bands"],graph_image_name=obj_no)
+                        if obj_no:
+                            graph = self.http_obj_dict[ce][obj_name]["obj"].generate_graph(dataset=http_data["dataset"], lis=http_data["lis"], bands=http_data["bands"],graph_image_name=obj_no)
+                        else:
+                            graph = self.http_obj_dict[ce][obj_name]["obj"].generate_graph(dataset=http_data["dataset"], lis=http_data["lis"], bands=http_data["bands"])
                         self.overall_report.set_graph_image(graph)
                         self.overall_report.set_csv_filename(graph)
                         self.overall_report.move_csv_file()
@@ -6721,10 +6802,10 @@ class Candela(Realm):
                                         self.http_obj_dict[ce][obj_name]["obj"].signal_list.append(str(port_data['signal']))
                                         self.http_obj_dict[ce][obj_name]["obj"].bssid_list.append(str(port_data['ap']))
                         elif self.http_obj_dict[ce][obj_name]["obj"].client_type == "Virtual":
-                            self.http_obj_dict[ce][obj_name]["obj"].devices = self.http_obj_dict[ce][obj_name]["obj"].station_list[0]
+                            self.http_obj_dict[ce][obj_name]["obj"].devices = self.http_obj_dict[ce][obj_name]["obj"].station_list
                             for interface in self.http_obj_dict[ce][obj_name]["obj"].response_port['interfaces']:
                                 for port, port_data in interface.items():
-                                    if port in self.http_obj_dict[ce][obj_name]["obj"].station_list[0]:
+                                    if port in self.http_obj_dict[ce][obj_name]["obj"].station_list:
                                         self.http_obj_dict[ce][obj_name]["obj"].channel_list.append(str(port_data['channel']))
                                         self.http_obj_dict[ce][obj_name]["obj"].mode_list.append(str(port_data['mode']))
                                         self.http_obj_dict[ce][obj_name]["obj"].macid_list.append(str(port_data['mac']))
@@ -6732,10 +6813,10 @@ class Candela(Realm):
                                         self.http_obj_dict[ce][obj_name]["obj"].signal_list.append(str(port_data['signal']))
                                         self.http_obj_dict[ce][obj_name]["obj"].bssid_list.append(str(port_data['ap']))
                         elif self.http_obj_dict[ce][obj_name]["obj"].client_type == "Both":
-                            self.http_obj_dict[ce][obj_name]["obj"].devices = self.http_obj_dict[ce][obj_name]["obj"].devices_list + self.http_obj_dict[ce][obj_name]["obj"].station_list[0]
+                            self.http_obj_dict[ce][obj_name]["obj"].devices = self.http_obj_dict[ce][obj_name]["obj"].devices_list + self.http_obj_dict[ce][obj_name]["obj"].station_list
                             for interface in self.http_obj_dict[ce][obj_name]["obj"].response_port['interfaces']:
                                 for port, port_data in interface.items():
-                                    if port in self.http_obj_dict[ce][obj_name]["obj"].station_list[0] or port in self.http_obj_dict[ce][obj_name]["obj"].port_list:
+                                    if port in self.http_obj_dict[ce][obj_name]["obj"].station_list or port in self.http_obj_dict[ce][obj_name]["obj"].port_list:
                                         self.http_obj_dict[ce][obj_name]["obj"].channel_list.append(str(port_data['channel']))
                                         self.http_obj_dict[ce][obj_name]["obj"].mode_list.append(str(port_data['mode']))
                                         self.http_obj_dict[ce][obj_name]["obj"].macid_list.append(str(port_data['mac']))
@@ -8389,8 +8470,13 @@ class Candela(Realm):
 
                         test_setup_info = {}
                         if self.qos_obj_dict[ce][obj_name]["obj"].client_type == "Virtual":
+                            _existing_stas = self.qos_obj_dict[ce][obj_name]["obj"]._existing_sta_list
+                            _new_stas = [s for s in self.qos_obj_dict[ce][obj_name]["obj"].sta_list if s not in set(_existing_stas)]
+                            _sta_count_label = str(len(self.qos_obj_dict[ce][obj_name]["obj"].sta_list))
+                            if _existing_stas:
+                                _sta_count_label += f" ({len(_new_stas)} new + {len(_existing_stas)} existing)"
                             test_setup_info = {
-                                "Number of Virtual Stations": len(self.qos_obj_dict[ce][obj_name]["obj"].sta_list),
+                                "Number of Virtual Stations": _sta_count_label,
                                 "Virtual Stations List": ", ".join(self.qos_obj_dict[ce][obj_name]["obj"].sta_list),
                                 "AP Model":           self.qos_obj_dict[ce][obj_name]["obj"].ap_name,
                                 "SSID_2.4GHz":        self.qos_obj_dict[ce][obj_name]["obj"].ssid_2g,
@@ -8405,6 +8491,9 @@ class Candela(Realm):
                                 "TOS":                self.qos_obj_dict[ce][obj_name]["obj"].tos,
                                 "Per TOS Load in Mbps": load,
                             }
+                            if _existing_stas:
+                                test_setup_info["Existing Stations Used"] = ", ".join(_existing_stas)
+
                         elif self.qos_obj_dict[ce][obj_name]["obj"].client_type == "Real":
                             # Initialize counts and lists for device types
                             android_devices, windows_devices, linux_devices, ios_devices, ios_mob_devices = 0, 0, 0, 0, 0
@@ -8475,6 +8564,7 @@ class Candela(Realm):
                                     "TOS": self.qos_obj_dict[ce][obj_name]["obj"].tos,
                                     "Per TOS Load in Mbps": load
                                 }
+                                
                         elif self.qos_obj_dict[ce][obj_name]["obj"].client_type == "Both":
                             android_devices, windows_devices, linux_devices, ios_devices, ios_mob_devices = 0, 0, 0, 0, 0
                             all_devices_names = []
@@ -8516,9 +8606,14 @@ class Candela(Realm):
                                 total_devices += f" iOS({ios_mob_devices})"
                             
                             if config_devices == "":
+                                _existing_stas_both = self.qos_obj_dict[ce][obj_name]["obj"]._existing_sta_list
+                                _new_stas_both = [s for s in self.qos_obj_dict[ce][obj_name]["obj"].sta_list if s not in set(_existing_stas_both)]
+                                _vsta_label = "Total " + f"{len(self.qos_obj_dict[ce][obj_name]["obj"].sta_list)}"
+                                if _existing_stas_both:
+                                    _vsta_label += f" ({len(_new_stas_both)} new + {len(_existing_stas_both)} existing)"
                                 test_setup_info = {
                                     "Number of Real Devices": "Total " + f"({self.qos_obj_dict[ce][obj_name]["obj"].num_stations})" + total_devices,
-                                    "Number of Virtual Stations": "Total " + f"{len(self.qos_obj_dict[ce][obj_name]["obj"].sta_list)}",
+                                    "Number of Virtual Stations": _vsta_label,
                                     "Real Device List":        ", ".join(all_devices_names),
                                     "Virtual Stations List": ", ".join(self.qos_obj_dict[ce][obj_name]["obj"].sta_list),
                                     "AP Model":           self.qos_obj_dict[ce][obj_name]["obj"].ap_name,
@@ -8536,6 +8631,8 @@ class Candela(Realm):
                                     "TOS":                self.qos_obj_dict[ce][obj_name]["obj"].tos,
                                     "Per TOS Load in Mbps": load,
                                 }
+                                if _existing_stas_both:
+                                    test_setup_info["Existing Stations Used"] = ", ".join(_existing_stas_both)
                             else:
                                 # Real group / profile
                                 group_names   = ', '.join(config_devices.keys())
@@ -11041,11 +11138,6 @@ def validate_individual_args(args,test_name):
         return True
 
 
-
-
-
-
-
 def validate_time(n: str) -> str:
     try:
         if type(n) == int or type(n) == str and n.isdigit():  # just a number, default seconds
@@ -11495,6 +11587,10 @@ def parse_the_args():
     parser.add_argument("--http_pac_file", type=str, default='NA', help='Specify the pac file name')
 
     # HTTP for virtual clients
+    parser.add_argument("--http_use_existing_station_list",help='--use_station_list ,full eid must be given,'
+                                    'for multiple station list use commas(1.1.sta00000,1.1.sta00001)', action='store_true')
+    parser.add_argument("--http_existing_station_list",action='append', nargs=1,
+                          help='Specify the existing station list. E.g., --existing_station_list 1.1.sta00000')
     parser.add_argument("--http_num_stations",type=int,help='number of stations to create for virtual stations',default=0)
     parser.add_argument('--http_twog_radio', help='specify radio for 2.4G clients')
     parser.add_argument('--http_fiveg_radio', help='specify radio for 5 GHz client')
@@ -11635,6 +11731,12 @@ def parse_the_args():
     parser.add_argument("--qos_pac_file", type=str, default='NA', help='Specify the pac file name')
 
     #qos virtual station args
+    parser.add_argument('--qos_use_existing_station_list', help='--use_station_list ,full eid must be given,'
+                                'the script will use stations from the list, no configuration on the list, also prevents pre_cleanup',
+                                action='store_true')
+    # TODO pass in the existing station list
+    parser.add_argument('--qos_existing_station_list',action='append',nargs=1,
+                                help='--station_list [list of stations] , use the stations in the list , multiple station lists may be entered')
     parser.add_argument("--qos_mode",help='Force specific station mode.',default="0")
     parser.add_argument('--qos_ssid_2g',help='WiFi SSID for script objects to associate with Virtual Clients',default=None)
     parser.add_argument('--qos_password_2g', default="[BLANK]", help='WiFi passphrase/password/key for 2.4GHz')
@@ -11647,8 +11749,8 @@ def parse_the_args():
     parser.add_argument('--qos_security_6g',default='Open',help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
     parser.add_argument('--qos_bands',default='2.4G',help='Comma-seperated list of bands for test.')
     parser.add_argument('--qos_create_sta', help='Create virtual stations for use in test', action='store_true', default=False)
-    parser.add_argument('--qos_sta_names', help='Comma-separated station names when not creating stations', default=None)
-    parser.add_argument('--qos_num_stations_2g', help="Number of 2GHz band stations", type=int, default=0, required=False)
+    parser.add_argument('--qos_sta_names', help='Comma-separated station names when not creating stations', default="")
+    parser.add_argument('--qos_num_stations_2g', help="Number of 2GHz band stations", type=int, default=1, required=False)
     parser.add_argument('--qos_num_stations_5g', help="Number of 5GHz band stations", type=int, default=0, required=False)
     parser.add_argument('--qos_num_stations_6g', help="Number of 6GHz band stations", type=int, default=0, required=False)
     parser.add_argument('--qos_radio_2g', help="Radio used for 2.4GHz station creation", default="wiphy0")
@@ -12307,10 +12409,6 @@ def initialize_base_class_obj(**kwargs):
                             args=args)
     return candela_apis
     
-    
-
-
-
 def run_test_safe(test_func, test_name, args, candela_apis,duration):
     global error_logs
     def wrapper():
@@ -12555,7 +12653,9 @@ def run_http_test(args, candela_apis):
                             get_live_view=args.http_get_live_view,
                             total_floors=args.http_total_floors,
                             duration=args.http_duration,
-                            time_break=args.http_time_break
+                            time_break=args.http_time_break,
+                            use_existing_station_list=args.http_use_existing_station_list,
+                            existing_station_list=args.http_existing_station_list
     )
 
 def run_ftp_test(args, candela_apis):
@@ -12661,7 +12761,9 @@ def run_qos_test(args, candela_apis):
         test_name=args.qos_test_name,
         result_dir=args.result_dir,
         ap_name=args.qos_ap_name,
-        timebreak=args.qos_timebreak
+        timebreak=args.qos_timebreak,
+        use_existing_station_list=args.qos_use_existing_station_list,
+        existing_station_list=args.qos_existing_station_list
     )
 
 def run_vs_test(args, candela_apis):
