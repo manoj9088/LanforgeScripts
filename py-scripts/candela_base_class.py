@@ -22,7 +22,7 @@ import lf_interop_qos as qos_test
 import lf_interop_ping as ping_test
 from lf_interop_throughput import Throughput
 from lf_interop_video_streaming import VideoStreamingTest
-from lf_interop_vlc import VLCStream
+#from lf_interop_vlc import VLCStream
 # from lf_interop_real_browser_test import RealBrowserTest
 from test_l3 import L3VariableTime,change_port_to_ip,configure_reporting,query_real_clients,valid_endp_types
 from lf_kpi_csv import lf_kpi_csv
@@ -58,6 +58,7 @@ web_browser_test=importlib.import_module("py-scripts.real_application_tests.real
 zoom_test=importlib.import_module("py-scripts.real_application_tests.zoom_automation.lf_interop_zoom")
 yt_test=importlib.import_module("py-scripts.real_application_tests.youtube.lf_interop_youtube")
 teams_test=importlib.import_module("py-scripts.real_application_tests.teams_automation.lf_interop_teams")
+ytshorts_test=importlib.import_module("py-scripts.real_application_tests.youtube_shorts.lf_interop_youtubeshorts")
 lf_report_pdf = importlib.import_module("py-scripts.lf_report")
 lf_logger_config = importlib.import_module("py-scripts.lf_logger_config")
 logger = logging.getLogger(__name__)
@@ -211,6 +212,8 @@ class Candela(Realm):
             "parallel": manager.dict(),
             "series": manager.dict()
         })
+        self.ytshorts_obj_dict={"parallel":{}, "series":{}}
+
         # self.rb_obj_dict = manager.dict({
         #     "parallel": manager.dict(),
         #     "series": manager.dict()
@@ -218,6 +221,7 @@ class Candela(Realm):
         # self.rb_pipe_dict = {"parallel":{},"series":{}}
         # self.yt_obj_dict = manager.dict({"parallel": {}, "series": {}})
         # self.zoom_obj_dict = manager.dict({"parallel": {}, "series": {}})
+
         self.parallel_connect = {}
         self.series_connect = {}
         self.parallel_index = 0
@@ -283,7 +287,8 @@ class Candela(Realm):
         "rb_test":     (run_rb_test, "REAL BROWSER TEST"),
         "zoom_test":   (run_zoom_test, "ZOOM TEST"),
         "teams_test":  (run_teams_test, "TEAMS TEST"),
-        "vlc_test":     (run_vlc_test, "VLC TEST")
+        "vlc_test":     (run_vlc_test, "VLC TEST"),
+        "ytshorts_test" : (run_ytshorts_test, "YT SHORTS TEST")
         }
 
 # only for sniffer 
@@ -393,8 +398,6 @@ class Candela(Realm):
 
         except BaseException as err:
             print(err, "ERRORR")
-
-
 
     def api_get(self, endp: str):
         """
@@ -632,7 +635,7 @@ class Candela(Realm):
         ssh.close()
 
 
-    def misc_clean_up(self,layer3=False,layer4=False,generic=False,port_5000=False,port_5002=False,port_5003=False,port_5005=False):
+    def misc_clean_up(self,layer3=False,layer4=False,generic=False,port_5000=False,port_5002=False,port_5003=False,port_5005=False,port_5007=False):
         """
         Use for the cleanup of cross connections
         arguments:
@@ -791,9 +794,10 @@ class Candela(Realm):
         isrb = 'rb_test' in tests_to_run_parallel or 'rb_test' in tests_to_run_series
         isyt = 'yt_test' in tests_to_run_parallel or 'yt_test' in tests_to_run_series
         isteams = 'teams_test' in tests_to_run_parallel or 'teams_test' in tests_to_run_series
+        isytshorts = 'ytshorts_test' in tests_to_run_parallel or 'ytshorts_test' in tests_to_run_series
         self.series_tests = tests_to_run_series
         self.parallel_tests = tests_to_run_parallel
-        self.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams)
+        self.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams,port_5007=isytshorts)
         if args.series_tests or args.parallel_tests:
             series_threads = []
             parallel_threads = []
@@ -802,6 +806,7 @@ class Candela(Realm):
             rb_test = 'rb_test' in tests_to_run_parallel
             yt_test = 'yt_test' in tests_to_run_parallel
             zoom_test = 'zoom_test' in tests_to_run_parallel
+            ytshorts_test = 'ytshorts_test' in tests_to_run_parallel
             # Process series tests
             if args.series_tests:
                 ordered_series_tests = args.series_tests.split(',')
@@ -812,7 +817,7 @@ class Candela(Realm):
                 # ordered_parallel_tests = args.parallel_tests.split(',')
                 # phase 1
                 if args.dowebgui:
-                    gen_order = ["ping_test","qos_test","ftp_test","http_test","mcast_test","vs_test","thput_test","yt_test","rb_test","zoom_test","teams_test"]
+                    gen_order = ["ping_test","qos_test","ftp_test","http_test","mcast_test","vs_test","thput_test","yt_test","rb_test","zoom_test","teams_test","ytshorts_test"]
                     temp_ord_list = []
                     for test_name in gen_order:
                         if test_name in ordered_series_tests:
@@ -858,6 +863,15 @@ class Candela(Realm):
                                 self.vlc_obj_dict["series"][obj_name] = manager.dict({"obj":None,"data":None})
                                 print('hiii data',self.vlc_obj_dict)
                             series_threads.append(multiprocessing.Process(target=run_test_safe(func, f"{label} [Series {idx+1}]", args, self,duration_dict[test_name])))
+                        elif test_name == "ytshorts_test":
+                            obj_no = 1
+                            while f"ytshorts_test_{obj_no}" in self.ytshorts_obj_dict["series"]:
+                                obj_no+=1
+                            obj_name = f"ytshorts_test_{obj_no}"
+                            self.ytshorts_obj_dict["series"][obj_name] = {"obj": None, "data": None}
+                            series_threads.append(threading.Thread(
+                                target=run_test_safe(func, f"{label} [Series {idx+1}]", args, self,duration_dict[test_name])
+                            ))
                         else:                 
                             series_threads.append(threading.Thread(
                                 target=run_test_safe(func, f"{label} [Series {idx+1}]", args, self,duration_dict[test_name])
@@ -870,7 +884,7 @@ class Candela(Realm):
                 ordered_parallel_tests = args.parallel_tests.split(',')
                 #phase 1
                 if args.dowebgui:
-                    gen_order = ["ping_test","qos_test","ftp_test","http_test","mcast_test","vs_test","thput_test","yt_test","rb_test","zoom_test","teams_test"]
+                    gen_order = ["ping_test","qos_test","ftp_test","http_test","mcast_test","vs_test","thput_test","yt_test","rb_test","zoom_test","teams_test","ytshorts_test"]
                     temp_ord_list = []
                     for test_name in gen_order:
                         if test_name in ordered_parallel_tests:
@@ -902,6 +916,11 @@ class Candela(Realm):
                             elif test_name == "vlc_test":
                                 self.vlc_obj_dict["parallel"]["vlc_test"] = manager.dict({"obj": None, "data": None})
                             parallel_threads.append(multiprocessing.Process(target=run_test_safe(func, f"{label} [Parallel {idx+1}]", args, self,duration_dict[test_name])))
+                        elif test_name == "ytshorts_test":
+                            self.ytshorts_obj_dict["parallel"]["ytshorts_test"] = {"obj": None, "data": None}
+                            parallel_threads.append(threading.Thread(
+                                target=run_test_safe(func, f"{label} [Parallel {idx+1}]", args, self,duration_dict[test_name])
+                            ))
                         else:                 
                             parallel_threads.append(threading.Thread(
                                 target=run_test_safe(func, f"{label} [Parallel {idx+1}]", args, self,duration_dict[test_name])
@@ -967,7 +986,7 @@ class Candela(Realm):
                 # Then run parallel tests
                 if len(parallel_threads) != 0:
                     # self.misc_clean_up(layer3=False,layer4=False,generic=True)
-                    self.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams)
+                    self.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams,port_5007=isytshorts)
                     print('starting parallel tests.......')
                     time.sleep(10)
                 self.current_exec = "parallel"
@@ -992,7 +1011,8 @@ class Candela(Realm):
                 if len(series_threads) != 0:
                     rb_test = 'rb_test' in tests_to_run_parallel
                     yt_test = 'yt_test' in tests_to_run_parallel
-                    self.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams)
+                    ytshorts_test = 'ytshorts_test' in tests_to_run_parallel
+                    self.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams, port_5007=isytshorts)
                     print('starting Series tests.......')
                     time.sleep(5)
                 self.current_exec="series"
@@ -1002,9 +1022,11 @@ class Candela(Realm):
         else:
             logger.error("provide either --paralell_tests or --series_tests")
             exit(1)
+
         rb_test = 'rb_test' in tests_to_run_parallel
         yt_test = 'yt_test' in tests_to_run_parallel
-        self.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams)
+        ytshorts_test = 'ytshorts_test' in tests_to_run_parallel
+        self.misc_clean_up(layer3=True,layer4=True,generic=True,port_5000=iszoom,port_5002=isyt,port_5003=isrb,port_5005=isteams, port_5007=isytshorts)
         log_file = save_logs()
         print(f"Logs saved to: {log_file}")
         test_results_df = pd.DataFrame(list(test_results_list))
@@ -6493,6 +6515,159 @@ class Candela(Realm):
         vlc_stream_obj.create_report()
         return True
 
+    def run_ytshorts_test(
+        self,
+        host=None,
+        port=8080,
+        duration=0,
+        test_name=None,
+        scroll=0,
+        flask_ip=None,
+        resources=None,
+        debug=False,
+        no_pre_cleanup=True,
+        no_post_cleanup=True,
+        ui_report_dir=None,
+        do_webUI=False
+    ):
+        if host is None:
+            host = self.lanforge_ip
+        # Default flask_ip to the LANforge manager IP if not provided
+        if flask_ip is None:
+            flask_ip = self.lanforge_ip
+            logger.info(f"flask_ip not provided, defaulting to LANforge IP: {flask_ip}")
+        
+        try:
+                if debug:
+                    logger.setLevel(logging.DEBUG)
+            
+                Devices = RealDevice(manager_ip=host, selected_bands=[])
+                Devices.get_devices()
+
+                self.ytshorts_test = ytshorts_test.YouTubeShorts(
+                    host=host,
+                    port=port,
+                    duration=duration,
+                    scroll=scroll,
+                    flask_ip=flask_ip,
+                    debug=debug
+                )
+
+                do_webUI = do_webUI
+                ui_report_dir = ui_report_dir
+
+
+                # PORT CLEANUP
+                self.port_clean_up(5007)
+
+                # Start Flask Server
+                self.ytshorts_test.start_flask_server()
+                time.sleep(1)
+
+                self.ytshorts_test.clear_csv_data()
+
+                # Clear Previous Test Stats
+                self.ytshorts_test.clear_previous_data()
+
+                # PRE-CLEANUP optional
+
+                if not no_pre_cleanup:
+                    logging.info("Running pre-test cleanup")
+                    self.ytshorts_test.cleanup()
+                else:
+                    logging.info("Skipping Pre-Test Cleanup")
+                
+                if resources:
+                    # User provided device list
+                    real_sta_list = [r.strip() for r in resources.split(",")]
+                    self.ytshorts_test.select_real_devices(
+                        real_devices=Devices,
+                        real_sta_list=real_sta_list,
+                        base_interop_obj=Devices
+                    )
+                else:
+                    # No resources mentioned -> call user_query() in selectrealdevice function
+                    self.ytshorts_test.select_real_devices(
+                        real_devices=Devices,
+                        real_sta_list=None,
+                        base_interop_obj=Devices
+                    )
+                
+                # --------------------- ANDROID SELCTION (Fixed)
+
+                self.ytshorts_test.mobile_devices = []
+
+                if getattr(self.ytshorts_test, "selected_android_realstas", []):
+                    self.ytshorts_test.mobile_devices = self.ytshorts_test.get_android_serials_from_deviceconfig()
+                
+                logger.info(f"Final Android devices selected (mapped) : {self.ytshorts_test.mobile_devices}")
+
+                logger.info(f"RUN SUMMARY -> desktops={self.ytshorts_test.real_sta_list}, androids={self.ytshorts_test.mobile_devices}")
+
+                logger.info(f"Desktop devices selected: {self.ytshorts_test.real_sta_list}")
+                logger.info(f"Android devices selected: {self.ytshorts_test.mobile_devices}")
+
+                # Create Desktop Endpoints (if any)
+                if self.ytshorts_test.real_sta_list:
+                    self.ytshorts_test.create_generic_endp(self.ytshorts_test.real_sta_list)
+                
+                # Create Android Endpoints (if any)
+                if self.ytshorts_test.mobile_devices:
+                    self.ytshorts_test.create_android_generic_endp()
+                
+                # Check if generic tab exists in Lanforge
+                if not self.ytshorts_test.check_tab_exists():
+                    logging.error("LANFORGE generic tab is missing. Aborting.")
+                    return
+                
+                # Start LANForge connections (script launch on devices)
+                self.ytshorts_test.start_generic()
+
+                logging.info("=== YouTube Shorts Test Started ===")
+                logging.info(f"Duration: {duration} seconds")
+                logging.info(f"Scroll count: {scroll}")
+                logging.info(f"Devices: {self.ytshorts_test.real_sta_hostname}")
+                logging.info(f"Android devices: {self.ytshorts_test.mobile_devices}")
+
+                # Monitoring Loop (Heart of the test)
+                self.ytshorts_test.monitoring_loop()
+
+                logging.info("=== Test Completed ===")
+
+                # Stop Connections after monitoring loop ends
+                self.ytshorts_test.stop_generic_cx()
+
+                # POST CLEANUP (optional)
+
+                if not no_post_cleanup:
+                    logging.info("Running post-test cleanup...")
+                    self.ytshorts_test.cleanup()
+                else:
+                    logging.info("Skipping post-test cleanup.")
+                
+                self.ytshorts_test.create_report()  # Optional Report Generation from Collected CSV'S
+
+        except Exception as e:
+            logging.error(f"Fatal error in run_ytshorts_test(): {e}")
+            traceback.print_exc()
+
+        finally:
+            # Always store the object reference so render_each_test can access it
+            try:
+                if not hasattr(self, 'ytshorts_test') or self.ytshorts_test is None:
+                    logger.warning("ytshorts_test object was never created; skipping dict store.")
+                elif self.current_exec == "parallel":
+                    self.ytshorts_obj_dict["parallel"]["ytshorts_test"]["obj"] = self.ytshorts_test
+                else:
+                    for i in range(len(self.ytshorts_obj_dict["series"])):
+                        if self.ytshorts_obj_dict["series"][f"ytshorts_test_{i+1}"]["obj"] is None:
+                            self.ytshorts_obj_dict["series"][f"ytshorts_test_{i+1}"]["obj"] = self.ytshorts_test
+                            break
+            except Exception as store_err:
+                logging.error(f"Failed to store ytshorts object in dict: {store_err}")
+        
+        return True
+
 
     def browser_cleanup(self,rb_test=False,yt_test=False):
         # count = 0
@@ -6707,6 +6882,8 @@ class Candela(Realm):
         test_map = {}
         print('self.rb_obj_dict',self.rb_obj_dict)
         print('self.yt_obj_dict',self.yt_obj_dict)
+
+        logger.info(f'self.ytshorts_obj_dict : {self.ytshorts_obj_dict}')
         if ce == "series":
             series_tests = self.series_tests.copy()
             print("series tests",series_tests)
@@ -10847,6 +11024,326 @@ class Candela(Realm):
                         else:
                             break
 
+                elif test_name == "ytshorts_test":
+                    obj_no = 1
+                    obj_name = "ytshorts_test"
+                    if ce == "series":
+                        obj_name += "_1"
+                    while obj_name in self.ytshorts_obj_dict[ce]:
+                        if ce == "parallel":
+                            obj_no = ''
+
+                        ytshorts_obj = self.ytshorts_obj_dict[ce][obj_name]["obj"]
+
+                        if ytshorts_obj is None:
+                            logger.warning(f"[ytshorts render] obj for {obj_name} is None - test did not complete successfully, skipping report section.")
+                            if ce == "series":
+                                obj_no += 1
+                                obj_name = f"ytshorts_test_{obj_no}"
+                            else:
+                                break
+                            continue
+
+                        self.overall_report.set_obj_html(
+                            _obj_title=f'YouTube Shorts Streaming Test {obj_no}',
+                            _obj=""
+                        )
+                        self.overall_report.build_objective()
+
+                        configured_devices = getattr(ytshorts_obj, "hostname_os_combination", [])
+                        if not configured_devices:
+                            configured_devices = list((ytshorts_obj.mydatajson or {}).keys()) or list(getattr(ytshorts_obj, "mobile_devices", []))
+
+                        windows_count = getattr(ytshorts_obj, "windows", 0)
+                        linux_count   = getattr(ytshorts_obj, "linux", 0)
+                        mac_count     = getattr(ytshorts_obj, "mac", 0)
+                        android_count = len(getattr(ytshorts_obj, "mobile_devices", []))
+                        total_count   = windows_count + linux_count + mac_count + android_count
+
+                        test_setup_info = {
+                            "Test Name"                  : "YouTube Shorts Streaming Test",
+                            "Duration (in Minutes)"      : round(ytshorts_obj.duration / 60, 2),
+                            "Resolution"                 : "1080p",
+                            "Configured Devices"         : configured_devices,
+                            "No of Devices"              : (
+                                f"Total({total_count}): "
+                                f"W({windows_count}), "
+                                f"L({linux_count}), "
+                                f"M({mac_count}), "
+                                f"A({android_count})"
+                            ),
+                            "Scroll Interval (in Seconds)": ytshorts_obj.scroll,
+                        }
+                        self.overall_report.test_setup_table(
+                            test_setup_data=test_setup_info,
+                            value="Input Parameters"
+                        )
+
+                        # ── Collect per-device stats from CSVs ───────────────────────
+                        device_names_frames     = []
+                        total_frames_list       = []
+                        dropped_frames_list     = []
+                        resolution_buckets      = ["480p", "720p", "1080p", "1440p", "2160p", "4320p"]
+                        device_names_res        = []
+                        resolution_data         = {r: [] for r in resolution_buckets}
+                        buffer_graph_data       = []   # list of (device_name, df_buf)
+
+                        
+                        report_dir_for_csvs = getattr(ytshorts_obj,'report_path_date_time',None) # Gathering csv files for report generation.
+                        logger.info(f"Report Dir For Shorts : {report_dir_for_csvs}")
+                        
+                        # Gather CSV paths: prefer files already in the report dir
+                        csv_files = []
+                        if report_dir_for_csvs:
+                            # resolve relative path against cwd (py-scripts dir)
+                            if not os.path.isabs(report_dir_for_csvs):
+                                resolved_dir = os.path.join(os.getcwd(), report_dir_for_csvs)
+                            else:
+                                resolved_dir = report_dir_for_csvs
+
+                            if os.path.isdir(resolved_dir):
+                                csv_files = [
+                                    os.path.join(resolved_dir, f)
+                                    for f in os.listdir(resolved_dir)
+                                    if f.endswith("_shorts_stats.csv")
+                                ]
+                                logger.info(f"csv files found in resolved dir: {csv_files}")
+                            else:
+                                logger.warning(f"Resolved report dir does not exist: {resolved_dir}")
+
+                        logger.info(f"csv files path: {csv_files}")
+                        # Fall back to live device paths tracked by the object
+                        if not csv_files:
+                            csv_files = [p for p in ytshorts_obj.devices_list if os.path.isfile(p)]
+                            logger.info(f"Falling back to devices_list CSVs: {csv_files}")
+
+                        for csv_file in csv_files:
+                            try:
+                                df = pd.read_csv(csv_file)
+                                if df.empty or "Instance Name" not in df.columns:
+                                    continue
+
+                                device_name = str(df["Instance Name"].iloc[0])
+
+                                if all(c in df.columns for c in ["Iteartions", "TotalFrames", "DroppedFrames"]):
+                                    df["Iteartions"]    = pd.to_numeric(df["Iteartions"],    errors="coerce")
+                                    df["TotalFrames"]   = pd.to_numeric(df["TotalFrames"],   errors="coerce").fillna(0)
+                                    df["DroppedFrames"] = pd.to_numeric(df["DroppedFrames"], errors="coerce").fillna(0)
+                                    iter_last = df.sort_values("Timestamp").groupby("Iteartions", as_index=False).last()
+                                    device_names_frames.append(device_name)
+                                    total_frames_list.append(int(iter_last["TotalFrames"].sum()))
+                                    dropped_frames_list.append(int(iter_last["DroppedFrames"].sum()))
+
+                                if "CurrentRes" in df.columns:
+                                    counts = {r: 0 for r in resolution_buckets}
+                                    for val in df["CurrentRes"].fillna(""):
+                                        try:
+                                            height = int(str(val).split("@")[0].split("x")[1])
+                                            if height <= 854:
+                                                counts["480p"] += 1
+                                            elif height <= 1280:
+                                                counts["720p"] += 1
+                                            elif height <= 1920:
+                                                counts["1080p"] += 1
+                                            elif height <= 2560:
+                                                counts["1440p"] += 1
+                                            elif height <= 3840:
+                                                counts["2160p"] += 1
+                                            else:
+                                                counts["4320p"] += 1
+                                        except Exception:
+                                            continue
+                                    total_samples = sum(counts.values())
+                                    if total_samples:
+                                        device_names_res.append(device_name)
+                                        for r in resolution_buckets:
+                                            resolution_data[r].append(
+                                                round(counts[r] * 100 / total_samples, 2)
+                                            )
+
+                                if "BufferHealth" in df.columns and "Timestamp" in df.columns:
+                                    df["BufferHealth"] = pd.to_numeric(df["BufferHealth"], errors="coerce")
+                                    clean_df = df[df["BufferHealth"] > 0].drop_duplicates(subset="Timestamp")
+                                    if not clean_df.empty:
+                                        buffer_graph_data.append(
+                                            (device_name, clean_df[["Timestamp", "BufferHealth"]])
+                                        )
+
+                            except Exception as e:
+                                logger.error(f"[ytshorts render] Failed processing {csv_file}: {e}")
+
+                        # ── Frames graph ─────────────────────────────────────────────
+                        if device_names_frames:
+                            self.overall_report.set_graph_title("Total Frames vs Frames Dropped")
+                            self.overall_report.build_graph_title()
+
+                            x_fig_size = 25
+                            y_fig_size = len(device_names_frames) * 0.5 + 4
+
+                            graph = lf_bar_graph_horizontal(
+                                _data_set=[dropped_frames_list, total_frames_list],
+                                _xaxis_name="Number of Frames",
+                                _yaxis_name="Wireless Devices",
+                                _yaxis_categories=device_names_frames,
+                                _graph_image_name=f"ytshorts_Dropped_vs_Total_Frames_{obj_no}",
+                                _label=["Dropped Frames", "Total Frames"],
+                                _color=None,
+                                _color_edge="red",
+                                _figsize=(x_fig_size, y_fig_size),
+                                _show_bar_value=True,
+                                _text_font=6,
+                                _text_rotation=True,
+                                _enable_csv=True,
+                                _legend_loc="upper right",
+                                _legend_box=(1.1, 1),
+                            )
+                            graph_image = graph.build_bar_graph_horizontal()
+                            self.overall_report.set_graph_image(graph_image)
+                            self.overall_report.move_graph_image()
+                            self.overall_report.build_graph()
+
+                        # ── Resolution distribution graph ────────────────────────────
+                        if device_names_res:
+                            self.overall_report.set_graph_title("Video Playback Resolution Distribution")
+                            self.overall_report.build_graph_title()
+
+                            import matplotlib.pyplot as _plt
+                            import numpy as _np
+
+                            _plt.figure(figsize=(18, len(device_names_res) * 1.2 + 3))
+                            y_pos = _np.arange(len(device_names_res))
+                            left  = _np.zeros(len(device_names_res))
+
+                            for r in resolution_buckets:
+                                values = _np.array(resolution_data[r])
+                                _plt.barh(y_pos, values, left=left, label=r)
+                                left += values
+
+                            _plt.yticks(y_pos, device_names_res)
+                            _plt.xlabel("Video Resolution (in %)")
+                            _plt.ylabel("Wireless Devices")
+                            _plt.title("Video Resolution Distribution Graph")
+                            _plt.legend(loc="upper center", bbox_to_anchor=(0.5, -0.08), ncol=3)
+                            _plt.tight_layout()
+
+                            res_img_name = f"ytshorts_resolution_distribution_{obj_no}.png"
+                            _plt.savefig(res_img_name)
+                            _plt.close()
+
+                            self.overall_report.set_graph_image(res_img_name)
+                            self.overall_report.move_graph_image()
+                            self.overall_report.build_graph()
+
+                        # ── Per-device buffer-health graphs ──────────────────────────
+                        for dev_name, df_buf in buffer_graph_data:
+                            try:
+                                self.overall_report.set_graph_title(
+                                    f"Buffer Health vs Time for {dev_name}"
+                                )
+                                self.overall_report.build_graph_title()
+
+                                import matplotlib.pyplot as _plt2
+                                _plt2.figure(figsize=(16, 8))
+                                _plt2.plot(df_buf["Timestamp"], df_buf["BufferHealth"])
+                                _plt2.xlabel("Time")
+                                _plt2.ylabel("Buffer Health")
+                                _plt2.title(f"Buffer Health vs Time for {dev_name}")
+                                _plt2.xticks(rotation=90)
+                                _plt2.tight_layout()
+
+                                buf_img_name = f"ytshorts_{dev_name}_buffer_health_{obj_no}.png"
+                                _plt2.savefig(buf_img_name)
+                                _plt2.close()
+
+                                self.overall_report.set_graph_image(buf_img_name)
+                                self.overall_report.move_graph_image()
+                                self.overall_report.build_graph()
+                            except Exception as e:
+                                logger.error(f"[ytshorts render] Buffer graph failed for {dev_name}: {e}")
+
+                        # ── Final results table ──────────────────────────────────────
+                        test_results = []
+                        mac_list       = getattr(ytshorts_obj, "mac_list",       [])
+                        rssi_list      = getattr(ytshorts_obj, "rssi_list",      [])
+                        link_rate_list = getattr(ytshorts_obj, "link_rate_list", [])
+                        ssid_list_obj  = getattr(ytshorts_obj, "ssid_list",      [])
+                        hostname_list  = getattr(ytshorts_obj, "real_sta_hostname", [])
+                        os_types_list  = getattr(ytshorts_obj, "real_sta_os_types", [])
+
+                        all_device_names = list(ytshorts_obj.mydatajson.keys()) if ytshorts_obj.mydatajson else device_names_frames
+
+                        for device in all_device_names:
+                            mac    = "NA"
+                            rssi   = "NA"
+                            link   = "NA"
+                            ssid   = "NA"
+                            os_type = "NA"
+                            min_bh  = "NA"
+                            max_bh  = "NA"
+
+                            # Match LANforge device info by hostname (desktop devices)
+                            if device in hostname_list:
+                                try:
+                                    idx = hostname_list.index(device)
+                                    os_type = os_types_list[idx] if idx < len(os_types_list) else "NA"
+                                    mac     = mac_list[idx]       if idx < len(mac_list)       else "NA"
+                                    rssi    = rssi_list[idx]      if idx < len(rssi_list)      else "NA"
+                                    link    = link_rate_list[idx] if idx < len(link_rate_list) else "NA"
+                                    ssid    = ssid_list_obj[idx]  if idx < len(ssid_list_obj)  else "NA"
+                                except Exception:
+                                    pass
+                            # Android devices
+                            elif device in getattr(ytshorts_obj, "mobile_devices", []):
+                                os_type = "Android"
+
+                            # Buffer health min/max from mydatajson (already tracked during monitoring)
+                            bh_entry = ytshorts_obj.mydatajson.get(device, {})
+                            try:
+                                raw_min = float(bh_entry.get("minbufferhealth", "NA"))
+                                min_bh  = round(raw_min, 3) if raw_min < 9999.0 else "NA"
+                            except Exception:
+                                min_bh = "NA"
+                            try:
+                                max_bh = round(float(bh_entry.get("maxbufferhealth", "NA")), 3)
+                            except Exception:
+                                max_bh = "NA"
+
+                            # Total / dropped frames from collected lists
+                            total_f   = "NA"
+                            dropped_f = "NA"
+                            if device in device_names_frames:
+                                idx2      = device_names_frames.index(device)
+                                total_f   = total_frames_list[idx2]
+                                dropped_f = dropped_frames_list[idx2]
+
+                            test_results.append({
+                                "Hostname"           : device,
+                                "OS Type"            : os_type,
+                                "MAC"                : mac,
+                                "RSSI (dBm)"         : rssi,
+                                "Link Rate (Mbps)"   : link,
+                                "SSID"               : ssid,
+                                "Total Frames"       : total_f,
+                                "Dropped Frames"     : dropped_f,
+                                "Min Buffer Health(s)": min_bh,
+                                "Max Buffer Health(s)": max_bh,
+                            })
+
+                        if test_results:
+                            self.overall_report.set_obj_html(_obj_title="Test Results", _obj="")
+                            self.overall_report.build_objective()
+                            results_df = pd.DataFrame(test_results)
+                            self.overall_report.set_table_dataframe(results_df)
+                            self.overall_report.build_table()
+
+                        # ── Advance to next series instance ──────────────────────────
+                        if ce == "series":
+                            obj_no += 1
+                            obj_name = f"ytshorts_test_{obj_no}"
+                        else:
+                            break
+
+
             except Exception as e:
                 logger.info(f"failed to generate report for {test_name} {e}")
                 import traceback
@@ -11045,6 +11542,8 @@ class Candela(Realm):
         # self.overall_report.set_custom_html(test_results_df.to_html(index=False, justify='center'))
         # self.overall_report.build_custom()
         if not self.do_mix_exec:
+            series_df = pd.DataFrame()
+            parallel_df = pd.DataFrame()
             try:
                 series_df,parallel_df = self.generate_test_exc_df(test_results_df,args_dict)
             except Exception:
@@ -11067,7 +11566,7 @@ class Candela(Realm):
                 self.overall_report.set_table_title("Traffic Details")
                 self.overall_report.build_table_title()
                 if not self.do_mix_exec:
-                    self.overall_report.set_custom_html(series_df.to_html(index=False, justify='center'))
+                    self.overall_report.set_custom_html(series_df.to_html(index=False, justify='center') if not series_df.empty else '')
                     self.overall_report.build_custom()
                 self.render_each_test(ce="series")
             if len(self.parallel_tests) != 0:
@@ -11077,7 +11576,7 @@ class Candela(Realm):
                 self.overall_report.set_table_title("Traffic Details")
                 self.overall_report.build_table_title()
                 if not self.do_mix_exec:
-                    self.overall_report.set_custom_html(parallel_df.to_html(index=False, justify='center'))
+                    self.overall_report.set_custom_html(parallel_df.to_html(index=False, justify='center') if not parallel_df.empty else '')
                     self.overall_report.build_custom()
                 self.render_each_test(ce="parallel")
         else:
@@ -11088,7 +11587,7 @@ class Candela(Realm):
                 self.overall_report.set_table_title("Traffic Details")
                 self.overall_report.build_table_title()
                 if not self.do_mix_exec:
-                    self.overall_report.set_custom_html(parallel_df.to_html(index=False, justify='center'))
+                    self.overall_report.set_custom_html(parallel_df.to_html(index=False, justify='center') if not parallel_df.empty else '')
                     self.overall_report.build_custom()
                 self.render_each_test(ce="parallel")
             if len(self.series_tests) != 0:
@@ -11098,7 +11597,7 @@ class Candela(Realm):
                 self.overall_report.set_table_title("Traffic Details")
                 self.overall_report.build_table_title()
                 if not self.do_mix_exec:
-                    self.overall_report.set_custom_html(series_df.to_html(index=False, justify='center'))
+                    self.overall_report.set_custom_html(series_df.to_html(index=False, justify='center') if not series_df.empty else '')
                     self.overall_report.build_custom()
                 self.render_each_test(ce="series")
         if iot_summary:
@@ -11136,6 +11635,9 @@ def validate_individual_args(args,test_name):
             return False
     elif test_name == "rb_test":
         return True
+    elif test_name == "ytshorts_test":
+        return True
+
 
 
 def validate_time(n: str) -> str:
@@ -12177,6 +12679,25 @@ def parse_the_args():
     parser.add_argument("--teams_pac_file", type=str, default='NA', help='Specify the pac file name')
     parser.add_argument("--teams_wait_time", type=int, help='Specify the maximum time to wait for Configuration', default=60)
 
+    # YT Shorts Automation
+    parser.add_argument('--ytshorts_test',
+                          action="store_true",
+                          help='yt_shorts consists')
+    parser.add_argument('--ytshorts_test_name', type=str, help="test name for webgui", default=None)
+    parser.add_argument("--ytshorts_duration", type=int, default=0, help="Total test duration in seconds")
+    parser.add_argument("--ytshorts_scroll", type=int, default=0, help="Scroll interval in seconds (time between moving to next Short)")
+    parser.add_argument("--ytshorts_flask_ip", default=None, help="IP where Flask server will run")
+    parser.add_argument("--ytshorts_resources", help="Comma-separated device EIDs like 1.5,1.15")
+    parser.add_argument("--ytshorts_debug", action="store_true", help="Enable debugging")
+
+    # Cleanup toggles
+    parser.add_argument("--ytshorts_no_pre_cleanup", action="store_true",
+                            help="Skip cleanup BEFORE test")
+    parser.add_argument("--ytshorts_no_post_cleanup", action="store_true",
+                            help="Skip cleanup AFTER test")
+
+
+
     #whole config
     parser.add_argument('--group_name', type=str, help='Specify the groups name that contains a list of devices. Example: group1,group2')
     parser.add_argument('--profile_name', type=str, help='Specify the profile name to apply configurations to the devices.')
@@ -13074,7 +13595,26 @@ def run_teams_test(args, candela_apis):
         wait_time=args.teams_wait_time,
         teams_host=args.teams_host
 
+    ) 
+
+def run_ytshorts_test(args, candela_apis):
+    # Default flask_ip to the LANforge manager IP if not explicitly provided
+    flask_ip = args.ytshorts_flask_ip if args.ytshorts_flask_ip else args.mgr
+    return candela_apis.run_ytshorts_test(
+        host=args.mgr,
+        port=args.mgr_port,
+        duration=args.ytshorts_duration,
+        test_name=args.ytshorts_test_name,
+        scroll=args.ytshorts_scroll,
+        flask_ip=flask_ip,
+        resources=args.ytshorts_resources,
+        debug=args.ytshorts_debug,
+        no_pre_cleanup=args.ytshorts_no_pre_cleanup,
+        no_post_cleanup=args.ytshorts_no_post_cleanup,
+        ui_report_dir=args.result_dir,
+        do_webUI=args.dowebgui
     )
+
 # def browser_cleanup(args,candela_apis):
 #     return candela_apis.browser_cleanup(args)
 if __name__ == "__main__":
