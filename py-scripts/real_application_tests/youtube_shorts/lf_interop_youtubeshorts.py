@@ -605,6 +605,13 @@ class YouTubeShorts(Realm):
         logger.info(f"Selected Android EIDs: {self.selected_android_realstas}")
 
         serials = []
+        self.android_stats = {} # Dictionary to hold mapped stats
+
+        # Fetch /port/all to get MAC, RSSI, Link, and SSID for Androids
+        response_port = self.json_get("/port/all")
+        interfaces = []
+        if response_port and "interfaces" in response_port:
+            interfaces = response_port["interfaces"]
 
         for sta in self.selected_android_realstas:
             eid = sta  # example: "1.22"
@@ -615,7 +622,23 @@ class YouTubeShorts(Realm):
                         logger.warning(f"Skipping phantom Android {adb['serial']}")
                         continue
 
-                    serials.append(adb["serial"])
+                    serial = adb["serial"]
+                    serials.append(serial)
+                    
+                    # Extract network stats for this specific Android EID
+                    mac, rssi, link, ssid = "NA", "NA", "NA", "NA"
+                    for interface in interfaces:
+                        for port_name, port_data in interface.items():
+                            # Match the EID prefix and ensure it's the Wi-Fi Station interface
+                            if port_name.startswith(f"{eid}.") and port_data.get("port type") == "WIFI-STA":
+                                mac = port_data.get("mac", "NA")
+                                rssi = port_data.get("signal", "NA")
+                                link = port_data.get("rx-rate", "NA")
+                                ssid = port_data.get("ssid", "NA")
+                                break
+                    
+                    # Store the stats using the device serial as the key
+                    self.android_stats[serial] = {"mac": mac, "rssi": rssi, "link": link, "ssid": ssid}
                     break
 
         return serials
@@ -1210,6 +1233,13 @@ class YouTubeShorts(Realm):
                 # Check android devices
                 elif device in getattr(self, "mobile_devices", []):
                     os_type = "Android"
+                    # Pull the previously saved stats using the Android serial
+                    if hasattr(self, "android_stats") and device in self.android_stats:
+                        stats = self.android_stats[device]
+                        mac = stats.get("mac", "NA")
+                        rssi = stats.get("rssi", "NA")
+                        link = stats.get("link", "NA")
+                        ssid = stats.get("ssid", "NA")
                 try:
                     df = pd.read_csv(os.path.join(report_path_date_time, f"{device}_shorts_stats.csv"))
                     if "BufferHealth" in df.columns:
