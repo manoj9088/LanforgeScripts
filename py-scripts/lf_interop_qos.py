@@ -16,59 +16,57 @@ NOTES:      1. Use './lf_interop_qos.py --help' to see command line usage and op
             Example:
             Enter the desired resources to run the test:1.10,1.11,1.12,1.13,1.202,1.203,1.303
 
-EXAMPLES:   # Command Line Interface to run download scenario with tos for Real Devices: Voice
+EXAMPLES:   # Command Line Interface to run download scenario with tos : Voice
             ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --ssid Cisco
                 --passwd cisco@123 --security wpa2 --upstream eth1 --test_duration 1m --download 1000000 --upload 0
-                --traffic_type lf_udp --tos "VO" --bands 2.4G --client_type Real
+                --traffic_type lf_udp --tos "VO"
 
-            # Command Line Interface to run download scenario with tos for Real Devices: Voice and Video
+            # Command Line Interface to run download scenario with tos : Voice and Video
             ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --ssid Cisco
                 --passwd cisco@123 --security wpa2 --upstream eth1 --test_duration 1m --download 1000000 --upload 0
-                --traffic_type lf_udp --tos "VO,VI" --bands 2.4G --client_type Real
+                --traffic_type lf_udp --tos "VO,VI"
 
-            # Load scenario with tos for Real Devices: Background, Besteffort, Video and Voice
+            # Load scenario with tos : Background, Besteffort, Video and Voice
             ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --ssid Cisco
                 --passwd cisco@123 --security wpa2 --upstream eth1 --test_duration 1m --download 0 --upload 1000000
-                --traffic_type lf_udp --tos "BK,BE,VI,VO" --bands 2.4G --client_type Real
+                --traffic_type lf_udp --tos "BK,BE,VI,VO"
 
-            # Command Line Interface to run bi-directional scenario with tos for Real Devices: Video and Voice
+            # Command Line Interface to run bi-directional scenario with tos : Video and Voice
             ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --ssid Cisco
                 --passwd cisco@123 --security wpa2 --upstream eth1 --test_duration 1m --download 1000000 --upload 1000000
-                --traffic_type lf_udp --tos "VI,VO" --bands 2.4G --client_type Real
+                --traffic_type lf_udp --tos "VI,VO"
 
-            # Command Line Interface to run upload scenario by setting the same expected Pass/Fail value for all devices for Real Devices
+            # Command Line Interface to run upload scenario by setting the same expected Pass/Fail value for all devices
             ./lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
                 --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123
-                --security wpa2 --expected_passfail_value 0.3 --bands 2.4G --client_type Real
+                --security wpa2 --expected_passfail_value 0.3
 
-            # Command Line Interface to run upload scenario by setting device specific Pass/Fail values in the csv file for Real Devices
+            # Command Line Interface to run upload scenario by setting device specific Pass/Fail values in the csv file
             ./lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
                 --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123
-                --security wpa2 --device_csv_name device_config.csv --bands 2.4G --client_type Real
+                --security wpa2 --device_csv_name device_config.csv
 
-            # Command Line Interface to run upload scenario by setting device specific Pass/Fail values in the csv file for Real Devices along with timebreak for monitoring
+            # Command Line Interface to run upload scenario by Configuring Real Devices with SSID, Password, and Security
             ./lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
                 --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123
-                --security wpa2 --device_csv_name device_config.csv --bands 2.4G --client_type Real --timebreak 5s
+                --security wpa2 --config
 
-            # Command Line Interface to run upload scenario by Configuring Real Devices with SSID, Password, and Security for Real Devices
+            # Command Line Interface to run upload scenario by setting the same expected Pass/Fail value for all devices with configuration
             ./lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
                 --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123
-                --security wpa2 --config --bands 2.4G --client_type Real
+                --security wpa2 --config --expected_passfail_value 0.3
 
-            # Command Line Interface to run upload scenario by setting the same expected Pass/Fail value for all devices with configuration for Real Devices
+            # Command Line Interface to run upload scenario by Configuring Devices in Groups with Specific Profiles
             ./lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
-                --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123
-                --security wpa2 --config --expected_passfail_value 0.3 --bands 2.4G --client_type Real
-
+                --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --file_name g219 --group_name grp1 --profile_name Open3
             # Command Line Interface to run upload scenario by Configuring Devices in Groups with Specific Profiles for Real Devices
             ./lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
                 --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --file_name g219 --group_name grp1 --profile_name Open3 --bands 2.4G
 
-            # Command Line Interface to run upload scenario by Configuring Devices in Groups with Specific Profiles with expected Pass/Fail values for Real Devices
+            # Command Line Interface to run upload scenario by Configuring Devices in Groups with Specific Profiles with expected Pass/Fail values
             ./lf_interop_qos.py  --ap_name Cisco --mgr 192.168.244.97 --test_duration 1m --upstream_port eth1 --upload 1000000
                 --mgr_port 8080 --traffic_type lf_udp --tos "VI,VO,BE,BK" --file_name g219 --group_name grp1 --profile_name Open3
-                --expected_passfail_value 0.3 --wait_time 30 --bands 2.4G --client_type Real
+                --expected_passfail_value 0.3 --wait_time 30
 
             # Command Line Interface to run the Test along with IOT without device list
             ./lf_interop_qos.py --mgr 192.168.207.78 --upstream_port eth1 --security None --ssid "NETGEAR_2G_wpa2" --passwd "" --traffic_type lf_tcp --download 10000000
@@ -80,13 +78,18 @@ EXAMPLES:   # Command Line Interface to run download scenario with tos for Real 
                 --upload 0 --test_duration 1m --tos VO,VI,BE,BK --device_list 1.13 --iot_test --iot_ip 127.0.0.1 --iot_port 8000 --iot_iterations 1
                 --iot_delay 5 --iot_device_list "switch.smart_plug_1_socket_1" --iot_testname "QosWithIot" --iot_increment ""
 
-            # Command Line Interface to run the QOS Test along with Robot by enabling rotation at the specified coordinates 
+            # Command Line Interface to run the QOS Test along with Robot by enabling rotation at the specified coordinates
             ./lf_interop_qos.py  --ap_name Cisco --mgr 192.168.207.78 --test_duration 1m --upstream_port eth1 --upload 1000000 --mgr_port 8080 --traffic_type lf_udp
                 --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123 --security wpa2 --robot_ip 192.168.204.101 --rotation 30,90 --coordinate 3,4 --robot_test
 
             # Command Line Interface to run the QOS Test along with Robot at the specified coordinates without any rotation
             ./lf_interop_qos.py  --ap_name Cisco --mgr 192.168.207.78 --test_duration 1m --upstream_port eth1 --upload 1000000 --mgr_port 8080 --traffic_type lf_udp
                 --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123 --security wpa2 --robot_ip 192.168.204.101 --coordinate 3,4 --robot_test
+
+            # Command Line Interface to run the QOS Test along with Robot by enabling band steering at the specified coordinates.
+            ./lf_interop_qos.py  --ap_name Cisco --mgr 192.168.207.78 --test_duration 1m --upstream_port eth1 --upload 1000000 --mgr_port 8080 --traffic_type lf_udp
+                --tos "VI,VO,BE,BK" --ssid DLI-LPC992 --passwd Password@123 --security wpa2 --robot_ip 192.168.204.101 --coordinate 3,4 --robot_test --do_bandsteering
+                --cycles 1 --bssids 7a:1d:35:c8:da:b9
 
             # Run download scenario with Voice TOS in 2.4GHz band for Virtual Stations
             ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations_2g 32 --radio_2g wiphy0
@@ -104,13 +107,13 @@ EXAMPLES:   # Command Line Interface to run download scenario with tos for Real 
                 --download 1000000 --upload 0 --traffic_type lf_tcp --timebreak 5s --tos "VO,VI" --create_sta --client_type Virtual
 
             # Run upload scenario with Background, Best Effort, Video, and Voice TOS in 2.4GHz and 5GHz bands for Virtual Stations
-            ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 64 --radio_2g wiphy0
+            ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations_2g 32 --num_stations_5g 32 --radio_2g wiphy0
                 --ssid_2g Cisco --passwd_2g cisco@123 --security_2g wpa2 --radio_5g wiphy1 --ssid_5g Cisco --passwd_5g cisco@123
                 --security_5g wpa2 --bands dualband --upstream eth1 --test_duration 1m --timebreak 5s --download 0 --upload 1000000
                 --traffic_type lf_udp --tos "BK,BE,VI,VO" --create_sta --client_type Virtual
 
             # Run upload scenario with Background, Best Effort, Video and Voice TOS in 2.4GHz and 5GHz bands with 'Open' security for Virtual Stations
-            ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 64 --radio_2g wiphy0
+            ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations_2g 32 --num_stations_5g 32 --radio_2g wiphy0
                 --ssid_2g Cisco --passwd_2g [BLANK] --security_2g open --radio_5g wiphy1 --ssid_5g Cisco --passwd_5g [BLANK]
                 --security_5g open --bands dualband --upstream eth1 --test_duration 1m --timebreak 5s --download 0 --upload 1000000
                 --traffic_type lf_udp --tos "BK,BE,VI,VO" --create_sta --client_type Virtual
@@ -119,7 +122,7 @@ EXAMPLES:   # Command Line Interface to run download scenario with tos for Real 
             ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --num_stations 32 --radio_6g wiphy1
                 --ssid_6g Cisco --passwd_6g cisco@123 --security_6g wpa2 --bands 6g --upstream eth1 --test_duration 1m --timebreak 5s
                 --download 1000000 --upload 10000000 --traffic_type lf_udp --tos "VO,VI" --create_sta --client_type Virtual
-            
+
             # Run Bi_Directional Scenario for Both real and virtual stations in dual band scenario with all TOS values.
             ./lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080
             --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
@@ -129,31 +132,25 @@ EXAMPLES:   # Command Line Interface to run download scenario with tos for Real 
 
             # Run Download Scenario By Configuring Both Real Devices and Virtual Stations in 5g band scenario with TOS values "VI,VO".
             ./lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
-            --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands 5g 
+            --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands 5g
             --upstream eth1 --test_duration 1m --download 10000000 --traffic_type lf_tcp --tos "VI,VO" --create_sta --config --timebreak 5s --expected_passfail_value 5
 
             # Run Bi_Directional Scenario for both real and virtual stations in 5g band scenario with all TOS values.
-            ./lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 
+            ./lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080
             --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
             --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands 5g --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
 
             # Run Bi_Directional Scenario for both real and virtual stations in tri band scenario with all TOS values.
-            ./lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 
+            ./lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080
             --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
-            --num_stations_2g 4 --radio_2g wiphy0 --ssid_2g "NETGEAR_2G_wpa2" --passwd_2g Password@123 --security_2g wpa2 
-            --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 
+            --num_stations_2g 4 --radio_2g wiphy0 --ssid_2g "NETGEAR_2G_wpa2" --passwd_2g Password@123 --security_2g wpa2
+            --num_stations_5g 4 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2
             --num_stations_6g 4 --radio_6g wiphy0 --ssid_6g "NETGEAR_2G_wpa2" --passwd_6g Password@123 --security_6g wpa2 --bands triband --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
 
             # Run Bi_Directional Scenario for both real and virtual stations in 2.4G band scenario with all TOS values along with Time Break.
-            ./lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080 
+            ./lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080
             --ssid "NETGEAR_2G_wpa2" --passwd "Password@123" --security wpa2
             --num_stations_2g 4 --radio_2g wiphy0 --ssid_2g "NETGEAR_2G_wpa2" --passwd_2g Password@123 --security_2g wpa2 --bands 5g --upstream eth1 --test_duration 1m --download 100000000 --upload 100000000 --traffic_type lf_tcp --tos "BK,BE,VI,VO" --create_sta --timebreak 5s
-            
-            # Run Bi_Directional Scenario for both real and virtual stations(input required count + station_names) in 2.4G band scenario with all TOS values along with Time Break.
-            python3 lf_interop_qos.py --client_type Both --ap_name Cisco --mgr 192.168.207.78 --mgr_port 8080
-            --ssid "NETGEAR_5G_wpa2" --passwd "Password@123" --security wpa2
-            --num_stations_5g 1 --radio_5g wiphy1 --ssid_5g "NETGEAR_5G_wpa2" --passwd_5g Password@123 --security_5g wpa2 --bands 5G --upstream eth1 --test_duration 1m  --download 2000000 
-            --traffic_type lf_tcp --tos "VO,BK,BE,VI" --create_sta --timebreak 5s --expected_passfail_value 1.5 --sta_names sta000,sta9088
 
 SCRIPT_CLASSIFICATION:
             Test
@@ -169,7 +166,7 @@ VERIFIED_ON:
             Kernel version: 6.2.16+
 
 LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
-            Copyright 2025 Candela Technologies Inc
+            Copyright (C) 2020-2026 Candela Technologies Inc
 """
 
 from lf_base_robo import RobotClass
@@ -324,8 +321,7 @@ class ThroughputQOS(Realm):
                  timebreak=0):
         super().__init__(lfclient_host=host,
                          lfclient_port=port)
-
-        # For Virtual Stations 
+        # For Virtual Stations
         if not sta_list:
             sta_list = []
         if not test_case:
@@ -358,7 +354,7 @@ class ThroughputQOS(Realm):
 
         self.test_case = test_case
 
-        # SSID, Password, Security Fields for Virtual Stations 
+        # SSID, Password, Security Fields for Virtual Stations
         self.ssid_2g = ssid_2g
         self.security_2g = security_2g
         self.password_2g = password_2g
@@ -463,7 +459,8 @@ class ThroughputQOS(Realm):
         self.band_steering_df = []
         self.do_bandsteering = do_bandsteering
         self.bssids = bssids.split(",") if bssids else []
-        # Normalise client_type — webgui may pass None; treat as Real
+        # Normalise client_type — for real only and webgui scenarios user may pass None; treat as Real
+        # Alert user can also specify --client_type Real
         if self.client_type is None:
             self.client_type = "Real"
 
@@ -682,6 +679,7 @@ class ThroughputQOS(Realm):
             logger.error("Selected Devices are not available in the lanforge. devices_list: '%s'", devices_list)
             exit(1)
         resource_eid_list = devices_list.split(',')
+        logger.info(f"devices list {devices_list}")
         resource_eid_list2 = [eid + ' ' for eid in resource_eid_list]
         resource_eid_list1 = [resource + '.' for resource in resource_eid_list]
         logger.info(f"resource eid list : {resource_eid_list1} - {resource_eid_list2}")
@@ -694,7 +692,9 @@ class ThroughputQOS(Realm):
                 if eid in ports_m:
                     self.input_devices_list.append(ports_m)
         logger.info("INPUT DEVICES LIST {}".format(self.input_devices_list))
+
         # user desired real client list 1.1 wlan0 ---
+
         for i in resource_eid_list2:
             for j in range(len(self.user_list)):
                 if i in self.user_list[j]:
@@ -706,7 +706,7 @@ class ThroughputQOS(Realm):
         self.num_stations = len(self.real_client_list)
 
         for eid in resource_eid_list2:
-            for i in self.mac_id1_list:   # ['1.11 be:5d:07:76:c8:81', '1.20 30:35:ad:c5:e1:be', '1.23 ca:84:bc:fa:cb:7a']
+            for i in self.mac_id1_list:          # ['1.11 be:5d:07:76:c8:81', '1.20 30:35:ad:c5:e1:be', '1.23 ca:84:bc:fa:cb:7a']
                 if eid in i:
                     self.mac_id_list.append(i.strip(eid + ' '))
         logger.info("MAC ID LIST {}" .format(self.mac_id_list))
@@ -786,16 +786,12 @@ class ThroughputQOS(Realm):
             self.station_profile.station_names = original_names
 
     #  build()  –  unified entry point for Real / Virtual / Both
-
-
     def create_cx(self):
         if self.client_type in ("Real", "Both"):
             self.create_cx_real()
 
         if self.client_type in ("Virtual", "Both"):
                 self.create_cx_virtual()
-
-
 
     def build(self, client_type="Real"):
         """
@@ -849,10 +845,10 @@ class ThroughputQOS(Realm):
         def resolve(band_ssid, band_passwd, band_sec):
             if band_ssid is not None:
                 return band_ssid, band_passwd, band_sec
-            
+
             if self.ssid is not None:
                 return self.ssid, self.password, self.security
-            
+
             return first_available()
 
         def station_count(specific):
@@ -1025,9 +1021,9 @@ class ThroughputQOS(Realm):
                         break
                 if found:
                     break
-    
-    
+
     #  CX creation for Real device
+
     def create_cx_real(self):
         direction = ''
         if (int(self.cx_profile.side_b_min_bps)) != 0 and (int(self.cx_profile.side_a_min_bps)) != 0:
@@ -1077,8 +1073,8 @@ class ThroughputQOS(Realm):
                 count += 1
             logger.info("cross connections with TOS type created.")
 
-    
     #  CX creation for Virtual stations
+
     def create_cx_virtual(self):
         """Build CX connections against virtual sta_list entries."""
         direction = ''
@@ -1096,7 +1092,7 @@ class ThroughputQOS(Realm):
         print("Direction (virtual):", self.direction)
         traffic_type = (self.traffic_type.strip("lf_")).upper()
         traffic_direction_list = [direction] * len(self.sta_list)
-        traffic_type_list      = [traffic_type] * len(self.sta_list)
+        traffic_type_list = [traffic_type] * len(self.sta_list)
         cx_list = []
         for ip_tos in self.tos:
             for i in self.sta_list:
@@ -1136,7 +1132,7 @@ class ThroughputQOS(Realm):
         while current_retry < max_retry:
             not_running_cx = []
             overallresponse = self.json_get('/cx/all')  # Get all current CXs from the layer-3 tab
-            
+
             created_cx_list = list(self.cx_profile.created_cx.keys())
             l3_existing_cx = list(overallresponse.keys())
             count_of_cx = 0
@@ -1213,7 +1209,6 @@ class ThroughputQOS(Realm):
             for cx in cx_list
         }
 
-
         start_time = datetime.now()
         test_start_time = datetime.now().strftime("%Y %d %H:%M:%S")
         if not self.do_bandsteering:
@@ -1225,35 +1220,35 @@ class ThroughputQOS(Realm):
             self.df_for_webui = []
         index = -1
 
-        connections_download     = {cx: 0.0 for cx in cx_list}
-        connections_upload       = {cx: 0.0 for cx in cx_list}
+        connections_download = {cx: 0.0 for cx in cx_list}
+        connections_upload = {cx: 0.0 for cx in cx_list}
         connections_download_avg = {cx: 0.0 for cx in cx_list}
-        connections_upload_avg   = {cx: 0.0 for cx in cx_list}
-        dropa_connections        = {cx: 0.0 for cx in cx_list}
-        dropb_connections        = {cx: 0.0 for cx in cx_list}
-        drop_a_per               = []
-        drop_b_per               = []
+        connections_upload_avg = {cx: 0.0 for cx in cx_list}
+        dropa_connections = {cx: 0.0 for cx in cx_list}
+        dropb_connections = {cx: 0.0 for cx in cx_list}
+        drop_a_per = []
+        drop_b_per = []
 
-        avg_dl     = defaultdict(list)   # per-CX download Mbps
-        avg_ul     = defaultdict(list)   # per-CX upload Mbps
-        avg_da     = defaultdict(list)   # per-CX drop-a %
-        avg_db     = defaultdict(list)   # per-CX drop-b %
+        avg_dl = defaultdict(list)   # per-CX download Mbps
+        avg_ul = defaultdict(list)   # per-CX upload Mbps
+        avg_da = defaultdict(list)   # per-CX drop-a %
+        avg_db = defaultdict(list)   # per-CX drop-b %
         rates_data = defaultdict(list)   # port-level rx/tx/rssi
 
-        per_client_rows  = defaultdict(list)
-        sta_rows         = {sta: [] for sta in (self.sta_list or [])}
+        per_client_rows = defaultdict(list)
+        sta_rows = {sta: [] for sta in (self.sta_list or [])}
         all_station_rows = []
 
         individual_device_data = {cx: pd.DataFrame(columns=['bps rx a', 'bps rx b'])
-                                   for cx in cx_list}
+                                  for cx in cx_list}
 
-        webgui_mode    = (self.dowebgui == "True")
-        webgui_dir     = self.result_dir if webgui_mode else ""
-        previous_time  = datetime.now()   
-        time_break     = 0              # This is webgui incremental timebreak.
-        timebreak      = getattr(self, "timebreak", None)
-        last_write     = datetime.now()
-        
+        webgui_mode = (self.dowebgui == "True")
+        webgui_dir = self.result_dir if webgui_mode else ""
+        previous_time = datetime.now()
+        time_break = 0              # This is webgui incremental timebreak.
+        timebreak = getattr(self, "timebreak", None)
+        last_write = datetime.now()
+
         cx_list_endp = []
         for cx in cx_list:
             cx_list_endp.append(cx + '-A')
@@ -1262,7 +1257,7 @@ class ThroughputQOS(Realm):
         def map_tos(tos_val):
             _map = {
                 "100": "BE", 100: "BE",
-                "32":  "BK", 32:  "BK",
+                "32": "BK", 32: "BK",
                 "128": "VI", 128: "VI",
                 "192": "VO", 192: "VO",
                 "BE": "BE", "BK": "BK", "VI": "VI", "VO": "VO",
@@ -1309,7 +1304,7 @@ class ThroughputQOS(Realm):
                             previous_time = datetime.now()
                         monitor_charge_time = datetime.now()
             index += 1
-            now          = datetime.now()
+            now = datetime.now()
             current_time = now
             # This API Call to get All the running l3 endpoints data.
             try:
@@ -1326,7 +1321,7 @@ class ThroughputQOS(Realm):
                 logger.error(f"Failed to fetch endpoint data: {e}")
                 time.sleep(1)
                 continue
-            
+
             # This API Call to calculate CLient Avg RTT.
             client_rtt = defaultdict(list)
             try:
@@ -1350,21 +1345,21 @@ class ThroughputQOS(Realm):
                             if port not in (self.input_devices_list or []):
                                 continue
                             eid = ".".join(port.split(".")[:2])
-                            rx   = pdata.get("rx-rate", 0)
-                            tx   = pdata.get("tx-rate", 0)
+                            rx = pdata.get("rx-rate", 0)
+                            tx = pdata.get("tx-rate", 0)
                             rssi = pdata.get("signal", "")
-                            mode    = pdata.get("mode", "-")
+                            mode = pdata.get("mode", "-")
                             channel = pdata.get("channel", "-")
-                            bssid   = pdata.get("ap", "-")
-                            ssid = pdata.get("ssid","-")
+                            bssid = pdata.get("ap", "-")
+                            ssid = pdata.get("ssid", "-")
                             port_stats[eid] = {
-                                "rx": rx, 
-                                "tx": tx, 
+                                "rx": rx,
+                                "tx": tx,
                                 "rssi": rssi,
                                 "mode": mode,
                                 "channel": channel,
                                 "bssid": bssid,
-                                "ssid":  ssid,
+                                "ssid": ssid,
                             }
                             rates_data[f"{eid} rx_rate"].append(rx)
                             rates_data[f"{eid} tx_rate"].append(tx)
@@ -1383,16 +1378,16 @@ class ThroughputQOS(Realm):
                             for port, pdata in iface.items():
                                 for sta in (self.sta_list or []):
                                     if sta in port:
-                                        rx   = round(pdata.get("bps rx", 0) / 1_000_000, 2)
-                                        tx   = round(pdata.get("bps tx", 0) / 1_000_000, 2)
+                                        rx = round(pdata.get("bps rx", 0) / 1_000_000, 2)
+                                        tx = round(pdata.get("bps tx", 0) / 1_000_000, 2)
                                         rssi = pdata.get("signal", "")
-                                        mode = pdata.get("mode",    "-")
+                                        mode = pdata.get("mode", "-")
                                         channel = pdata.get("channel", "-")
-                                        bssid   = pdata.get("ap", "-")
-                                        ssid = pdata.get("ssid","-")
+                                        bssid = pdata.get("ap", "-")
+                                        ssid = pdata.get("ssid", "-")
                                         port_stats[sta] = {
-                                            "rx": rx, 
-                                            "tx": tx, 
+                                            "rx": rx,
+                                            "tx": tx,
                                             "rssi": rssi,
                                             "mode": mode,
                                             "channel": channel,
@@ -1421,14 +1416,14 @@ class ThroughputQOS(Realm):
 
             for ep in endp_data:
                 ep_name, ep_val = list(ep.items())[0]
-                side    = ep_name[-1]       # "A" or "B"
+                side = ep_name[-1]       # "A" or "B"
                 cx_name = ep_name[:-2]      # strip "-A" / "-B"
 
                 if cx_name not in cx_list:
                     continue
 
-                tos  = map_tos(ep_val.get("tos", ""))
-                rx   = ep_val.get("rx rate (last)", 0)          # bps (raw)
+                tos = map_tos(ep_val.get("tos", ""))
+                rx = ep_val.get("rx rate (last)", 0)          # bps (raw)
                 rx_mbps = rx / 1_000_000
                 drop = ep_val.get("rx drop %", 0)
                 t_now = now.strftime("%H:%M:%S")
@@ -1465,10 +1460,10 @@ class ThroughputQOS(Realm):
                 for cn, rtts in client_rtt.items()
             }
 
-            time_difference  = abs(end_time - now)
-            total_hours      = time_difference.total_seconds() / 3600
+            time_difference = abs(end_time - now)
+            total_hours = time_difference.total_seconds() / 3600
             remaining_minutes = (total_hours % 1) * 60
-            remaining_str    = (
+            remaining_str = (
                 str(int(total_hours)) + " hr and " + str(int(remaining_minutes)) + " min"
                 if int(total_hours) != 0 or int(remaining_minutes) != 0 else '<1 min'
             )
@@ -1489,11 +1484,11 @@ class ThroughputQOS(Realm):
                 "VI_ul": overall_row["VI_ul"],
                 "VO_dl": overall_row["VO_dl"],
                 "VO_ul": overall_row["VO_ul"],
-                "timestamp":      now.strftime("%d/%m %I:%M:%S %p"),
-                "start_time":     start_time.strftime("%d/%m %I:%M:%S %p"),
-                "end_time":       end_time.strftime("%d/%m %I:%M:%S %p"),
+                "timestamp": now.strftime("%d/%m %I:%M:%S %p"),
+                "start_time": start_time.strftime("%d/%m %I:%M:%S %p"),
+                "end_time": end_time.strftime("%d/%m %I:%M:%S %p"),
                 "remaining_time": remaining_str,
-                "status":         "Running",
+                "status": "Running",
             }
 
             # Appending current angle if rotation is enabled for the robot test
@@ -1503,7 +1498,7 @@ class ThroughputQOS(Realm):
             # Append latest port-level rates (rx_rate, tx_rate, RSSI, BSSID, Channel, Mode)
             for client_name, client_stats in rates_data.items():
                 if client_stats:
-                    overall_entry[client_name] = client_stats[-1]   # Upto here it supports overrall_csv for Real / Virtual / Both Scenario. 
+                    overall_entry[client_name] = client_stats[-1]   # Upto here it supports overrall_csv for Real / Virtual / Both Scenario.
 
             if self.do_bandsteering:
                 try:
@@ -1514,7 +1509,7 @@ class ThroughputQOS(Realm):
                     overall_entry["to_coordinate"] = nex_coord
                 except Exception:
                     pass
-            
+
             # Appending the data according to the time gap (for webgui)
             if not self.do_bandsteering and self.dowebgui and (current_time - previous_time).total_seconds() >= time_break:
                 self.df_for_webui.append(overall_entry)
@@ -1594,24 +1589,30 @@ class ThroughputQOS(Realm):
             if write_now:
                 last_write = now
                 for client_name, qrow in qos_map.items():
-                    ps = port_stats.get(client_name) or {
-                        "rx": 0, "tx": 0, "rssi": 0,
-                        "mode": "-", "channel": "-", "bssid": "-"
-                    }
+                    ps = port_stats.get(client_name)
+                    if ps is None and self.sta_list:
+                        for full_sta in self.sta_list:
+                            if full_sta.endswith(client_name) or client_name in full_sta:
+                                ps = port_stats.get(full_sta)
+                                if ps is not None:
+                                    break
+                    if ps is None:
+                        ps = {"rx": 0, "tx": 0, "rssi": 0,
+                              "mode": "-", "channel": "-", "bssid": "-"}
                     row = {
                         **qrow,
                         f"{client_name} avg_rtt": round(client_avg_rtt.get(client_name, 0), 2),
-                        "timestamp":      now.strftime("%H:%M:%S"),
-                        "start_time":     start_time.strftime("%H:%M:%S"),
-                        "end_time":       end_time.strftime("%H:%M:%S"),
+                        "timestamp": now.strftime("%H:%M:%S"),
+                        "start_time": start_time.strftime("%H:%M:%S"),
+                        "end_time": end_time.strftime("%H:%M:%S"),
                         "remaining_time": str(end_time - now).split(".")[0],
-                        "status":         "Running",
+                        "status": "Running",
                         f"{client_name} rx_rate": ps["rx"],
                         f"{client_name} tx_rate": ps["tx"],
-                        f"{client_name} RSSI":    ps["rssi"],
-                        f"{client_name} Mode":    ps["mode"],
+                        f"{client_name} RSSI": ps["rssi"],
+                        f"{client_name} Mode": ps["mode"],
                         f"{client_name} Channel": ps["channel"],
-                        f"{client_name} BSSID":   ps["bssid"],
+                        f"{client_name} BSSID": ps["bssid"],
                     }
                     per_client_rows[client_name].append(row)
                     if client_name in sta_rows:
@@ -1621,32 +1622,32 @@ class ThroughputQOS(Realm):
         # This is for Robo from WebGui
         if self.robot_test and webgui_mode and self.df_for_webui:
             last_e = self.df_for_webui[-1].copy()
-            last_e["status"]         = "Stopped"
-            last_e["timestamp"]      = datetime.now().strftime("%d/%m %I:%M:%S %p")
+            last_e["status"] = "Stopped"
+            last_e["timestamp"] = datetime.now().strftime("%d/%m %I:%M:%S %p")
             last_e["remaining_time"] = "0"
-            last_e["end_time"]       = last_e["timestamp"]
+            last_e["end_time"] = last_e["timestamp"]
             self.df_for_webui.append(last_e)
             df1 = pd.DataFrame(self.df_for_webui)
-            df1.to_csv('{}/overall_throughput_{}.csv'.format(webgui_dir, curr_coordinate), index=False)
+            df1.to_csv('{}/overall_throughput_{}.csv'.format(runtime_dir, curr_coordinate), index=False)
 
         # This is for Normal WebGui QOS Test.
         if not self.robot_test and webgui_mode and self.df_for_webui:
             last_e = self.df_for_webui[-1].copy()
-            last_e["status"]         = "Stopped"
-            last_e["timestamp"]      = datetime.now().strftime("%d/%m %I:%M:%S %p")
+            last_e["status"] = "Stopped"
+            last_e["timestamp"] = datetime.now().strftime("%d/%m %I:%M:%S %p")
             last_e["remaining_time"] = "0"
-            last_e["end_time"]       = last_e["timestamp"]
+            last_e["end_time"] = last_e["timestamp"]
             self.df_for_webui.append(last_e)
             pd.DataFrame(self.df_for_webui).to_csv(
                 '{}/overall_throughput.csv'.format(webgui_dir), index=False)
 
         for cx in cx_list:
             if avg_dl[cx]:
-                connections_download[cx]     = sum(avg_dl[cx]) / len(avg_dl[cx])
+                connections_download[cx] = sum(avg_dl[cx]) / len(avg_dl[cx])
                 connections_download_avg[cx] = connections_download[cx]
             if avg_ul[cx]:
-                connections_upload[cx]       = sum(avg_ul[cx]) / len(avg_ul[cx])
-                connections_upload_avg[cx]   = connections_upload[cx]
+                connections_upload[cx] = sum(avg_ul[cx]) / len(avg_ul[cx])
+                connections_upload_avg[cx] = connections_upload[cx]
             if avg_da[cx]:
                 dropa_connections[cx] = sum(avg_da[cx]) / len(avg_da[cx])
             if avg_db[cx]:
@@ -1655,8 +1656,6 @@ class ThroughputQOS(Realm):
         for cx in cx_list:
             drop_a_per.append(dropa_connections[cx])
             drop_b_per.append(dropb_connections[cx])
-
-
 
         # Generate individual client/station CSVs for all client types
         for client_name, rows in per_client_rows.items():
@@ -1669,7 +1668,6 @@ class ThroughputQOS(Realm):
                 writer.writerows(rows)
             print(f"Generated: {fname}")
             self.generated_station_csv_files.append(fname)
-
 
         logger.info("connections download {}".format(connections_download))
         logger.info("connections {}".format(connections_upload))
@@ -1690,18 +1688,18 @@ class ThroughputQOS(Realm):
         )
 
     def evaluate_qos(self, connections_download, connections_upload, drop_a_per, drop_b_per):
-        case_upload   = ""
+        case_upload = ""
         case_download = ""
 
-        tos_download  = {'VI': [], 'VO': [], 'BK': [], 'BE': []}
+        tos_download = {'VI': [], 'VO': [], 'BK': [], 'BE': []}
         tx_b_download = {'BK': [], 'BE': [], 'VI': [], 'VO': []}
         rx_a_download = {'BK': [], 'BE': [], 'VI': [], 'VO': []}
         tx_endps_download = {}
         rx_endps_download = {}
 
-        tos_upload    = {'VI': [], 'VO': [], 'BK': [], 'BE': []}
-        tx_b_upload   = {'BK': [], 'BE': [], 'VI': [], 'VO': []}
-        rx_a_upload   = {'BK': [], 'BE': [], 'VI': [], 'VO': []}
+        tos_upload = {'VI': [], 'VO': [], 'BK': [], 'BE': []}
+        tx_b_upload = {'BK': [], 'BE': [], 'VI': [], 'VO': []}
+        rx_a_upload = {'BK': [], 'BE': [], 'VI': [], 'VO': []}
         tx_endps_upload = {}
         rx_endps_upload = {}
 
@@ -1715,17 +1713,16 @@ class ThroughputQOS(Realm):
         if int(self.cx_profile.side_a_min_bps) != 0:
             case_upload = str(int(self.cx_profile.side_a_min_bps) / 1000000)
 
-        key_upload   = case_upload   + " Mbps"
+        key_upload = case_upload + " Mbps"
         key_download = case_download + " Mbps"
 
         if len(self.cx_profile.created_cx) == 0:
             print("no RX values available to evaluate QOS")
             return {key_download: tos_download}, {key_upload: tos_upload}, {"drop_per": tos_drop_dict}
 
-        
         endp_data = self.json_get('endp/all?fields=name,tx+pkts+ll,rx+pkts+ll,delay,tos')
         endp_data.pop("handler", None)
-        endp_data.pop("uri",     None)
+        endp_data.pop("uri", None)
 
         if 'endpoint' not in endp_data:
             logging.warning('evaluate_qos: malformed /endp/all response — returning empty QoS')
@@ -1744,16 +1741,15 @@ class ThroughputQOS(Realm):
         # Per-CX accumulation loop
         counter = 0
         for sta in self.cx_profile.created_cx.keys():
-            raw_tos     = sta.rsplit('-', 1)[0].split('_')[-1]
+            raw_tos = sta.rsplit('-', 1)[0].split('_')[-1]
             current_tos = raw_tos if raw_tos in ('BK', 'BE', 'VI', 'VO') else ''
 
             if int(self.cx_profile.side_b_min_bps) != 0:
                 try:
                     tos_download[current_tos].append(connections_download.get(sta, 0.0))
-                    
+
                     tos_drop_dict['rx_drop_a'][current_tos].append(drop_a_per[counter] if counter < len(drop_a_per) else 0.0)
 
-            
                     tx_b_download[current_tos].append(int(tx_endps_download.get('%s-B' % sta, {}).get('tx pkts ll', 0)))
                     rx_a_download[current_tos].append(int(rx_endps_download.get('%s-A' % sta, {}).get('rx pkts ll', 0)))
 
@@ -1785,8 +1781,8 @@ class ThroughputQOS(Realm):
 
             counter += 1
 
-        # ── Packet-loss helper 
-        # Handles three cases: tx > rx (normal loss), tx < rx (reordering 
+        # ── Packet-loss helper
+        # Handles three cases: tx > rx (normal loss), tx < rx (reordering
         # counting artifact), and both zero (no traffic).
         def _loss_pct(tx_list, rx_list):
             tx_s = sum(tx_list)
@@ -1800,18 +1796,18 @@ class ThroughputQOS(Realm):
 
         if int(self.cx_profile.side_b_min_bps) != 0:
             tos_download.update({
-                "bkQOS":    float(f"{sum(tos_download['BK']):.2f}"),
-                "beQOS":    float(f"{sum(tos_download['BE']):.2f}"),
+                "bkQOS": float(f"{sum(tos_download['BK']):.2f}"),
+                "beQOS": float(f"{sum(tos_download['BE']):.2f}"),
                 "videoQOS": float(f"{sum(tos_download['VI']):.2f}"),
                 "voiceQOS": float(f"{sum(tos_download['VO']):.2f}"),
                 # Delay sums — per-TOS - similar to throughput.qos delay logic
-                "bkDELAY":    sum(delay['BK']),
-                "beDELAY":    sum(delay['BE']),
+                "bkDELAY": sum(delay['BK']),
+                "beDELAY": sum(delay['BE']),
                 "videoDELAY": sum(delay['VI']),
                 "voiceDELAY": sum(delay['VO']),
                 # Packet-level loss %
-                "bkLOSS":    _loss_pct(tx_b_download['BK'], rx_a_download['BK']),
-                "beLOSS":    _loss_pct(tx_b_download['BE'], rx_a_download['BE']),
+                "bkLOSS": _loss_pct(tx_b_download['BK'], rx_a_download['BK']),
+                "beLOSS": _loss_pct(tx_b_download['BE'], rx_a_download['BE']),
                 "videoLOSS": _loss_pct(tx_b_download['VI'], rx_a_download['VI']),
                 "voiceLOSS": _loss_pct(tx_b_download['VO'], rx_a_download['VO']),
                 # Raw packet lists (used by generate_individual_graph tables)
@@ -1821,13 +1817,13 @@ class ThroughputQOS(Realm):
 
         if int(self.cx_profile.side_a_min_bps) != 0:
             tos_upload.update({
-                "bkQOS":    float(f"{sum(tos_upload['BK']):.2f}"),
-                "beQOS":    float(f"{sum(tos_upload['BE']):.2f}"),
+                "bkQOS": float(f"{sum(tos_upload['BK']):.2f}"),
+                "beQOS": float(f"{sum(tos_upload['BE']):.2f}"),
                 "videoQOS": float(f"{sum(tos_upload['VI']):.2f}"),
                 "voiceQOS": float(f"{sum(tos_upload['VO']):.2f}"),
                 # Packet-level loss % for upload direction
-                "bkLOSS":    _loss_pct(tx_b_upload['BK'], rx_a_upload['BK']),
-                "beLOSS":    _loss_pct(tx_b_upload['BE'], rx_a_upload['BE']),
+                "bkLOSS": _loss_pct(tx_b_upload['BK'], rx_a_upload['BK']),
+                "beLOSS": _loss_pct(tx_b_upload['BE'], rx_a_upload['BE']),
                 "videoLOSS": _loss_pct(tx_b_upload['VI'], rx_a_upload['VI']),
                 "voiceLOSS": _loss_pct(tx_b_upload['VO'], rx_a_upload['VO']),
                 'tx_b': tx_b_upload,
@@ -1896,7 +1892,7 @@ class ThroughputQOS(Realm):
 
     def set_report_data_virtual(self, data):
         rate_down = str(str(int(self.cx_profile.side_b_min_bps) / 1000000) + ' ' + 'Mbps')
-        rate_up   = str(str(int(self.cx_profile.side_a_min_bps) / 1000000) + ' ' + 'Mbps')
+        rate_up = str(str(int(self.cx_profile.side_a_min_bps) / 1000000) + ' ' + 'Mbps')
         if data is None:
             print("No Data found to generate report!")
             exit(1)
@@ -1905,9 +1901,9 @@ class ThroughputQOS(Realm):
 
         table_df = {}
         graph_df = {}
-        upload_throughput_df   = [[], [], [], []]
+        upload_throughput_df = [[], [], [], []]
         download_throughput_df = [[], [], [], []]
-        upload_throughput   = []
+        upload_throughput = []
         download_throughput = []
         num_stations = []
         res_copy = copy.copy(res)
@@ -1974,7 +1970,7 @@ class ThroughputQOS(Realm):
         overall_throughput = [[], [], [], []]
         load = ''
         rate_down = str(str(int(self.cx_profile.side_b_min_bps) / 1000000) + ' ' + 'Mbps')
-        rate_up   = str(str(int(self.cx_profile.side_a_min_bps) / 1000000) + ' ' + 'Mbps')
+        rate_up = str(str(int(self.cx_profile.side_a_min_bps) / 1000000) + ' ' + 'Mbps')
         if self.direction == 'Upload':
             load = rate_up
         elif self.direction == "Download":
@@ -2023,12 +2019,12 @@ class ThroughputQOS(Realm):
     def get_portmgr_data(self, device_list):
         ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list = [], [], [], [], [], []
         port_json = self.json_get('/port/all')['interfaces']
-        
+
         # Flatten port_json to easily search
         interfaces_dict = dict()
         for block in port_json:
             interfaces_dict.update(block)
-            
+
         for target_dev in device_list:
             found = False
             for dev, data in interfaces_dict.items():
@@ -2070,7 +2066,7 @@ class ThroughputQOS(Realm):
         client_type = getattr(self, 'client_type', 'Real')
 
         print("We are printing Port Manager Tab Data : ")
-        print(f"{self.ssid_list}  --- {self.macid_list} --- {self.mode_list} --- {self.bssid_list} --- {self.channels_list} --- {self.rssi_list}")        
+        print(f"{self.ssid_list}  --- {self.macid_list} --- {self.mode_list} --- {self.bssid_list} --- {self.channels_list} --- {self.rssi_list}")
 
         if selected_real_clients_names is not None:  # for real scenario only.
             self.num_stations = selected_real_clients_names
@@ -2094,12 +2090,11 @@ class ThroughputQOS(Realm):
                                _path=report_path,
                                _results_dir_name=result_dir_name)
 
-        report_path           = report.get_path()
+        report_path = report.get_path()
         report_path_date_time = report.get_path_date_time()
 
         # CSV file relocation — always move individual station/client CSVs to station_reports
         self.move_station_csv_to_report(report_path_date_time)
-
 
         print("path: {}".format(report_path))
         print("path_date_time: {}".format(report_path_date_time))
@@ -2148,7 +2143,7 @@ class ThroughputQOS(Realm):
                 " standards and can adequately support the expected user demands.")
         report.build_objective()
 
-        # Test Configuration table — 3-way dispatch
+        # Test Configuration table —
         if client_type == 'Virtual':
             # Virtual: per-band SSID and Security exactly like throughput_qos.py
             _existing_stas = getattr(self, '_existing_sta_list', [])
@@ -2159,17 +2154,17 @@ class ThroughputQOS(Realm):
             test_setup_info = {
                 "Number of Virtual Stations": _sta_count_label,
                 "Virtual Stations List": ", ".join(self.sta_list),
-                "AP Model":           self.ap_name,
-                "SSID_2.4GHz":        self.ssid_2g,
-                "SSID_5GHz":          self.ssid_5g,
-                "SSID_6GHz":          self.ssid_6g,
+                "AP Model": self.ap_name,
+                "SSID_2.4GHz": self.ssid_2g,
+                "SSID_5GHz": self.ssid_5g,
+                "SSID_6GHz": self.ssid_6g,
                 "Traffic Duration in hours": round(int(self.test_duration) / 3600, 2),
-                "Security_2.4GHz":    self.security_2g,
-                "Security_5GHz":      self.security_5g,
-                "Security_6GHz":      self.security_6g,
-                "Protocol":           (self.traffic_type.strip("lf_")).upper(),
-                "Traffic Direction":  self.direction,
-                "TOS":                self.tos,
+                "Security_2.4GHz": self.security_2g,
+                "Security_5GHz": self.security_5g,
+                "Security_6GHz": self.security_6g,
+                "Protocol": (self.traffic_type.strip("lf_")).upper(),
+                "Traffic Direction": self.direction,
+                "TOS": self.tos,
                 "Per TOS Load in Mbps": load,
             }
             if _existing_stas:
@@ -2210,30 +2205,30 @@ class ThroughputQOS(Realm):
             if config_devices == "":
                 # Real device list
                 test_setup_info = {
-                    "Device List":        ", ".join(all_devices_names),
+                    "Device List": ", ".join(all_devices_names),
                     "Number of Devices": "Total" + f"({self.num_stations})" + total_devices,
-                    "AP Model":           self.ap_name,
-                    "SSID":               self.ssid,
+                    "AP Model": self.ap_name,
+                    "SSID": self.ssid,
                     "Traffic Duration in hours": round(int(self.test_duration) / 3600, 2),
-                    "Security":           self.security,
-                    "Protocol":           (self.traffic_type.strip("lf_")).upper(),
-                    "Traffic Direction":  self.direction,
-                    "TOS":                self.tos,
+                    "Security": self.security,
+                    "Protocol": (self.traffic_type.strip("lf_")).upper(),
+                    "Traffic Direction": self.direction,
+                    "TOS": self.tos,
                     "Per TOS Load in Mbps": load,
                 }
             else:
                 # Real group / profile
-                group_names   = ', '.join(config_devices.keys())
+                group_names = ', '.join(config_devices.keys())
                 profile_names = ', '.join(config_devices.values())
-                configmap     = "Groups:" + group_names + " -> Profiles:" + profile_names
+                configmap = "Groups:" + group_names + " -> Profiles:" + profile_names
                 test_setup_info = {
-                    "AP Model":           self.ap_name,
-                    'Configuration':      configmap,
+                    "AP Model": self.ap_name,
+                    'Configuration': configmap,
                     "Traffic Duration in hours": round(int(self.test_duration) / 3600, 2),
-                    "Security":           self.security,
-                    "Protocol":           (self.traffic_type.strip("lf_")).upper(),
-                    "Traffic Direction":  self.direction,
-                    "TOS":                self.tos,
+                    "Security": self.security,
+                    "Protocol": (self.traffic_type.strip("lf_")).upper(),
+                    "Traffic Direction": self.direction,
+                    "TOS": self.tos,
                     "Per TOS Load in Mbps": load,
                 }
             if iot_summary:
@@ -2282,45 +2277,43 @@ class ThroughputQOS(Realm):
                     "Number of Virtual Stations": _vsta_label,
                     "Real Device List":        ", ".join(all_devices_names),
                     "Virtual Stations List": ", ".join(self.sta_list),
-                    "AP Model":           self.ap_name,
-                    "SSID":               self.ssid,
-                    "SSID_2.4GHz":        self.ssid_2g,
-                    "SSID_5GHz":          self.ssid_5g,
-                    "SSID_6GHz":          self.ssid_6g,
+                    "AP Model": self.ap_name,
+                    "SSID": self.ssid,
+                    "SSID_2.4GHz": self.ssid_2g,
+                    "SSID_5GHz": self.ssid_5g,
+                    "SSID_6GHz": self.ssid_6g,
                     "Traffic Duration in hours": round(int(self.test_duration) / 3600, 2),
-                    "Security_2.4GHz":    self.security_2g,
-                    "Security_5GHz":      self.security_5g,
-                    "Security_6GHz":      self.security_6g,
-                    "Security":           self.security,
-                    "Protocol":           (self.traffic_type.strip("lf_")).upper(),
-                    "Traffic Direction":  self.direction,
-                    "TOS":                self.tos,
+                    "Security_2.4GHz": self.security_2g,
+                    "Security_5GHz": self.security_5g,
+                    "Security_6GHz": self.security_6g,
+                    "Security": self.security,
+                    "Protocol": (self.traffic_type.strip("lf_")).upper(),
+                    "Traffic Direction": self.direction,
+                    "TOS": self.tos,
                     "Per TOS Load in Mbps": load,
                 }
-                if _existing_stas_both:
-                    test_setup_info["Existing Stations Used"] = ", ".join(_existing_stas_both)
             else:
                 # Real group / profile
-                group_names   = ', '.join(config_devices.keys())
+                group_names = ', '.join(config_devices.keys())
                 profile_names = ', '.join(config_devices.values())
-                configmap     = "Groups:" + group_names + " -> Profiles:" + profile_names
+                configmap = "Groups:" + group_names + " -> Profiles:" + profile_names
                 test_setup_info = {
-                    "AP Model":           self.ap_name,
-                    'Configuration':      configmap,
-                    "Security":           self.security,
+                    "AP Model": self.ap_name,
+                    'Configuration': configmap,
+                    "Security": self.security,
                     "Number of Virtual Stations": len(self.sta_list),
                     "Virtual Stations List": ", ".join(self.sta_list),
-                    "AP Model":           self.ap_name,
-                    "SSID_2.4GHz":        self.ssid_2g,
-                    "SSID_5GHz":          self.ssid_5g,
-                    "SSID_6GHz":          self.ssid_6g,
+                    "AP Model": self.ap_name,
+                    "SSID_2.4GHz": self.ssid_2g,
+                    "SSID_5GHz": self.ssid_5g,
+                    "SSID_6GHz": self.ssid_6g,
                     "Traffic Duration in hours": round(int(self.test_duration) / 3600, 2),
-                    "Security_2.4GHz":    self.security_2g,
-                    "Security_5GHz":      self.security_5g,
-                    "Security_6GHz":      self.security_6g,
-                    "Protocol":           (self.traffic_type.strip("lf_")).upper(),
-                    "Traffic Direction":  self.direction,
-                    "TOS":                self.tos,
+                    "Security_2.4GHz": self.security_2g,
+                    "Security_5GHz": self.security_5g,
+                    "Security_6GHz": self.security_6g,
+                    "Protocol": (self.traffic_type.strip("lf_")).upper(),
+                    "Traffic Direction": self.direction,
+                    "TOS": self.tos,
                     "Per TOS Load in Mbps": load,
                 }
             if iot_summary:
@@ -2388,12 +2381,37 @@ class ThroughputQOS(Realm):
         graph_png = graph.build_bar_graph()
         print("Overall Throughput Graph : {}".format(graph_png))
         report.set_graph_image(graph_png)
+        # need to move the graph image to the results directory
         report.move_graph_image()
         report.set_csv_filename(graph_png)
         report.move_csv_file()
         report.build_graph()
 
-        # Upto Here I Modified. Working fine upto here
+        # Bandsteering stats section (only when do_bandsteering is enabled)
+        if getattr(self, 'do_bandsteering', False):
+            self.get_bandsteering_stats(report=report, data=self.band_steering_df)
+        report.test_setup_table(test_setup_data=input_setup_info, value="Information")
+        # To add charging timestamps of robot in report when bandsteering is enabled
+        if self.do_bandsteering:
+            if len(self.robot.charging_timestamps) != 0:
+                report.set_obj_html(_obj_title="Charging Timestamps",
+                                    _obj="")
+                report.build_objective()
+                df = pd.DataFrame(
+                    self.robot.charging_timestamps,
+                    columns=[
+                        "charge_dock_arrival_timestamp",
+                        "charging_completion_timestamp"
+                    ]
+                )
+                # Add S.No column
+                df.insert(0, "S.No", range(1, len(df) + 1))
+                report.set_table_dataframe(df)
+                report.build_table()
+            else:
+                report.set_obj_html(_obj_title="Charging Timestamps",
+                                    _obj="Robot did not went to charge during this test")
+                report.build_objective()
 
         # Individual per-TOS graphs and tables — dispatch by client type
         if client_type == 'Virtual':
@@ -2490,11 +2508,11 @@ class ThroughputQOS(Realm):
         if len(clients) != 0:
             bk_dataframe = {
                 " Client Name ": clients,
-                " MAC " : self.macid_list,
-                " SSID " : self.ssid_list,
-                " BSSID " : self.bssid_list,
-                " Channel " : self.channels_list,
-                " RSSI " : self.rssi_list,
+                " MAC ": self.macid_list,
+                " SSID ": self.ssid_list,
+                " BSSID ": self.bssid_list,
+                " Channel ": self.channels_list,
+                " RSSI ": self.rssi_list,
                 " Type of traffic ": tos_a,
                 " Offered upload rate(Mbps) ": uploads,
                 " Offered download rate(Mbps) ": downloads,
@@ -2577,22 +2595,21 @@ class ThroughputQOS(Realm):
 
         # Client-list aliases — both Real and Both use real_client_list
         if client_type == "Real":
-            client_list  = self.real_client_list
+            client_list = self.real_client_list
             client_list_1 = self.real_client_list1
-            macid_list     = self.mac_id_list
-            n_clients    = len(self.real_client_list)
-            n_ports      = len(self.input_devices_list)
+            macid_list = self.mac_id_list
+            n_clients = len(self.real_client_list)
+            n_ports = len(self.input_devices_list)
 
             print(f"{client_list} : {client_list_1} : {macid_list} : {n_clients} : {n_ports}")
         elif client_type == "Both":
-            client_list  = self.sta_list + self.real_client_list
+            client_list = self.sta_list + self.real_client_list
             client_list_1 = self.sta_list + self.real_client_list1
-            macid_list     = self.mac_id_list
-            n_clients    = len(client_list)
-            n_ports      = len(self.input_devices_list) + len(self.sta_list)
+            macid_list = self.mac_id_list
+            n_clients = len(client_list)
+            n_ports = len(self.input_devices_list) + len(self.sta_list)
 
             print(f"{client_list} : {client_list_1} : {macid_list} : {n_clients} : {n_ports}")
-
 
         load = ""
         upload_list, download_list, individual_upload_list, individual_download_list = [], [], [], []
@@ -2606,7 +2623,6 @@ class ThroughputQOS(Realm):
         except Exception:
             logger.error("Live View images not found")
         # Initialized dictionaries to store average upload ,download and drop values with respect to tos
-
         avg_res = {'Upload': {
             'VO': [],
             'VI': [],
@@ -2708,7 +2724,7 @@ class ThroughputQOS(Realm):
             for key, val in avg_drop_a.items():
                 tos = key.split('_')[-1].split('-')[0]
                 drop_res['drop_a'][tos].append(val)
-        
+
         x_fig_size = 15
         y_fig_size = n_clients * .5 + 4
         if len(res.keys()) > 0:
@@ -2748,7 +2764,6 @@ class ThroughputQOS(Realm):
                         _obj=f"The below graph represents individual throughput for {n_ports} clients running BK "
                         f"(WiFi) traffic.  X- axis shows “Throughput in Mbps” and Y-axis shows “number of clients”.")
                     report.build_objective()
-
                     # print(upload_list, download_list, individual_download_list, individual_upload_list)
                     graph = lf_bar_graph_horizontal(_data_set=individual_set, _xaxis_name="Throughput in Mbps",
                                                     _yaxis_name="Client names",
@@ -2838,11 +2853,11 @@ class ThroughputQOS(Realm):
                     else:
                         bk_dataframe = {
                             " Client Name ": client_list,
-                            " MAC " : self.macid_list,
-                            " SSID " : self.ssid_list,
-                            " BSSID " : self.bssid_list,
-                            " Channel " : self.channels_list,
-                            " RSSI " : self.rssi_list,
+                            " MAC ": self.macid_list,
+                            " SSID ": self.ssid_list,
+                            " BSSID ": self.bssid_list,
+                            " Channel ": self.channels_list,
+                            " RSSI ": self.rssi_list,
                             " Type of traffic ": bk_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -2856,7 +2871,7 @@ class ThroughputQOS(Realm):
                             bk_dataframe[" Status "] = pass_fail_list
                         dataframe1 = pd.DataFrame(bk_dataframe)
                         report.set_table_dataframe(dataframe1)
-                        report.build_table() 
+                        report.build_table()
                 logger.info("Graph and table for BK tos are built")
 
                 if "BE" in self.tos:
@@ -2970,11 +2985,11 @@ class ThroughputQOS(Realm):
                     else:
                         be_dataframe = {
                             " Client Name ": client_list,
-                            " MAC " : self.macid_list,
-                            " SSID " : self.ssid_list,
-                            " BSSID " : self.bssid_list,
-                            " Channel " : self.channels_list,
-                            " RSSI " : self.rssi_list,
+                            " MAC ": self.macid_list,
+                            " SSID ": self.ssid_list,
+                            " BSSID ": self.bssid_list,
+                            " Channel ": self.channels_list,
+                            " RSSI ": self.rssi_list,
                             " Type of traffic ": be_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -2988,9 +3003,8 @@ class ThroughputQOS(Realm):
                             be_dataframe[" Status "] = pass_fail_list
                         dataframe2 = pd.DataFrame(be_dataframe)
                         report.set_table_dataframe(dataframe2)
-                        report.build_table()                
+                        report.build_table()
                 logger.info("Graph and table for BE tos are built")
-
                 if "VI" in self.tos:
                     if self.direction == "Bi-direction":
                         individual_set = list1[0]
@@ -3102,11 +3116,11 @@ class ThroughputQOS(Realm):
                     else:
                         vi_dataframe = {
                             " Client Name ": client_list,
-                            " MAC " : self.macid_list,
-                            " SSID " : self.ssid_list,
-                            " BSSID " : self.bssid_list,
-                            " Channel " : self.channels_list,
-                            " RSSI " : self.rssi_list,
+                            " MAC ": self.macid_list,
+                            " SSID ": self.ssid_list,
+                            " BSSID ": self.bssid_list,
+                            " Channel ": self.channels_list,
+                            " RSSI ": self.rssi_list,
                             " Type of traffic ": vi_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -3120,7 +3134,7 @@ class ThroughputQOS(Realm):
                             vi_dataframe[" Status "] = pass_fail_list
                         dataframe3 = pd.DataFrame(vi_dataframe)
                         report.set_table_dataframe(dataframe3)
-                        report.build_table()                
+                        report.build_table()
                 logger.info("Graph and table for VI tos are built")
 
                 if "VO" in self.tos:
@@ -3235,11 +3249,11 @@ class ThroughputQOS(Realm):
                     else:
                         vo_dataframe = {
                             " Client Name ": client_list,
-                            " MAC " : self.macid_list,
-                            " SSID " : self.ssid_list,
-                            " BSSID " : self.bssid_list,
-                            " Channel " : self.channels_list,
-                            " RSSI " : self.rssi_list,
+                            " MAC ": self.macid_list,
+                            " SSID ": self.ssid_list,
+                            " BSSID ": self.bssid_list,
+                            " Channel ": self.channels_list,
+                            " RSSI ": self.rssi_list,
                             " Type of traffic ": vo_tos_list,
                             " Offered upload rate ": upload_list,
                             " Offered download rate ": download_list,
@@ -3253,9 +3267,8 @@ class ThroughputQOS(Realm):
                             vo_dataframe[" Status "] = pass_fail_list
                         dataframe4 = pd.DataFrame(vo_dataframe)
                         report.set_table_dataframe(dataframe4)
-                        report.build_table() 
+                        report.build_table()
                 logger.info("Graph and table for VO tos are built")
-
 
             if self.dowebgui and self.get_live_view and not multicast_exists:
                 if not self.robot_test:
@@ -3271,7 +3284,7 @@ class ThroughputQOS(Realm):
         logger.info('Storing real time values in a CSV')
         df1 = pd.DataFrame(self.overall)
         df1.to_csv('{}/overall_throughput{}.csv'.format(report.path_date_time, graph_no))
-        
+
         # create CX CSV folder path
         cx_csv_dir = os.path.join(report.path_date_time, "RealTime CX CSV'S")
         # create directory if not exists
@@ -3291,18 +3304,18 @@ class ThroughputQOS(Realm):
                         logger.info(f"Overall Data : {self.real_time_data}")
 
     def generate_individual_graph_virtual(self, res, report):
-        rate_down    = str(str(int(self.cx_profile.side_b_min_bps) / 1000000) + ' ' + 'Mbps')
-        rate_up      = str(str(int(self.cx_profile.side_a_min_bps) / 1000000) + ' ' + 'Mbps')
-        n            = len(self.sta_list)
-        x_fig_size   = 15
-        y_fig_size   = n * 0.5 + 4
+        rate_down = str(str(int(self.cx_profile.side_b_min_bps) / 1000000) + ' ' + 'Mbps')
+        rate_up = str(str(int(self.cx_profile.side_a_min_bps) / 1000000) + ' ' + 'Mbps')
+        n = len(self.sta_list)
+        x_fig_size = 15
+        y_fig_size = n * 0.5 + 4
         traffic_type = (self.traffic_type.strip("lf_")).upper()
-        tos_labels   = ['Background', 'Besteffort', 'Video', 'Voice']
+        tos_labels = ['Background', 'Besteffort', 'Video', 'Voice']
 
         # All fixed lists are sized to n once — never appended to
-        upload_list            = [rate_up]      * n
-        download_list          = [rate_down]    * n
-        traffic_type_list      = [traffic_type] * n
+        upload_list = [rate_up] * n
+        download_list = [rate_down] * n
+        traffic_type_list = [traffic_type] * n
         traffic_direction_list = [self.direction] * n
         bk_tos_list = [tos_labels[0]] * n
         be_tos_list = [tos_labels[1]] * n
@@ -3314,9 +3327,9 @@ class ThroughputQOS(Realm):
             lst = list(lst) if lst else []
             return (lst + [fill] * n)[:n]
 
-        mac_list_n     = _safe(self.macid_list)
+        mac_list_n = _safe(self.macid_list)
         channel_list_n = _safe(self.channels_list)
-        ssid_list_n    = _safe(self.ssid_list)
+        ssid_list_n = _safe(self.ssid_list)
         rssi_list_n = _safe(self.rssi_list)
         mode_list_n = _safe(self.mode_list)
         bssid_list_n = _safe(self.bssid_list)
@@ -3327,7 +3340,7 @@ class ThroughputQOS(Realm):
         list_vo = []
         list_bk = []
         list_be = []
-        load    = ""
+        load = ""
         data_set = {}
 
         # Per-TOS per-station values for Upload / Download table column
@@ -3336,12 +3349,12 @@ class ThroughputQOS(Realm):
         drop_dl = {'BK': [], 'BE': [], 'VI': [], 'VO': []}
         drop_ul = {'BK': [], 'BE': [], 'VI': [], 'VO': []}
 
-        
         # Virtual Scenario Only: data is band-keyed → res[case]['test_results']
         # Both scenario:      data is flat       → res['test_results']
         # _get_case_res() returns the inner dict that holds 'test_results'
         # for whichever structure is present, making the loop below work
         # identically for both.
+
         def _get_case_res(res, case):
             if 'test_results' in res:
                 return res           # flat path (Both)
@@ -3360,23 +3373,23 @@ class ThroughputQOS(Realm):
             cr = _get_case_res(res, case)   # resolved inner dict
 
             if self.direction == 'Upload':
-                load    = rate_up
-                tos_ul  = cr['test_results'][0][1]   # {rate_up: {...}}
+                load = rate_up
+                tos_ul = cr['test_results'][0][1]   # {rate_up: {...}}
                 data_set = tos_ul
                 for tk in ['BK', 'BE', 'VI', 'VO']:
                     drop_ul[tk] = cr['test_results'][0][2]['drop_per']['rx_drop_b'].get(tk, [])
 
             elif self.direction == 'Download':
-                load    = rate_down
-                tos_dl  = cr['test_results'][0][0]   # {rate_down: {...}}
+                load = rate_down
+                tos_dl = cr['test_results'][0][0]   # {rate_down: {...}}
                 data_set = tos_dl
                 for tk in ['BK', 'BE', 'VI', 'VO']:
                     drop_dl[tk] = cr['test_results'][0][2]['drop_per']['rx_drop_a'].get(tk, [])
 
             elif self.direction == 'Bi-direction':
-                load     = 'Upload' + ':' + rate_up + ',' + 'Download' + ':' + rate_down
-                dl_dict  = cr['test_results'][0][0]   # {rate_down: {...}}
-                ul_dict  = cr['test_results'][0][1]   # {rate_up:   {...}}
+                load = 'Upload' + ':' + rate_up + ',' + 'Download' + ':' + rate_down
+                dl_dict = cr['test_results'][0][0]   # {rate_down: {...}}
+                ul_dict = cr['test_results'][0][1]   # {rate_up:   {...}}
                 data_set = dl_dict
                 # Accumulate totals: first from download keys, then upload keys
                 for key in dl_dict:
@@ -3414,14 +3427,14 @@ class ThroughputQOS(Realm):
             if self.direction == 'Bi-direction':
                 # throughput_qos.py: individual_set = list[2]  (the raw flat list)
                 # NOT [list[2]] — the flat list itself is passed as _data_set
-                individual_set          = bidi_map[tos_key]
+                individual_set = bidi_map[tos_key]
                 individual_download_list = individual_set[0] if individual_set else 0.0
-                individual_upload_list   = individual_set[1] if len(individual_set) > 1 else 0.0
-                colors = {'BK': ['orange','wheat'], 'BE': ['lightcoral','mistyrose'],
-                          'VI': ['steelblue','lightskyblue'], 'VO': ['grey','lightgrey']}[tos_key]
+                individual_upload_list = individual_set[1] if len(individual_set) > 1 else 0.0
+                colors = {'BK': ['orange', 'wheat'], 'BE': ['lightcoral', 'mistyrose'],
+                          'VI': ['steelblue', 'lightskyblue'], 'VO': ['grey', 'lightgrey']}[tos_key]
                 labels = ['Download', 'Upload']
-                ind_drop_a = _safe([str(round(v,2)) for v in drop_dl[tos_key]], '0.0')
-                ind_drop_b = _safe([str(round(v,2)) for v in drop_ul[tos_key]], '0.0')
+                ind_drop_a = _safe([str(round(v, 2)) for v in drop_dl[tos_key]], '0.0')
+                ind_drop_b = _safe([str(round(v, 2)) for v in drop_ul[tos_key]], '0.0')
 
             else:
                 # throughput_qos.py: individual_set = [data_set[load][tos_key]]
@@ -3433,14 +3446,14 @@ class ThroughputQOS(Realm):
                 labels = [tos_key]
 
                 if self.direction == 'Upload':
-                    individual_upload_list   = val
+                    individual_upload_list = val
                     individual_download_list = []
                     ind_drop_a = ['0.0'] * n
-                    ind_drop_b = _safe([str(round(v,2)) for v in drop_ul[tos_key]], '0.0')
+                    ind_drop_b = _safe([str(round(v, 2)) for v in drop_ul[tos_key]], '0.0')
                 else:
                     individual_download_list = val
-                    individual_upload_list   = []
-                    ind_drop_a = _safe([str(round(v,2)) for v in drop_dl[tos_key]], '0.0')
+                    individual_upload_list = []
+                    ind_drop_a = _safe([str(round(v, 2)) for v in drop_dl[tos_key]], '0.0')
                     ind_drop_b = ['0.0'] * n
 
             # Objective text
@@ -3481,36 +3494,36 @@ class ThroughputQOS(Realm):
             report.build_graph()
 
             # Table observed rate strings
-            avg_ul_str = _mbps_list(individual_upload_list)   if individual_upload_list   else ['0.0 Mbps'] * n
+            avg_ul_str = _mbps_list(individual_upload_list) if individual_upload_list else ['0.0 Mbps'] * n
             avg_dl_str = _mbps_list(individual_download_list) if individual_download_list else ['0.0 Mbps'] * n
 
-            report.set_table_title(f" TOS : {tos_labels[['BK','BE','VI','VO'].index(tos_key)]} ")
+            report.set_table_title(f" TOS : {tos_labels[['BK', 'BE', 'VI', 'VO'].index(tos_key)]} ")
             report.build_table_title()
 
             df_data = {
-                " Client Name ":                list(self.sta_list),
-                " Mac ":                         mac_list_n,
-                " SSID ":                        ssid_list_n,
-                " BSSID ":                       bssid_list_n,
-                " Mode " :                       mode_list_n,
-                " Channel" :                     channel_list_n,
-                " RSSI ":                        rssi_list_n,
-                " Type of traffic ":             tos_list,
-                " Traffic Direction ":           traffic_direction_list,
-                " Traffic Protocol ":            traffic_type_list,
-                " Offered upload rate(Mbps) ":   upload_list,
+                " Client Name ": list(self.sta_list),
+                " Mac ": mac_list_n,
+                " SSID ": ssid_list_n,
+                " BSSID ": bssid_list_n,
+                " Mode ": mode_list_n,
+                " Channel": channel_list_n,
+                " RSSI ": rssi_list_n,
+                " Type of traffic ": tos_list,
+                " Traffic Direction ": traffic_direction_list,
+                " Traffic Protocol ": traffic_type_list,
+                " Offered upload rate(Mbps) ": upload_list,
                 " Offered download rate(Mbps) ": download_list,
-                " Observed upload rate(Mbps) ":  avg_ul_str,
+                " Observed upload rate(Mbps) ": avg_ul_str,
                 " Observed download rate(Mbps)": avg_dl_str,
             }
             if self.direction == "Bi-direction":
-                df_data[" Observed Upload Drop (%)"]   = ind_drop_b
+                df_data[" Observed Upload Drop (%)"] = ind_drop_b
                 df_data[" Observed Download Drop (%)"] = ind_drop_a
             elif self.direction == "Upload":
-                df_data[" Observed Upload Drop (%)"]   = ind_drop_b
+                df_data[" Observed Upload Drop (%)"] = ind_drop_b
                 df_data[" Observed Download Drop (%)"] = ['0.0'] * n
             elif self.direction == "Download":
-                df_data[" Observed Upload Drop (%)"]   = ['0.0'] * n
+                df_data[" Observed Upload Drop (%)"] = ['0.0'] * n
                 df_data[" Observed Download Drop (%)"] = ind_drop_a
 
             dataframe = pd.DataFrame(df_data)
@@ -3824,8 +3837,8 @@ class ThroughputQOS(Realm):
     def get_bandsteering_stats(self, report=None, data=None):
         """
         Generate Band Steering statistics and reports for each device.
-        
-        This function processes per-device connection data to: 
+
+        This function processes per-device connection data to:
         - Detect BSSID transitions (band steering events)
         - Count occurrences of each configured BSSID
         - Generate a bar graph showing BSSID change counts
@@ -3857,6 +3870,7 @@ class ThroughputQOS(Realm):
             - Bar graph of BSSID change counts per device
             - Table of band steering transitions)
         """
+
         df = pd.DataFrame(data)
 
         rename_map = {
@@ -3866,7 +3880,7 @@ class ThroughputQOS(Realm):
         }
         df.rename(columns=rename_map, inplace=True)
 
-        bssid_cols = [c for c in df.columns if "BSSID"   in c]
+        bssid_cols = [c for c in df.columns if "BSSID" in c]
         channel_cols = [c for c in df.columns if "Channel" in c]
 
         for col in bssid_cols:
@@ -3874,25 +3888,29 @@ class ThroughputQOS(Realm):
             # - BSSID changes compared to previous row
             # - BSSID belongs to configured list
             allowed_bssids = set(self.bssids)
+
             mask = (
                 (df[col] != df[col].shift()) &
                 (df[col].isin(allowed_bssids))
             )
+
             skip_table = not mask.any()
 
             if skip_table:
                 # Initialize all BSSID counts to zero if no events found
                 bssid_counts = {bssid: 0 for bssid in self.bssids}
             else:
-                bssid_list           = df.loc[mask, col].tolist()
-                timestamp_list       = df.loc[mask, "TIMESTAMP"].tolist()
+                bssid_list = df.loc[mask, col].tolist()
+                timestamp_list = df.loc[mask, "TIMESTAMP"].tolist()
                 from_coordinate_list = df.loc[mask, "From Coordinate"].tolist()
-                to_coordinate_list   = df.loc[mask, "To Coordinate"].tolist()
-                bssid_counts         = Counter(bssid_list)
-
+                to_coordinate_list = df.loc[mask, "To Coordinate"].tolist()
+                bssid_counts = Counter(bssid_list)
+            # Ensure all configured BSSIDs are present in final count (default = 0
             final_bssid_counts = {
-                bssid: bssid_counts.get(bssid, 0) 
-                for bssid in self.bssids}
+                bssid: bssid_counts.get(bssid, 0)
+                for bssid in self.bssids
+            }
+
             x_axis = list(final_bssid_counts.keys())
             y_axis = [[float(v)] for v in final_bssid_counts.values()]
 
@@ -3900,6 +3918,7 @@ class ThroughputQOS(Realm):
             channel_col = next(
                 (c for c in channel_cols if device_name in c), None
             )
+
             channel_list = (
                 df.loc[mask, channel_col].tolist()
                 if channel_col and not skip_table else []
@@ -3928,6 +3947,7 @@ class ThroughputQOS(Realm):
                 _show_bar_value=True,
                 _enable_csv=True,
             )
+
             graph_png = graph.build_bar_graph()
             report.set_graph_image(graph_png)
             report.move_graph_image()
@@ -3935,6 +3955,7 @@ class ThroughputQOS(Realm):
             report.move_csv_file()
             report.build_graph()
 
+            # If no band steering events, show informational message
             if skip_table:
                 report.set_obj_html(
                     _obj_title=f"Band Steering Results for {device_name}",
@@ -3954,8 +3975,9 @@ class ThroughputQOS(Realm):
                 "Channel": channel_list,
                 "Timestamp": timestamp_list,
                 "From Coordinate": from_coordinate_list,
-                "To Coordinate":   to_coordinate_list,
+                "To Coordinate": to_coordinate_list
             })
+
             report.set_table_dataframe(table_df)
             report.build_table()
 
@@ -3983,13 +4005,12 @@ class ThroughputQOS(Realm):
                 self.robot.testname = self.test_name
             passed_coord_list = []
             abort = False
-
         if self.do_bandsteering:
             self.overall = []
             self.df_for_webui = []
             cycle_coords = self.robot.get_coordinates_list()
             self.start(False, False)
-            if len(cycle_coords) == 0:
+            if (len(cycle_coords) == 0):
                 logger.info("Test aborted")
                 exit(0)
             self.robot.do_bandsteering = True
@@ -4000,8 +4021,7 @@ class ThroughputQOS(Realm):
                 if self.test_stopped_by_user:
                     break
                 # Before moving to next coordinate, check if battery is sufficient
-                pause_coord, test_stopped_by_user, band_steering_data = self.robot.wait_for_battery(
-                    monitor_function=lambda: self.monitor())
+                pause_coord, test_stopped_by_user, band_steering_data = self.robot.wait_for_battery(monitor_function=lambda: self.monitor())
                 if test_stopped_by_user:
                     break
                 matched, abort, band_steering_data = self.robot.move_to_coordinate(
@@ -4371,15 +4391,6 @@ class ThroughputQOS(Realm):
     def validate_existing_stations(self, raw_existing_list):
         """
         Validate each EID in raw_existing_list against LANforge port manager.
-
-        Accepts the argparse value which may be:
-          - a list of lists  (nargs=1, action='append' produces [[eid1], [eid2]])
-          - a plain list of strings
-          - a comma-separated string
-
-        Returns a deduplicated list of short port names (e.g. ['1.1.sta00000', ...])
-        that are confirmed present in LANforge.  Ports that are absent are logged
-        as warnings and silently dropped.
         """
         # Normalise whatever argparse hands us into a flat list of strings
         if not raw_existing_list:
@@ -4460,7 +4471,8 @@ class ThroughputQOS(Realm):
         else:
             raise ValueError("Invalid timebreak format. Use 5s, 5m or 1h")
 
-def validate_args(args):    
+
+def validate_args(args):
     if args.group_name:
         selected_groups = args.group_name.split(',')
     else:
@@ -4519,7 +4531,6 @@ def validate_args(args):
         if getattr(args, 'create_sta', False) and total_new_stations == 0 and not has_custom_stations and not has_existing_stations:
             logger.error("Error: --create_sta was passed but station counts are 0 and no station names provided.")
             exit(1)
-
     if args.device_csv_name and args.expected_passfail_value:
         logger.error("Enter either --device_csv_name or --expected_passfail_value")
         exit(1)
@@ -4699,7 +4710,7 @@ EXAMPLES:   # Command Line Interface to run download scenario with tos : Voice
                 --traffic_type lf_udp --tos "VO,VI"
 
             # Load scenario with tos : Background, Besteffort, Video and Voice
-             ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --ssid Cisco
+            ./lf_interop_qos.py --ap_name Cisco --mgr 192.168.209.223 --mgr_port 8080 --ssid Cisco
                 --passwd cisco@123 --security wpa2 --upstream eth1 --test_duration 1m --download 0 --upload 1000000
                 --traffic_type lf_udp --tos "BK,BE,VI,VO"
 
@@ -4751,7 +4762,7 @@ VERIFIED_ON:
             Kernel version: 6.2.16+
 
 LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
-            Copyright 2025 Candela Technologies Inc
+            Copyright (C) 2020-2026 Candela Technologies Inc
 ''')
 
     required = parser.add_argument_group('Required arguments to run lf_interop_qos.py')
@@ -4762,7 +4773,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
                           help='Specify test name to store the runtime csv results', default="QOS Test")
     optional.add_argument('--result_dir',
                           help='Specify the result dir to store the runtime logs', default='')
-    optional.add_argument('--mode',help='Force specific station mode.',default="0")
+    optional.add_argument('--mode', help='Force specific station mode.', default="0")
     required.add_argument('--mgr',
                           '--lfmgr',
                           default='localhost',
@@ -4793,14 +4804,14 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
                                 help='--station_list [list of stations] , use the stations in the list , multiple station lists may be entered')
     optional.add_argument('--ssid_2g',help='WiFi SSID for script objects to associate with Virtual Clients',default=None)
     optional.add_argument('--password_2g', '--passwd_2g', default="[BLANK]", help='WiFi passphrase/password/key for 2.4GHz', dest='password_2g')
-    optional.add_argument('--security_2g',default='Open',help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
-    optional.add_argument('--ssid_5g',help='WiFi SSID for script objects to associate with Virtual Clients',default=None)
+    optional.add_argument('--security_2g', default='Open', help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
+    optional.add_argument('--ssid_5g', help='WiFi SSID for script objects to associate with Virtual Clients', default=None)
     optional.add_argument('--password_5g', '--passwd_5g', default="[BLANK]", help='WiFi passphrase/password/key for 5GHz', dest='password_5g')
-    optional.add_argument('--security_5g',default='Open',help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
-    optional.add_argument('--ssid_6g',help='WiFi SSID for script objects to associate with Virtual Clients',default=None)
+    optional.add_argument('--security_5g', default='Open', help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
+    optional.add_argument('--ssid_6g', help='WiFi SSID for script objects to associate with Virtual Clients', default=None)
     optional.add_argument('--password_6g', '--passwd_6g', default="[BLANK]", help='WiFi passphrase/password/key for 6GHz', dest='password_6g')
-    optional.add_argument('--security_6g',default='Open',help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
-    optional.add_argument('--bands',default='2.4G',help='Comma-seperated list of bands for test.')
+    optional.add_argument('--security_6g', default='Open', help='WiFi Security Protocol : < open | wep | wpa | wpa2 | wpa3>')
+    optional.add_argument('--bands', default='2.4G', help='Comma-seperated list of bands for test.')
     optional.add_argument('--create_sta', help='Create virtual stations for use in test', action='store_true', default=False)
     optional.add_argument('--sta_names', help='Comma-separated station names when not creating stations', default="")
     optional.add_argument('--num_stations_2g', help="Number of 2GHz band stations", type=int, default=1, required=False)
@@ -4810,8 +4821,8 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
     optional.add_argument('--radio_5g', help="Radio used for 5GHz station creation", default="wiphy1")
     optional.add_argument('--radio_6g', help="Radio used for 6GHz station creation", default="wiphy2")
     optional.add_argument('--initial_band_pref',
-                        help="If specified, set a band preference for stations created for specific band",
-                        required=False, action='store_true', default=False)
+                          help="If specified, set a band preference for stations created for specific band",
+                          required=False, action='store_true', default=False)
     required.add_argument('--traffic_type', help='Select the Traffic Type [lf_udp, lf_tcp]', required=False)
     required.add_argument('--upload', help='--upload traffic load per connection (upload rate)')
     required.add_argument('--download', help='--download traffic load per connection (download rate)')
@@ -4819,7 +4830,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
     required.add_argument('--ap_name', help="AP Model Name", default="Test-AP")
     required.add_argument('--tos', help='Enter the tos. Example1 : "BK,BE,VI,VO" , Example2 : "BK,VO", Example3 : "VI" ')
     required.add_argument('--dowebgui', help="If true will execute script for webgui", default=False)
-    required.add_argument('--client_type',help="It is used to specify the type of test. Example : Real/Virtual/Both. ")
+    required.add_argument('--client_type', help="It is used to specify the type of test. Example : Real/Virtual/Both. ")
     optional.add_argument('-d',
                           '--debug',
                           action="store_true",
@@ -4860,8 +4871,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
     optional.add_argument('--do_bandsteering', help='Enable bandsteering', action='store_true')
     optional.add_argument('--cycles', type=int, default=1, help='No of cycles to perform band steering')
     optional.add_argument('--bssids', type=str, default='', help='Comma separated list of BSSIDs to be used for the test')
-    optional.add_argument("--duration_to_skip", type=int, default=60,
-                          help='Specify the maximum time in seconds to skip a point if there is an obstacle')
+    optional.add_argument("--duration_to_skip", type=int, help='Specify the maximum time in seconds to skip a point if there is an obstacle', default=60)
     # IOT ARGS
     parser.add_argument('--iot_test', help="If true will execute script for iot", action='store_true')
     optional.add_argument('--iot_ip',
@@ -4895,7 +4905,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
                           type=str,
                           default='',
                           help='Comma-separated list of device counts to incrementally test (e.g., "1,3,5")')
-    optional.add_argument('--timebreak',type=str,default=None,help="CSV aggregation interval like 5s, 5m, 1h")
+    optional.add_argument('--timebreak', type=str, default=None, help="CSV aggregation interval like 5s, 5m, 1h")
     args = parser.parse_args()
 
     # help summary
@@ -4930,20 +4940,20 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
     if args.download and args.upload:
         loads = {'upload': str(args.upload).split(","), 'download': str(args.download).split(",")}
         loads_data = loads["download"]
-        print("Loads Data BiDirectional: ",loads_data)
+        print("Loads Data BiDirectional: ", loads_data)
     elif args.download:
         loads = {'upload': [], 'download': str(args.download).split(",")}
         for _i in range(len(args.download)):
             loads['upload'].append(0)
         loads_data = loads["download"]
-        print("Loads Data Download : ",loads_data)
+        print("Loads Data Download : ", loads_data)
     else:
         if args.upload:
             loads = {'upload': str(args.upload).split(","), 'download': []}
             for _i in range(len(args.upload)):
                 loads['download'].append(0)
             loads_data = loads["upload"]
-            print("Loads Data Upload : ",loads_data)
+            print("Loads Data Upload : ", loads_data)
     if args.download and args.upload:
         direction = 'L3_' + args.traffic_type.split('_')[1].upper() + '_BiDi'
     elif args.upload:
@@ -4986,8 +4996,8 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
     # For Real Clients we consider 2.4G as default band - to support --client_type "Both" scenario
     if args.client_type in ("Virtual", "Both"):
         for band in bands_list:
-            band = band.strip() # This is extra validation inorder to remove leading and trailing white spaces before band word, inorder to reduce errors.
-            
+            band = band.strip()  # This is extra validation inorder to remove leading and trailing white spaces before band word, inorder to reduce errors.
+
             # Use append logic to combine newly created stations and existing custom stations
             if getattr(args, 'create_sta', False):
                 if band in ("2.4G", "2.4g"):
@@ -5057,14 +5067,13 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
 
         print("Virtual station_list (before existing validation):", station_list)
 
-    
     if args.client_type == "Real":
-        ssid     = args.ssid
+        ssid = args.ssid
         password = args.passwd
         security = args.security
     else:
         # Virtual / Both — only use the generic slot for a true override
-        ssid     = args.ssid   # None unless --ssid was explicitly supplied
+        ssid = args.ssid   # None unless --ssid was explicitly supplied
         password = args.passwd if args.ssid is not None else None
         security = args.security if args.ssid is not None else None
 
@@ -5153,9 +5162,9 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
                                        timebreak=args.timebreak,
                                        client_type=args.client_type
                                        )
-        throughput_qos.do_bandsteering  = getattr(args, 'do_bandsteering', False)
-        throughput_qos.cycles           = getattr(args, 'cycles', 1)
-        throughput_qos.bssids           = getattr(args, 'bssids', '').split(',') if getattr(args, 'bssids', '') else []
+        throughput_qos.do_bandsteering = getattr(args, 'do_bandsteering', False)
+        throughput_qos.cycles = getattr(args, 'cycles', 1)
+        throughput_qos.bssids = getattr(args, 'bssids', '').split(',') if getattr(args, 'bssids', '') else []
         if throughput_qos.robot_test and throughput_qos.do_bandsteering:
             throughput_qos.get_live_view = False
 
@@ -5245,17 +5254,17 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
         throughput_qos.build(client_type=args.client_type)
 
         # Remove's not working cx's from the test.
-        if args.client_type in ("Real","Virtual","Both"):
+        if args.client_type in ("Real", "Virtual", "Both"):
             throughput_qos.monitor_cx()
 
         if args.robot_test:
             throughput_qos.perform_robo()
             exit(1)
-
         throughput_qos.start(False, False)
         time.sleep(10)
 
-        connections_download, connections_upload, drop_a_per, drop_b_per, connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b = throughput_qos.monitor(runtime_dir="per_client_csv")
+        connections_download, connections_upload, drop_a_per, drop_b_per, connections_download_avg, connections_upload_avg, avg_drop_a, avg_drop_b = throughput_qos.monitor(
+            runtime_dir="per_client_csv")
 
         logger.info("connections download {}".format(connections_download))
         logger.info("connections upload {}".format(connections_upload))
@@ -5271,19 +5280,19 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
             total_devices_list = throughput_qos.sta_list + throughput_qos.input_devices_list
             ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list = throughput_qos.get_portmgr_data(total_devices_list)
             throughput_qos.ssid_list, throughput_qos.macid_list, throughput_qos.mode_list, throughput_qos.bssid_list, throughput_qos.channels_list, throughput_qos.rssi_list = ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list
-            print("We are printing Total Test Devices : ",total_devices_list)
+            print("We are printing Total Test Devices : ", total_devices_list)
         elif args.client_type == 'Virtual':
-            print("Station List : ",throughput_qos.sta_list)
+            print("Station List : ", throughput_qos.sta_list)
             ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list = throughput_qos.get_portmgr_data(throughput_qos.sta_list)
             throughput_qos.ssid_list, throughput_qos.macid_list, throughput_qos.mode_list, throughput_qos.bssid_list, throughput_qos.channels_list, throughput_qos.rssi_list = ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list
         else:
-            print("Input Real Device List : ",throughput_qos.input_devices_list)
+            print("Input Real Device List : ", throughput_qos.input_devices_list)
             ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list = throughput_qos.get_portmgr_data(throughput_qos.input_devices_list)
             throughput_qos.ssid_list, throughput_qos.macid_list, throughput_qos.mode_list, throughput_qos.bssid_list, throughput_qos.channels_list, throughput_qos.rssi_list = ssid_list, mac_list, mode_list, bssid_list, channel_list, rssi_list
 
         throughput_qos.stop()
         time.sleep(5)
-        
+
         test_results['test_results'].append(throughput_qos.evaluate_qos(
             connections_download, connections_upload, drop_a_per, drop_b_per))
 
@@ -5329,26 +5338,25 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
     if args.client_type == "Both":
         if args.group_name:
             throughput_qos.generate_report(
-            data=data,
-            input_setup_info=input_setup_info,
-            report_path=throughput_qos.result_dir,
-            connections_upload_avg=connections_upload_avg,
-            connections_download_avg=connections_download_avg,
-            avg_drop_a=avg_drop_a,
-            avg_drop_b=avg_drop_b,
-            config_devices=configuration,
-            iot_summary=iot_summary)
+                data=data,
+                input_setup_info=input_setup_info,
+                report_path=throughput_qos.result_dir,
+                connections_upload_avg=connections_upload_avg,
+                connections_download_avg=connections_download_avg,
+                avg_drop_a=avg_drop_a,
+                avg_drop_b=avg_drop_b,
+                config_devices=configuration,
+                iot_summary=iot_summary)
         else:
             throughput_qos.generate_report(
-            data=data,
-            input_setup_info=input_setup_info,
-            report_path=throughput_qos.result_dir,
-            connections_upload_avg=connections_upload_avg,
-            connections_download_avg=connections_download_avg,
-            avg_drop_a=avg_drop_a,
-            avg_drop_b=avg_drop_b,
-            iot_summary=iot_summary)
-
+                data=data,
+                input_setup_info=input_setup_info,
+                report_path=throughput_qos.result_dir,
+                connections_upload_avg=connections_upload_avg,
+                connections_download_avg=connections_download_avg,
+                avg_drop_a=avg_drop_a,
+                avg_drop_b=avg_drop_b,
+                iot_summary=iot_summary)
 
     if args.client_type == 'Virtual':
         throughput_qos.generate_report(
@@ -5360,7 +5368,7 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
             avg_drop_a=avg_drop_a,
             avg_drop_b=avg_drop_b,
             iot_summary=iot_summary)
-    
+
     if args.client_type == "Real":
         if args.group_name:
             throughput_qos.generate_report(
@@ -5383,17 +5391,17 @@ LICENSE:    Free to distribute and modify. LANforge systems must be licensed.
                 avg_drop_a=avg_drop_a,
                 avg_drop_b=avg_drop_b,
                 iot_summary=iot_summary)
-    
+
     if args.create_sta:
         if not throughput_qos.passes():
             print(throughput_qos.get_fail_message())
             throughput_qos.exit_fail()
         # LFUtils.wait_until_ports_admin_up(port_list=station_list)
         if throughput_qos.passes():
-                throughput_qos.success()
-                throughput_qos.cleanup()
-    
-    throughput_qos.cleanup() # After Test Cleanup() 
+            throughput_qos.success()
+            throughput_qos.cleanup()
+
+    throughput_qos.cleanup()  # After Test Cleanup()
 
     # Update webgui running json with latest entry and test status completed
     if throughput_qos.dowebgui == "True":
